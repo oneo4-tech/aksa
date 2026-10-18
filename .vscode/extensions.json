@@ -1,0 +1,22 @@
+{
+  "recommendations": [
+    // Claude Code integration
+    "anthropic.claude-code",
+    // GitHub Actions workflow support
+    "github.vscode-github-actions",
+    // Gemini CLI integration
+    "google.gemini-cli-vscode-ide-companion",
+    // Python debugging support
+    "ms-python.debugpy",
+    // Python language support
+    "ms-python.python",
+    // Python IntelliSense and type checking
+    "ms-python.vscode-pylance",
+    // Python environment management
+    "ms-python.vscode-python-envs",
+    // Excalidraw diagram editing
+    "pomdtr.excalidraw-editor",
+    // PDF viewing in VS Code
+    "tomoki1207.pdf"
+  ]
+}
