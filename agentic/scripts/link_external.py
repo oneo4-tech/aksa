@@ -1,4 +1,4 @@
-"""Create the repo-root symlinks to external resources listed in agentic/config/environment.yaml.
+"""Create the repo-root symlinks to external resources listed in config/environment.yaml.
 
 Usage: uv run agentic/scripts/link_external.py [--dry-run | --check]
 
@@ -22,7 +22,7 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CONFIG = REPO_ROOT / "agentic" / "config" / "environment.yaml"
+CONFIG = REPO_ROOT / "config" / "environment.yaml"
 
 
 class ConfigError(Exception):

@@ -83,5 +83,5 @@ def test_malformed_config_is_an_error(repo, monkeypatch, text, capsys):
 
 def test_repo_config_is_valid():
     """The real environment.yaml parses; its targets may not exist on every machine."""
-    config = le.Path(le.__file__).resolve().parents[1] / "config" / "environment.yaml"
+    config = le.Path(le.__file__).resolve().parents[2] / "config" / "environment.yaml"
     assert le.load_links(config)
