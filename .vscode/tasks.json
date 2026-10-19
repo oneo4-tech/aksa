@@ -41,18 +41,18 @@
     },
     {
       "label": "OpenAI",
-      "detail": "OpenAI Codex CLI",
+      "detail": "OpenAI Codex CLI, model from .env",
       "type": "shell",
-      "command": "codex --model gpt-5.6-luna",
+      "command": "set -a && . ./.env && set +a && codex --model \"$CODEX_MODEL\"",
       "icon": { "id": "hubot", "color": "terminal.ansiBlue" },
       "presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": false, "close": false },
       "problemMatcher": []
     },
     {
       "label": "Gemini",
-      "detail": "Google Gemini CLI",
+      "detail": "Google Gemini CLI, model from .env",
       "type": "shell",
-      "command": "gemini --yolo --model gemini-2.5-flash",
+      "command": "set -a && . ./.env && set +a && gemini --yolo --model \"$GEMINI_MODEL\"",
       "icon": { "id": "star-full", "color": "terminal.ansiMagenta" },
       "presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": false, "close": false },
       "problemMatcher": []
