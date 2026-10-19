@@ -8,7 +8,9 @@ Instructions for AI agents working in this repository.
 
 - **Repository root:** Work from the repository root so repository guidance and hooks apply.
 - **Domain records:** Treat `agentic/memory/vocabulary.md` and `agentic/memory/decisions.md` as authoritative. Use agreed terms; do not add terms or reverse active decisions without the owner's agreement and the documented change process.
-- **External knowledge:** Use `.kb` as the repository-relative entrypoint to the external knowledge base. Do not commit its contents or write machine-specific target paths into tracked files.
+- **External resources:** reach them only through their gitignored repo-root symlinks: `.kb` (external knowledge base), `.projects` (project workspace), `.worktrees` (git worktrees). Do not commit their contents. Their targets live in `agentic/config/environment.yaml`; run `uv run agentic/scripts/link_external.py` to create or repair the links.
+- **Paths:** no absolute or machine-specific paths anywhere in the repository except `agentic/config/environment.yaml`. Use repository-relative paths and the symlinks above.
+- **Worktrees:** create every git worktree under `.worktrees/`.
 - **Writing style:** Prefer concise wording and quality over development cost. Do not use em dashes in responses or written artifacts.
 
 ## Rule index
@@ -21,11 +23,13 @@ Read a rule when its condition applies. Keep this index aligned with the rule fi
 
 - `.vscode/`: workspace settings, extensions, and tasks.
 - `agentic/`: agentic components and their shared guidance.
+  - `config/`: environment settings; `environment.yaml` holds all external absolute paths.
   - `agents/`: specialized agents, when present.
   - `memory/`: internal decisions and agreed vocabulary.
   - `rules/`: persistent, topic-specific guidance.
   - `scripts/`: deterministic and reusable operations.
   - `skills/`: task-specific procedures, organized by category.
   - `templates/`: starting structures for components.
-- `.kb`: symlink to the external durable knowledge base; contents are not stored in this repository.
+- `tests/`: pytest tests for `agentic/scripts/`; run `uv run pytest`.
+- `.kb`, `.projects`, `.worktrees`: gitignored symlinks to external resources; contents are not stored in this repository.
 - `pyproject.toml` and `uv.lock`: Python project metadata and locked dependencies.

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(uv run *)",
+      "Edit(.worktrees/**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && { out=$(uv run agentic/scripts/link_external.py --check 2>&1 && uv run agentic/scripts/sync_vendors.py claude --check 2>&1) || printf 'aksa setup is out of sync, see AGENTS.md:\\n%s\\n' \"$out\"; }"
+          }
+        ]
+      }
+    ]
+  }
+}

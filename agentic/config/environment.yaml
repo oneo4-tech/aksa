@@ -1,0 +1,9 @@
+# External absolute paths for this machine. This is the only file in the
+# repository allowed to hold them; everything else uses repo-relative paths.
+# Apply with: uv run agentic/scripts/link_external.py
+
+# Repo-root symlink name -> external target directory.
+links:
+  .kb: /Users/shiv/Documents/oneo4/kb
+  .projects: /Users/shiv/Documents/oneo4/projects
+  .worktrees: /Users/shiv/Documents/oneo4/worktrees
