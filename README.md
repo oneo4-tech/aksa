@@ -14,7 +14,7 @@ cp .env.example .env                      # then fill in keys
 git config core.hooksPath .githooks       # pre-commit checks
 ```
 
-Point the external links at this machine: edit `agentic/config/environment.yaml` (the only file with absolute paths), then:
+Point the external links at this machine: edit `config/environment.yaml` (the only file with absolute paths), then:
 
 ```sh
 uv run agentic/scripts/link_external.py   # creates .kb, .projects, .worktrees
@@ -35,4 +35,4 @@ The pre-commit hook and CI (`.github/workflows/check.yml`) run the same checks.
 
 - Terms: `agentic/memory/vocabulary.md`
 - Decisions: `agentic/memory/decisions.md`
-- Component placement: `agentic/rules/agentic-design.md`
+- Component standards: `agentic/rules/components.md`

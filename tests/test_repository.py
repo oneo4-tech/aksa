@@ -7,13 +7,13 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-PATHS_FILE = "agentic/config/environment.yaml"
+PATHS_FILE = "config/environment.yaml"
 CATEGORIES = {"core", "productivity", "factory", "engineering"}
 SKILL_SECTIONS = ["When to use", "Inputs and prerequisites", "Procedure", "Output", "Constraints"]
-# Absolute or home-relative paths (D-002). Split so this file does not match itself.
+# Absolute or home-relative paths (D-012). Split so this file does not match itself.
 ABSOLUTE_PATH = re.compile("|".join(["/" + "Users/", "/" + "home/", "~" + "/", r"\$" + "HOME", r"[A-Z]:\\"]))
 # Backticked repo paths, such as `agentic/rules/x.md`, without placeholders.
-REPO_PATH = re.compile(r"`((?:agentic|tests|\.githooks|\.github)/[^`<>*\s]+)`")
+REPO_PATH = re.compile(r"`((?:agentic|config|tests|\.githooks|\.github)/[^`<>*\s]+)`")
 DECISION = re.compile(r"\bD-\d{3}\b")
 
 
@@ -65,7 +65,7 @@ def test_no_absolute_paths_outside_environment_yaml():
 
 def test_rule_index_matches_rule_files():
     agents = (ROOT / "AGENTS.md").read_text()
-    index = agents.split("## Rule index", 1)[1].split("\n## ", 1)[0]
+    index = agents.split("### Rules", 1)[1].split("\n#", 1)[0]
     indexed = set(re.findall(r"`(agentic/rules/[^`]+\.md)`", index))
     on_disk = {str(p.relative_to(ROOT)) for p in (ROOT / "agentic" / "rules").glob("*.md")}
     assert indexed == on_disk
@@ -90,9 +90,12 @@ def test_skill_names_unique():
 
 
 def test_referenced_repo_paths_exist():
+    # decisions.md is history: superseded rows keep the paths they named.
+    decisions = ROOT / "agentic" / "memory" / "decisions.md"
     missing = [
         f"{path.relative_to(ROOT)}: {ref}"
         for path in instruction_files()
+        if path != decisions
         for ref in REPO_PATH.findall(path.read_text())
         if not (ROOT / ref.rstrip("/")).exists()
     ]
