@@ -23,9 +23,9 @@
     },
     {
       "label": "OpenCode - OpenRouter",
-      "detail": "OpenCode on OpenRouter, free or paid model, key from .env",
+      "detail": "OpenCode with OpenRouter key from .env",
       "type": "shell",
-      "command": "export PATH=\"$HOME/.opencode/bin:$PATH\" && set -a && . ./.env && set +a && opencode --prompt \"Act as a Q&A assistant for my archived knowledge in /Users/shiv/Documents/archives\" --auto -s ses_ecf58bc20ffelhHvYbVwjYOo1U",
+      "command": "set -a && . ./.env && set +a && opencode",
       "icon": { "id": "globe", "color": "terminal.ansiCyan" },
       "presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": false, "close": false },
       "problemMatcher": []
@@ -34,10 +34,9 @@
       "label": "Copilot",
       "detail": "GitHub Copilot CLI",
       "type": "shell",
-      "command": "copilot --allow-all -i \"Act as a Q&A assistant for my archive knowledge at /Users/shiv/Documents/archives\"",
+      "command": "copilot --allow-all",
       "icon": { "id": "copilot", "color": "terminal.ansiYellow" },
       "presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": false, "close": false },
-      "runOptions": { "runOn": "folderOpen" },
       "problemMatcher": []
     },
     {
