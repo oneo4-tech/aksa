@@ -15,6 +15,8 @@ ABSOLUTE_PATH = re.compile("|".join(["/" + "Users/", "/" + "home/", "~" + "/", r
 # Backticked repo paths, such as `agentic/rules/x.md`, without placeholders.
 REPO_PATH = re.compile(r"`((?:agentic|config|tests|\.githooks|\.github)/[^`<>*\s]+)`")
 DECISION = re.compile(r"\bD-\d{3}\b")
+DECISIONS = ROOT / "agentic" / "memory" / "decisions.md"
+DECISIONS_HISTORY = ROOT / "agentic" / "memory" / "decisions-history.md"
 
 
 def repo_files() -> list[Path]:
@@ -90,12 +92,11 @@ def test_skill_names_unique():
 
 
 def test_referenced_repo_paths_exist():
-    # decisions.md is history: superseded rows keep the paths they named.
-    decisions = ROOT / "agentic" / "memory" / "decisions.md"
+    # Superseded rows keep the paths they named.
     missing = [
         f"{path.relative_to(ROOT)}: {ref}"
         for path in instruction_files()
-        if path != decisions
+        if path != DECISIONS_HISTORY
         for ref in REPO_PATH.findall(path.read_text())
         if not (ROOT / ref.rstrip("/")).exists()
     ]
@@ -103,7 +104,7 @@ def test_referenced_repo_paths_exist():
 
 
 def test_referenced_decisions_exist():
-    recorded = set(DECISION.findall((ROOT / "agentic" / "memory" / "decisions.md").read_text()))
+    recorded = {row[0] for row in decision_rows(DECISIONS) + decision_rows(DECISIONS_HISTORY)}
     missing = [
         f"{path.relative_to(ROOT)}: {ref}"
         for path in instruction_files()
@@ -111,3 +112,27 @@ def test_referenced_decisions_exist():
         if ref not in recorded
     ]
     assert missing == []
+
+
+def decision_rows(path: Path) -> list[list[str]]:
+    """Cells of each decision row: ID, Date, Kind, Area, Decision, Why, Source, Status."""
+    return [
+        [cell.strip() for cell in line.strip().strip("|").split("|")]
+        for line in path.read_text().splitlines()
+        if line.startswith("| D-")
+    ]
+
+
+def test_decisions_split_by_status():
+    active, history = decision_rows(DECISIONS), decision_rows(DECISIONS_HISTORY)
+    ids = [row[0] for row in active + history]
+    assert len(ids) == len(set(ids)), "decision ids are unique across both files"
+    assert all(row[7] == "active" for row in active), "superseded rows move to decisions-history.md (D-016)"
+    assert all(row[7].startswith("superseded by D-") for row in history)
+
+
+def test_decision_areas_are_listed():
+    header = DECISIONS.read_text().split("\n| ID |", 1)[0]
+    allowed = set(re.findall(r"`([a-z-]+)`", header.split("- Areas:", 1)[1].split("\n", 1)[0]))
+    used = {area.strip() for row in decision_rows(DECISIONS) for area in row[3].split(",")}
+    assert used <= allowed, f"unlisted areas: {used - allowed}"

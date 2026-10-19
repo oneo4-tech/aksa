@@ -19,7 +19,10 @@ Point the external links at this machine: edit `config/environment.yaml` (the on
 ```sh
 uv run agentic/scripts/link_external.py   # creates .kb, .projects, .worktrees
 uv run agentic/scripts/sync_vendors.py claude codex   # .claude/skills and .agents/skills
+uv run agentic/scripts/kb_index.py        # .kb/index.md from the wiki pages
 ```
+
+The Knowledge Base (`.kb`) is its own git repository with `inbox/`, `raw/`, `wiki/`, and `outputs/`; see `agentic/rules/knowledge.md`.
 
 ## Checks
 
@@ -34,5 +37,6 @@ The pre-commit hook and CI (`.github/workflows/check.yml`) run the same checks.
 ## Where things are decided
 
 - Terms: `agentic/memory/vocabulary.md`
-- Decisions: `agentic/memory/decisions.md`
+- Decisions: `agentic/memory/decisions.md` (superseded: `agentic/memory/decisions-history.md`)
+- Memory and Knowledge Base: `agentic/rules/knowledge.md`
 - Component standards: `agentic/rules/components.md`

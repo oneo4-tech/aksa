@@ -5,7 +5,9 @@
       "Bash(gh *)",
       "Bash(git *)",
       "Bash(uv run *)",
-      "Edit(.worktrees/**)"
+      "Edit(.worktrees/**)",
+      "Edit(.kb/**)",
+      "Write(.kb/**)"
     ]
   },
   "hooks": {
@@ -14,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && { out=$(uv run agentic/scripts/link_external.py --check 2>&1 && uv run agentic/scripts/sync_vendors.py claude codex --check 2>&1) || printf 'aksa setup is out of sync, see AGENTS.md:\\n%s\\n' \"$out\"; }"
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && { out=$(uv run agentic/scripts/link_external.py --check 2>&1 && uv run agentic/scripts/sync_vendors.py claude codex --check 2>&1 && uv run agentic/scripts/kb_index.py --check 2>&1) || printf 'aksa setup is out of sync, see AGENTS.md:\\n%s\\n' \"$out\"; }"
           }
         ]
       }
