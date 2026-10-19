@@ -2,7 +2,7 @@
 
 `aksa` (Sanskrit for central axis) is an AI workflow operating system with an agent harness and software factory.
 
-Instructions for AI agents working in this repository.
+Instructions for AI agents working in this repository. This file is the root rule (D-007): always loaded, holding repository-wide rules and the index of conditional rules.
 
 ## Always-on rules
 
@@ -11,25 +11,29 @@ Instructions for AI agents working in this repository.
 - **External resources:** reach them only through their gitignored repo-root symlinks: `.kb` (external knowledge base), `.projects` (project workspace), `.worktrees` (git worktrees). Do not commit their contents. Their targets live in `agentic/config/environment.yaml`; run `uv run agentic/scripts/link_external.py` to create or repair the links.
 - **Paths:** no absolute or machine-specific paths anywhere in the repository except `agentic/config/environment.yaml`. Use repository-relative paths and the symlinks above.
 - **Worktrees:** create every git worktree under `.worktrees/`.
+- **Checks:** `uv run pytest` checks the scripts and repository invariants (rule index, skill structure, paths); the pre-commit hook in `.githooks/` runs it with ruff. After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex` (`.claude/skills` for Claude; `.agents/skills` for Codex, Gemini, Copilot, and OpenCode).
 - **Writing style:** Prefer concise wording and quality over development cost. Do not use em dashes in responses or written artifacts.
 
 ## Rule index
 
 Read a rule when its condition applies. Keep this index aligned with the rule files.
 
-- `agentic/rules/agentic-design.md`: read before creating, materially changing, placing, or reviewing an agentic component. It defines component boundaries, placement, and review expectations.
+- `agentic/rules/agentic-design.md`: read before creating, materially changing, placing, or reviewing an agentic component. It decides which component a change needs and where it goes.
+- `agentic/rules/skill-authoring.md`: read when creating, reviewing, or materially changing a skill.
 
 ## Repository map
 
+- `.githooks/`: tracked git hooks; enable once per clone with `git config core.hooksPath .githooks`.
+- `.github/workflows/`: CI running the same checks as the pre-commit hook.
 - `.vscode/`: workspace settings, extensions, and tasks.
 - `agentic/`: agentic components and their shared guidance.
-  - `config/`: environment settings; `environment.yaml` holds all external absolute paths.
+  - `config/`: shared settings read by scripts; `environment.yaml` holds all external absolute paths.
   - `agents/`: specialized agents, when present.
   - `memory/`: internal decisions and agreed vocabulary.
   - `rules/`: persistent, topic-specific guidance.
   - `scripts/`: deterministic and reusable operations.
   - `skills/`: task-specific procedures, organized by category.
   - `templates/`: starting structures for components.
-- `tests/`: pytest tests for `agentic/scripts/`; run `uv run pytest`.
+- `tests/`: pytest tests for `agentic/scripts/` and repository invariants.
 - `.kb`, `.projects`, `.worktrees`: gitignored symlinks to external resources; contents are not stored in this repository.
 - `pyproject.toml` and `uv.lock`: Python project metadata and locked dependencies.
