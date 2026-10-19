@@ -7,10 +7,10 @@ Read before creating, materially changing, placing, or reviewing a component. Th
 - **Rule:** behaviour that applies across tasks. Repository-wide always-on rules go in `AGENTS.md`, the root rule (D-007). Topic-specific guidance goes in one file in `agentic/rules/`.
 - **Skill:** a repeatable operation for a specific task. Guidance that serves only that skill stays in the skill.
 - **Agent:** only when a distinct goal and role must own an outcome. It reuses rules and skills instead of restating them.
-- **Memory:** durable shared context, never procedure. Vocabulary and decisions change only by the process at the top of each file; memory never silently changes a decision.
+- **Memory:** durable shared context about aksa, never procedure; domain knowledge goes to the Knowledge Base (D-015). Vocabulary and decisions change only by the process at the top of each file; memory never silently changes a decision.
 - **Script:** deterministic work or common enablement. A script serving one skill or agent stays inside that component.
 - **Template:** a starting structure for a component. It standardizes shape; it does not replace this rule.
-- External resources (`.kb`, `.projects`, `.worktrees`) are not components. Reach them through their repo-root symlinks, whose targets live only in `config/environment.yaml` (D-012).
+- External resources (`.kb`, `.projects`, `.worktrees`) are not components. Reach them through their repo-root symlinks, whose targets live only in `config/environment.yaml` (D-012). The Knowledge Base standard is `agentic/rules/knowledge.md`.
 
 ## Placement and structure
 
@@ -19,7 +19,7 @@ Read before creating, materially changing, placing, or reviewing a component. Th
 | Rule | `agentic/rules/<topic>.md`, indexed in `AGENTS.md` **[checked]** | `agentic/templates/rule-template.md` |
 | Skill | `agentic/skills/<category>/<skill-name>/SKILL.md` **[checked]** | `agentic/templates/skill-template.md` |
 | Agent | `agentic/agents/<agent-name>.md` | `agentic/templates/agent-template.md` |
-| Memory | `agentic/memory/`, or `.kb` for external knowledge | the file's own header |
+| Memory | `agentic/memory/` | the file's own header |
 | Script | `agentic/scripts/<name>.py`, with tests in `tests/` | none |
 | Template | `agentic/templates/<kind>-template.md` | none |
 

@@ -8,6 +8,7 @@ This file is the root rule (D-007), always loaded. It holds the rules every agen
 
 - **Repository root:** work from the repository root so guidance, hooks, and relative paths resolve.
 - **Agreed records:** use terms as defined in `agentic/memory/vocabulary.md` and follow active decisions in `agentic/memory/decisions.md`. Do not add terms or reverse decisions without the owner's agreement and the change process at the top of each file.
+- **Memory and knowledge:** retrieve facts about aksa with `get-memory` and domain knowledge with `get-kb`; change them only through their add, review, and repair skills (`agentic/rules/knowledge.md`). Vendor auto-memory holds personal preferences only (D-019).
 - **Components:** before creating, changing, or reviewing a rule, skill, agent, memory, script, or template, read `agentic/rules/components.md`. Accept the change only after the `review-component` skill passes.
 - **Paths:** no absolute or machine-specific paths anywhere except `config/environment.yaml` (D-012). Use repository-relative paths and the external resource symlinks.
 - **External resources:** reach `.kb`, `.projects`, and `.worktrees` only through their repo-root symlinks, and never commit their contents. Create every git worktree under `.worktrees/`.
@@ -42,7 +43,7 @@ Write the minimum code that solves the problem. Nothing speculative.
   - `rules/`: topic-specific rules, indexed below.
   - `skills/<category>/<skill>/`: task procedures, synced to vendor folders (`.claude/skills` for Claude; `.agents/skills` for Codex, Gemini, Copilot, and OpenCode).
   - `agents/`: specialized agents, when present.
-  - `memory/`: agreed vocabulary and decisions.
+  - `memory/`: agreed vocabulary, active decisions, and superseded decisions.
   - `scripts/`: deterministic operations shared across components.
   - `templates/`: starting structures for rules, skills, and agents.
 - `config/`: repository settings read by scripts; `environment.yaml` maps the external symlinks to this machine.
@@ -51,7 +52,7 @@ Write the minimum code that solves the problem. Nothing speculative.
 - `.github/workflows/`: CI running the pre-commit checks.
 - `.claude/settings.json`: shared Claude permissions and the session-start sync check.
 - `.vscode/`: workspace settings, extensions, and agent CLI tasks.
-- `.kb`, `.projects`, `.worktrees`: gitignored symlinks to the external knowledge base, project workspace, and git worktrees.
+- `.kb`, `.projects`, `.worktrees`: gitignored symlinks to the external Knowledge Base (its own git repository), project workspace, and git worktrees.
 - `pyproject.toml`, `uv.lock`: Python project metadata and locked dependencies.
 
 ## On-demand context
@@ -61,12 +62,14 @@ Load each item when its condition applies, not up front.
 ### Rules
 
 - `agentic/rules/components.md`: creating, changing, placing, or reviewing any component.
+- `agentic/rules/knowledge.md`: retrieving from, adding to, reviewing, or repairing Memory or the Knowledge Base.
 
 ### Memory
 
 - `agentic/memory/vocabulary.md`: when a term's meaning matters or a new term seems needed.
-- `agentic/memory/decisions.md`: before a change that may touch an agreed decision; search the Area column.
-- `.kb`: trusted domain knowledge kept outside the repository.
+- `agentic/memory/decisions.md`: before a change that may touch an agreed decision; grep by area.
+- `agentic/memory/decisions-history.md`: only to learn why a decision changed.
+- `.kb/index.md`: the entry point to trusted domain knowledge; read it before any `.kb` page.
 
 ### Skills and templates
 
@@ -77,3 +80,4 @@ Load each item when its condition applies, not up front.
 
 - `agentic/scripts/link_external.py`: create or repair the external symlinks from `config/environment.yaml`; `--check` verifies.
 - `agentic/scripts/sync_vendors.py`: sync skills to vendor folders; `--check` verifies.
+- `agentic/scripts/kb_index.py`: rebuild `.kb/index.md` from wiki page frontmatter; `--check` validates.
