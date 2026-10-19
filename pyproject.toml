@@ -1,7 +1,20 @@
 [project]
-name = "kalp"
+name = "aksa"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
-    "python-dotenv>=1.2.4",
+    "pyyaml>=6.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["agentic/scripts"]
+
+[tool.ruff]
+line-length = 120
