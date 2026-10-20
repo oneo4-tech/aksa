@@ -25,7 +25,7 @@ Don't assume. Don't hide confusion. Surface tradeoffs. Before implementing:
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 - When the owner is not present: guess a choice that is cheap to undo and list it under "Decisions for the owner" in the report and the pull request description; keep it there until the owner answers. Block on a choice that is hard to undo.
-- Always ask first, even when it is cheap to undo, before overriding an earlier explicit owner instruction or changing what others see, such as a pull request, issue, or the remote's shared branches.
+- Always ask first, even when it is cheap to undo, before overriding an earlier explicit owner instruction or changing what others see: pull request or issue text, other people's branches, `main`, and merges. Pushing to the session's own feature branch needs no approval.
 
 ## Simplicity first
 
