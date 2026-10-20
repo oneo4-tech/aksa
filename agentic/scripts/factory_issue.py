@@ -6,7 +6,8 @@ Usage: uv run agentic/scripts/factory_issue.py COMMAND [ARGS]
   intake --issue N                           adopt an existing issue; its body becomes the Request
   section N {Concept,Requirement,Spec} --file FILE
                                              write one prose section of the body
-  set N [--type T] [--size S] [--title T] [--pr P] [--owner wait|clear]
+  set N [--type T] [--size S] [--title T] [--pr P] [--owner clear | --owner wait --need TEXT]
+                                             a wait posts its need as a Factory: comment
   stage N STAGE [--reason TEXT]              move to another stage, with a Factory: comment
   task N --plan FILE | --done Tk             write the task checklist, or tick a landed task
   claim N --session ID [--takeover]          hold the issue for this session
@@ -47,6 +48,7 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 SESSION = re.compile(r"[A-Za-z0-9._-]+")
 CLAIM = re.compile(r"Factory: claimed by session `(?P<session>[^`]+)`(?P<takeover>, taking over)?")
 RELEASE = re.compile(r"Factory: released by session `(?P<session>[^`]+)`(, for `(?P<holder>[^`]+)`)?")
+NEED = re.compile(r"Factory: needs the owner: (?P<need>.+)")
 
 
 class Error(Exception):
@@ -265,6 +267,22 @@ def claim_holder(comments: list[str]) -> str | None:
     return holder
 
 
+def latest_need(comments: list[str]) -> str | None:
+    """What the owner must do, from the newest `Factory: needs the owner:` comment."""
+    for comment in reversed(comments):
+        if match := NEED.match(comment.strip().split("\n", 1)[0]):
+            return match["need"]
+    return None
+
+
+def delivery_pr(body: str) -> int | None:
+    """The run's pull request from its Delivery section; None when there is none or the body is unreadable."""
+    try:
+        return parse_delivery(parse_body(body).get("Delivery", "")).pr
+    except BadInput:
+        return None
+
+
 def issue_status(issue: dict, config: Config) -> dict:
     labels, problems = issue["labels"], []
     values = label_values(labels, config)
@@ -311,6 +329,7 @@ def issue_status(issue: dict, config: Config) -> dict:
         "type": run_type,
         "size": size,
         "needs_owner": "needs:owner" in labels,
+        "needed": latest_need(issue["comments"]) if "needs:owner" in labels else None,
         "claim": holder,
         "branch": delivery.branch,
         "pr": delivery.pr,
@@ -321,18 +340,21 @@ def issue_status(issue: dict, config: Config) -> dict:
 
 
 def queue(issues: list[dict], config: Config) -> list[dict]:
-    """Open factory issues: those waiting for the owner first, then the furthest along."""
+    """Open factory issues: those waiting for the owner first, with what each needs, then the furthest along."""
     rows = []
     for issue in issues:
         stages = label_values(issue["labels"], config)["stage"]
         if stages:
             stage = stages[0] if len(stages) == 1 else None
+            waiting = "needs:owner" in issue["labels"]
             rows.append(
                 {
                     "number": issue["number"],
                     "title": issue["title"],
                     "stage": stage,
-                    "needs_owner": "needs:owner" in issue["labels"],
+                    "needs_owner": waiting,
+                    "needed": latest_need(issue.get("comments", [])) if waiting else None,
+                    "pr": delivery_pr(issue["body"]),
                     "claimed": "claimed" in issue["labels"],
                 }
             )
@@ -370,7 +392,7 @@ class GitHub:
 
     def open_issues(self) -> list[dict]:
         data = json.loads(
-            self._gh("issue", "list", "--state", "open", "--limit", "500", "--json", "number,title,labels")
+            self._gh("issue", "list", "--state", "open", "--limit", "500", "--json", "number,title,labels,body")
         )
         return [{**issue, "labels": [label["name"] for label in issue["labels"]]} for issue in data]
 
@@ -444,6 +466,11 @@ def cmd_section(gh: GitHub, config: Config, args: argparse.Namespace) -> int:
 
 
 def cmd_set(gh: GitHub, config: Config, args: argparse.Namespace) -> int:
+    if args.need is not None and args.owner != "wait":
+        raise BadInput("--need goes with --owner wait")
+    need = (args.need or "").strip()
+    if args.owner == "wait" and (not need or "\n" in need):
+        raise BadInput('--owner wait needs --need "<what the owner must do>", on one line')
     if not any((args.type, args.size, args.title, args.pr, args.owner)):
         raise BadInput("set needs at least one of --type, --size, --title, --pr, --owner")
     issue = gh.issue(args.number)
@@ -456,9 +483,10 @@ def cmd_set(gh: GitHub, config: Config, args: argparse.Namespace) -> int:
             add.append(f"{family}:{value}")
             remove += [label for label in labels if label.startswith(f"{family}:") and label != f"{family}:{value}"]
             changes.append(f"{family} {value}")
-    if args.owner == "wait" and "needs:owner" not in labels:
-        add.append("needs:owner")
-        changes.append("waiting for the owner")
+    if args.owner == "wait":
+        if "needs:owner" not in labels:
+            add.append("needs:owner")
+        changes.append(f"waiting for the owner: {need}")
     if args.owner == "clear" and "needs:owner" in labels:
         remove.append("needs:owner")
         changes.append("no longer waiting for the owner")
@@ -479,7 +507,10 @@ def cmd_set(gh: GitHub, config: Config, args: argparse.Namespace) -> int:
     if not changes:
         print(f"#{args.number}: no change")
         return 0
-    gh.edit(args.number, body=body, title=args.title, add=add, remove=remove)
+    if add or remove or args.title or body is not None:
+        gh.edit(args.number, body=body, title=args.title, add=add, remove=remove)
+    if args.owner == "wait":
+        gh.comment(args.number, f"Factory: needs the owner: {need}")
     print(f"#{args.number}: {', '.join(changes)}")
     return 0
 
@@ -596,7 +627,11 @@ def cmd_release(gh: GitHub, config: Config, args: argparse.Namespace) -> int:
 
 def cmd_status(gh: GitHub, config: Config, args: argparse.Namespace) -> int:
     if args.number is None:
-        print(json.dumps(queue(gh.open_issues(), config), indent=2))
+        issues = gh.open_issues()
+        for issue in issues:
+            if "needs:owner" in issue["labels"] and label_values(issue["labels"], config)["stage"]:
+                issue["comments"] = gh.issue(issue["number"])["comments"]
+        print(json.dumps(queue(issues, config), indent=2))
     else:
         print(json.dumps(issue_status(gh.issue(args.number), config), indent=2))
     return 0
@@ -635,6 +670,7 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--title")
     p.add_argument("--pr", type=int)
     p.add_argument("--owner", choices=["wait", "clear"])
+    p.add_argument("--need", help="what the owner must do, on one line; required with --owner wait")
 
     p = commands.add_parser("stage", help="move to another stage")
     p.add_argument("number", type=int)

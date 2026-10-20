@@ -22,7 +22,7 @@ Read before working on a factory run: its factory issue, any of its stages, or a
 | `spec` | `define-spec` | G2: approach, interfaces, and the test for each acceptance criterion |
 | `plan` | `plan-tasks` | G3: the task checklist and the pushed integration branch |
 | `build` | `implement-task`, then `verify-task`, for each task in order | Every task landed on the delivery branch, with its draft pull request open |
-| `ship` | `ship-change` | The pull request ready, the owner's merge, and closeout |
+| `ship` | `ship-change` | The pull request ready, the owner's review, the merge on the owner's yes, and closeout |
 
 - Each stage skill runs only in its stage and ends by moving the stage, closing the issue, or stopping for the owner. Stage skills call helpers: `resolve-merge-conflicts` and `diagnose-bug` in build and ship; `research-topic` and `build-prototype` only in concept.
 - Tasks run one at a time in checklist order (D-033). A small run is a single task on its delivery branch.
@@ -30,10 +30,10 @@ Read before working on a factory run: its factory issue, any of its stages, or a
 
 ## Owner in the loop
 
-- Gates G0 to G3 and the merge into `main` need the owner's explicit yes, recorded in a `Factory:` comment.
+- Gates G0 to G3 and the merge into `main` need the owner's explicit yes, recorded in a `Factory:` comment. Before the merge, the factory asks for the owner's review feedback on the pull request (D-040).
 - Also the owner's: closing at triage, the concept interview, new terms and decisions (`add-memory`), a build blocker, a true merge contradiction, a finding still blocking after its confirm pass, and taking over a claim.
-- The factory lands verified tasks on the integration branch and changes its own factory issues without asking each time (D-028).
-- When the owner is absent, work up to the next point above, then `factory_issue.py set <n> --owner wait`, post what is needed in a `Factory:` comment, release the claim, and stop. The triage route needs no wait; record the guess in the triage comment.
+- The factory lands verified tasks on the integration branch and changes its own factory issues without asking each time (D-040).
+- When the owner is absent, work up to the next point above, then `factory_issue.py set <n> --owner wait --need "<what the owner must do>"`, which posts the need as a `Factory:` comment, release the claim, and stop. The triage route needs no wait; record the guess in the triage comment.
 - The wait ends when the owner answers: `factory_issue.py set <n> --owner clear`. Every stage move also removes `needs:owner`.
 
 ## Factory issue
@@ -47,7 +47,7 @@ Read before working on a factory run: its factory issue, any of its stages, or a
   - `## Spec`: approach, interfaces, the test for each acceptance criterion, and notes for planning.
   - `## Delivery`: the delivery branch, the pull request, and for a large run the task checklist, ticked as tasks land. Written only by `factory_issue.py`.
 - Prose sections use `###` headings and no checkboxes, so GitHub counts only tasks.
-- Comments start with `Factory:`: stage moves, gate results, verify reports, blockers, claims, and the ship summary.
+- Comments start with `Factory:`: stage moves, gate results, verify reports, blockers, needs, claims, the owner's review, and the ship summary.
 
 ## Claims
 

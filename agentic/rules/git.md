@@ -31,6 +31,6 @@ Read before creating a branch, worktree, commit, or pull request, or before merg
 
 ## Pull requests and merges
 
-- A factory run has one pull request into `main`, opened as a draft at the first push of its delivery branch (D-025). Title: the factory issue's title. Body: `.github/pull_request_template.md`, with `Closes #<n>`.
-- Mark it ready only at ship. Only the owner merges into `main`: squash for a small run or a release, a merge commit for an integration branch (D-029). `.githooks/pre-push` refuses direct pushes to `main` (D-037).
-- A task lands on its integration branch from the run's worktree (D-028, D-039): `git fetch origin`, `git switch --detach origin/int/<n>-<slug>`, `git merge --squash <task branch>`, a commit whose subject is `<prefix>(<scope>): <task title>`, then `git push origin HEAD:int/<n>-<slug>`.
+- A factory run has one pull request into `main`, opened as a draft once its delivery branch differs from `main`: at a small run's first push, or when a large run's first task lands (D-025). Title: the factory issue's title. Body: `.github/pull_request_template.md`, with `Closes #<n>`.
+- Mark it ready only at ship. A merge into `main` is the owner's, or the factory's on the owner's explicit yes at ship (D-040): squash for a small run or a release, a merge commit for an integration branch (D-029). `.githooks/pre-push` refuses direct pushes to `main` (D-037).
+- A task lands on its integration branch from the run's worktree (D-039, D-040): `git fetch origin`, `git switch --detach origin/int/<n>-<slug>`, `git merge --squash <task branch>`, a commit whose subject is `<prefix>(<scope>): <task title without its criteria>`, at most 72 characters, then `git push origin HEAD:int/<n>-<slug>`.

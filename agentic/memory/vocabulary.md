@@ -12,7 +12,7 @@ Agreed terms, alphabetical. Use them as defined. Add or change a term only after
 | Delivery branch | The branch whose single pull request brings a run into `main`: the run's own branch for a small run, its integration branch for a large one. |
 | Factory issue | The one GitHub issue that tracks a run from triage to close through its labels, body sections, task checklist, and `Factory:` comments; the only place run state lives (D-024). |
 | Finding | A reviewer's statement about a task's change. It blocks only when it cites an unmet acceptance criterion, a broken rule or decision, or a reproduced defect; any other finding is a note, never fixed in the run (D-032). |
-| Gate | An owner approval that ends a stage: G0 concept, G1 requirement, G2 spec, G3 plan. The owner's merge into `main` ends the run. |
+| Gate | An owner approval that ends a stage: G0 concept, G1 requirement, G2 spec, G3 plan. The merge into `main`, by the owner or on the owner's explicit yes, ends the run (D-040). |
 | Handoff | A self-contained note that lets another tool, agent, or person continue a session's work without its context. Written by the `create-handoff` skill; never stored in Memory or the Knowledge Base. |
 | Integration branch | The `int/<n>-<slug>` delivery branch of a large run: its tasks are squash-merged into it, and its pull request brings the run into `main`. |
 | Knowledge Base | An external resource, not a component: curated domain knowledge kept outside the repository in its own git repository and reached through the `.kb` symlink. Only its `wiki/` pages are trusted (D-017). |
@@ -33,4 +33,4 @@ Agreed terms, alphabetical. Use them as defined. Add or change a term only after
 | Task | One slice of a large run: a line of its factory issue's task checklist, built on its own branch, verified, and squash-merged into the integration branch. A small run is a single task. |
 | Template | A component: a reusable starting structure that standardizes creation of another component. Lives in `agentic/templates/`. |
 | Verdict | The owner's answer to a prototype's question, with what clicking showed, kept in `prototypes/<name>/verdict.md` on the prototype branch. |
-| Worktree | A separate git checkout of one branch under `.worktrees/`, created by `agentic/scripts/new_worktree.py` with its links and vendor folders set up; a factory run builds in one (D-039). |
+| Worktree | A separate git checkout under `.worktrees/`, created by `agentic/scripts/new_worktree.py` with its links and vendor folders set up; a factory run builds in one, one task branch at a time (D-039). |

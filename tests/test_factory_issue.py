@@ -51,7 +51,7 @@ class FakeGitHub:
         return copy.deepcopy(self.issues[number])
 
     def open_issues(self):
-        return [{k: i[k] for k in ("number", "title", "labels")} for i in self.issues.values()]
+        return [{k: i[k] for k in ("number", "title", "labels", "body")} for i in self.issues.values()]
 
     def create(self, title, body, labels):
         number = max(self.issues, default=0) + 1
@@ -153,13 +153,30 @@ def test_set_rejects_a_title_that_does_not_fit_the_type(gh, title):
     assert gh.issues[7]["title"] == "Add a thing"
 
 
-def test_set_records_the_pull_request_and_waits_for_the_owner(gh):
+def test_set_records_the_pull_request_and_waits_for_the_owner_with_a_need(gh):
     gh.add(7, labels=["stage:build", "type:feature", "size:large"])
-    assert run(gh, "set", "7", "--pr", "12", "--owner", "wait") == 0
+    assert run(gh, "set", "7", "--pr", "12", "--owner", "wait", "--need", "Approve the merge of PR #12.") == 0
     assert fi.parse_delivery(sections(gh, 7)["Delivery"]).pr == 12
     assert "needs:owner" in gh.issues[7]["labels"]
+    assert gh.issues[7]["comments"] == ["Factory: needs the owner: Approve the merge of PR #12."]
     assert run(gh, "set", "7", "--owner", "clear") == 0
     assert "needs:owner" not in gh.issues[7]["labels"]
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--owner", "wait"],
+        ["--need", "Approve G1."],
+        ["--owner", "wait", "--need", "two\nlines"],
+        ["--owner", "wait", "--need", " "],
+    ],
+)
+def test_set_refuses_a_wait_without_one_stated_need(gh, args):
+    gh.add(7, labels=["stage:define"])
+    assert run(gh, "set", "7", *args) == 2
+    assert gh.issues[7]["labels"] == ["stage:define"]
+    assert gh.issues[7]["comments"] == []
 
 
 def test_set_refuses_an_issue_with_two_stage_labels(gh):
@@ -365,6 +382,25 @@ def test_queue_lists_factory_issues_owner_first_then_furthest_along(gh, capsys):
     gh.add(4, labels=["stage:triage", "needs:owner"])
     run(gh, "status")
     assert [row["number"] for row in json.loads(capsys.readouterr().out)] == [4, 3, 1]
+
+
+def test_queue_shows_what_each_waiting_run_needs_and_its_pull_request(gh, capsys):
+    needs = ["Factory: needs the owner: Approve G1.", "Factory: needs the owner: Review PR #12."]
+    gh.add(4, body=BODY.replace("PR: none", "PR: #12"), labels=["stage:ship", "needs:owner"], comments=needs)
+    gh.add(5, labels=["stage:build"], comments=["Factory: needs the owner: Answered long ago."])
+    run(gh, "status")
+    rows = {row["number"]: row for row in json.loads(capsys.readouterr().out)}
+    assert (rows[4]["needed"], rows[4]["pr"]) == ("Review PR #12.", 12)
+    assert (rows[5]["needed"], rows[5]["pr"]) == (None, None)
+
+
+def test_status_shows_the_need_only_while_waiting(gh, capsys):
+    gh.add(7, labels=["stage:define", "needs:owner"], comments=["Factory: needs the owner: Approve G1."])
+    run(gh, "status", "7")
+    assert json.loads(capsys.readouterr().out)["needed"] == "Approve G1."
+    gh.edit(7, remove=["needs:owner"])
+    run(gh, "status", "7")
+    assert json.loads(capsys.readouterr().out)["needed"] is None
 
 
 # labels

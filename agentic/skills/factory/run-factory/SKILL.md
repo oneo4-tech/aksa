@@ -1,6 +1,6 @@
 ---
 name: run-factory
-description: Use when the owner gives a software work request to build, fix, or change something, names an issue to work on, asks to continue factory work, or asks what is waiting on them. Starts or resumes a Software Factory run as the factory-orchestrator agent, or shows the queue of runs.
+description: Use when the owner gives a software work request to build, fix, or change something, names an issue to work on, asks to continue factory work, or asks what is waiting on them. Starts or resumes a Software Factory run as the factory-orchestrator agent, or, with no input, shows every open run with its stage, those waiting on the owner first with what each needs.
 ---
 
 # Run factory
@@ -18,7 +18,7 @@ description: Use when the owner gives a software work request to build, fix, or 
 
 ## Output
 
-The agent's output: what the run did and what it now waits for, or the queue.
+The agent's output: what the run did and what it now waits for, or the queue of open runs.
 
 ## Constraints
 
