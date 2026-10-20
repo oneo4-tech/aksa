@@ -1,6 +1,6 @@
 ## Summary
 
-<!-- What changed and why, in a few bullets. -->
+<!-- What changed and why, in a few bullets. For a factory run, end with "Closes #<factory issue>". -->
 
 ## review-component result
 

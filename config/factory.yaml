@@ -1,0 +1,28 @@
+# Software Factory settings, read by agentic/scripts/factory_issue.py.
+# What the stages and labels mean: agentic/rules/factory.md.
+
+# Run type -> conventional prefix for titles, commits, and branches (D-030).
+prefixes:
+  feature: feat
+  enhancement: feat
+  fix: fix
+  chore: chore
+
+# Every factory label: name -> [color, description]. Stage labels are listed in
+# lifecycle order, which factory_issue.py uses as the stage order.
+labels:
+  "type:feature": ["0e8a16", "Factory run: a new capability"]
+  "type:enhancement": ["a2eeef", "Factory run: an improvement to an existing capability"]
+  "type:fix": ["d73a4a", "Factory run: a defect fix"]
+  "type:chore": ["cfd3d7", "Factory run: maintenance, docs, or refactoring"]
+  "size:small": ["c2e0c6", "One branch and one pull request, no spec or plan"]
+  "size:large": ["fef2c0", "Spec, task checklist, and an integration branch"]
+  "stage:triage": ["ededed", "Factory stage: route the request or close it"]
+  "stage:concept": ["d4c5f9", "Factory stage: settle open decisions and feasibility (G0)"]
+  "stage:define": ["c5def5", "Factory stage: write and approve the requirement (G1)"]
+  "stage:spec": ["bfd4f2", "Factory stage: write and approve the spec (G2)"]
+  "stage:plan": ["bfdadc", "Factory stage: approve the task checklist (G3)"]
+  "stage:build": ["1d76db", "Factory stage: implement and verify each task"]
+  "stage:ship": ["5319e7", "Factory stage: pull request ready for the owner's merge"]
+  "needs:owner": ["b60205", "The factory is waiting for the owner"]
+  "claimed": ["fbca04", "A session is working on this factory issue"]
