@@ -10,7 +10,7 @@ description: Use when the owner asks to research, investigate, or gather facts o
 - The topic or question, from the request. If it is too broad to answer with evidence, propose a narrower scope with the questions in step 1.
 - `.kb` linked; if missing, run `uv run agentic/scripts/link_external.py --check` and report the result.
 - Web search and page fetch tools. Without them, research the Knowledge Base only and record the limit.
-- Output shape: `assets/research-template.md`; web brief: `references/web-search-brief.md`, both in this skill's folder.
+- Output shape: `references/research-template.md`; web brief: `references/web-search-brief.md`, both in this skill's folder.
 
 ## Procedure
 
@@ -23,12 +23,12 @@ description: Use when the owner asks to research, investigate, or gather facts o
    - **Paradigms:** prevailing approaches or models, with the tradeoffs the sources state.
    - **Hypotheses:** testable propositions about what remains unknown, each based on named foundations or paradigms and stating what would confirm or refute it.
    - **Gaps and contradictions:** unanswered questions and sources that disagree.
-6. **Write the output.** Copy the template to `.kb/outputs/research/<YYYY-MM-DD>-<slug>.md` and fill every placeholder. Register each source once (`[K1]` for a wiki page, `[W1]` for a web source) and cite it from every foundation and paradigm. Run `uv run agentic/skills/auxiliary/research-topic/scripts/check_research.py <file>` and fix every error until it passes.
+6. **Write the output.** Copy the template to `.kb/outputs/research/<YYYY-MM-DD>-<slug>.md` and fill every placeholder. Register each source once (`[K1]` for a wiki page, `[W1]` for a web source) and cite it from every foundation and paradigm. Then check the file against **Done when** and fix every miss.
 7. **Record it.** Append `- <date> add outputs/research/<file>: <topic>` to `.kb/log.md` and commit in the Knowledge Base repository (D-018).
 
 ## Output
 
-The output file path, the counts of foundations, paradigms, hypotheses, and gaps, the checker result, and any limits. List the foundations worth making trusted knowledge; the owner decides whether to capture them with `add-kb`. If the checker cannot pass, report blocked with its errors.
+The output file path, the counts of foundations, paradigms, hypotheses, and gaps, and any limits. List the foundations worth making trusted knowledge; the owner decides whether to capture them with `add-kb`. If a **Done when** condition cannot be met, report blocked with the condition and the reason.
 
 ## Constraints
 
@@ -41,7 +41,8 @@ The output file path, the counts of foundations, paradigms, hypotheses, and gaps
 
 ## Done when
 
-- The checker passes on the output file.
-- Every question is answered by a cited foundation or paradigm, or listed under gaps.
-- Every hypothesis names the findings it rests on and how to verify it.
+- Every source is a `wiki/` page or a web page you fetched whose type is on the allowed list; every registered source is cited.
+- Every foundation and paradigm cites a registered source, and every question is answered by one or listed under gaps.
+- Every hypothesis names the foundations or paradigms it rests on and how to verify it.
+- No placeholder, em dash, opinion word outside a quote, or `.env` value remains in the file.
 - `.kb/log.md` has the `add` line, and the Knowledge Base repository has the output committed.
