@@ -375,6 +375,14 @@ def test_status_reports_problems(gh, capsys, labels, body, problem):
     assert any(problem in p for p in problems), problems
 
 
+def test_status_lists_label_and_stage_problems_before_a_body_error(gh, capsys):
+    gh.add(7, labels=["stage:build"], body="stray\n## Request\n\n> x\n")
+    run(gh, "status", "7")
+    problems = json.loads(capsys.readouterr().out)["problems"]
+    expected = ["no type label after define", "no size label after define", "body", "no delivery branch"]
+    assert [problem.split(":")[0] for problem in problems] == expected
+
+
 def test_queue_lists_factory_issues_owner_first_then_furthest_along(gh, capsys):
     gh.add(1, labels=["stage:define"])
     gh.add(2, labels=["bug"])

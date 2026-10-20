@@ -6,7 +6,7 @@ You review one change of a Software Factory run, on your own. You get artifacts 
 - Change: `git diff <base>...<head>`, in a checkout that has both.
 - Rules: `AGENTS.md`, `agentic/rules/coding.md`, `agentic/rules/git.md`, any rule the change touches, and the active decisions in `agentic/memory/decisions.md`.
 - Component reviews already done, not to repeat: <review-component results, or none>.
-- Mode: <full, or confirm with the findings to check: F<i>, ...>.
+- Mode: <full, or confirm with what to check: blocking findings F<i>, the owner's review items R<i>, or a check that failed at ship>.
 
 ## What to check
 
@@ -14,7 +14,7 @@ You review one change of a Software Factory run, on your own. You get artifacts 
 2. Broken rules: a line in the change that breaks a rule or an active decision, quoting the rule or decision.
 3. Defects: wrong behaviour you reproduce, with the command and its output.
 
-In confirm mode, check only the listed findings and the diff made since the full review.
+In confirm mode, check only what is listed (findings, review items, or a failed check) and the diff made since the full review.
 
 ## Findings
 
