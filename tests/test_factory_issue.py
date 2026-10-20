@@ -200,6 +200,20 @@ def test_stage_moves_back_only_with_a_reason(gh):
     assert "stage:plan" in gh.issues[7]["labels"]
 
 
+@pytest.mark.parametrize("target", ["spec", "plan"])
+def test_stage_refuses_spec_and_plan_for_a_small_run(gh, target):
+    gh.add(7, labels=["stage:build", "type:fix", "size:small"])
+    assert run(gh, "stage", "7", target, "--reason", "Work bigger than the task.") == 3
+    assert gh.issues[7]["labels"] == ["stage:build", "type:fix", "size:small"]
+
+
+def test_stage_move_ends_the_wait_for_the_owner(gh):
+    gh.add(9, title="fix(scripts): handle empty labels", body="## Request\n\n> x\n", labels=["stage:define"])
+    gh.edit(9, add=["type:fix", "size:small", "needs:owner"])
+    assert run(gh, "stage", "9", "build", "--reason", "G1 approved by the owner.") == 0
+    assert "needs:owner" not in gh.issues[9]["labels"]
+
+
 def test_entering_build_names_a_small_runs_branch(gh):
     gh.add(9, title="fix(scripts): Handle Empty  labels!", body="## Request\n\n> x\n", labels=["stage:define"])
     gh.edit(9, add=["type:fix", "size:small"])
@@ -328,6 +342,7 @@ def test_status_reports_the_run_and_its_next_task(gh, capsys):
         (["stage:build", "type:feature", "size:large", "claimed"], BODY, "the claimed label and the claim comments"),
         (["stage:build", "type:fix", "size:large"], BODY, "title does not start with the fix prefix"),
         (["stage:spec"], BODY, "no type label after define"),
+        (["stage:plan", "type:fix", "size:small"], BODY, "a small run in stage plan"),
         (["stage:build", "type:feature", "size:large"], "stray text\n" + BODY, "body: text before the first section"),
         (
             ["stage:build", "type:feature", "size:large"],

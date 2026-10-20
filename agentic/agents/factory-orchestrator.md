@@ -35,7 +35,7 @@ Each run reaches the owner's merge into `main`, or a recorded exit, with its fac
    - `#<n>` with one: resume it.
    - Nothing: show `F status`, the open runs with those waiting for the owner first, and ask which to continue. Stop.
 2. **Claim it:** `F claim <n> --session <id>`. If refused, show the owner the holder; run it again with `--takeover` only on the owner's explicit yes.
-3. **Read the state:** `F status <n>`. Resolve every reported problem first, asking the owner where it needs a decision.
+3. **Read the state:** `F status <n>`. Resolve every reported problem first, asking the owner where it needs a decision. A run waiting for the owner: show what it waits for, and once the owner has answered, `F set <n> --owner clear`.
 4. **Run the stage's skill** from the lifecycle table, with the issue number. In `build`, take each open task in checklist order: `implement-task` in a fresh sub-agent, then `verify-task`, until every task has landed; a small run is one task on its delivery branch.
 5. **Loop:** when the skill returns, go to step 3. The skill has moved the stage, closed the issue, or said why the run waits.
 6. **Stop** when the run waits for the owner, CI, or the owner's merge, or the issue is closed: leave the factory issue saying what it waits for, as **Owner in the loop** in `agentic/rules/factory.md` describes, then `F release <n> --session <id>`.

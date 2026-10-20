@@ -21,7 +21,7 @@ description: Use when a factory run in stage build has an open task (the next li
 5. **Record agreed Memory:** on the run's first task, add the Concept's "To record" items through `add-memory`.
 6. **Commit as you go:** one small change per commit, conventional, with `Refs #<n>` (`agentic/rules/git.md`), pushed after each commit. At a small run's first push, open the run's draft pull request as `agentic/rules/git.md` describes, and record it: `factory_issue.py set <n> --pr <pr>`.
 7. **Finish:** every covered criterion's test passes; run `review-component` on each changed component; push. Return the branch, its head commit, the evidence per criterion (test or review result), and the `review-component` results.
-8. **Stop when the owner is needed:** a test not agreed, work bigger than the task, or a step only a person can do. Commit and push what is done, post a `Factory: blocker` comment on the factory issue (what, why, the options with a recommendation), and return blocked. A wrong spec goes back with `factory_issue.py stage <n> spec --reason "<what>"`, work bigger than the task with `plan`.
+8. **Stop when the owner is needed:** a test not agreed, work bigger than the task, or a step only a person can do. Commit and push what is done, post a `Factory: blocker` comment on the factory issue (what, why, the options with a recommendation), and return blocked. Going back takes `factory_issue.py stage <n> <stage> --reason "<what>"`: a wrong spec to `spec`, a wrong requirement to `define`, and work bigger than the task to `plan` in a large run or to `define` in a small run, to size it large.
 
 ## Fix mode
 

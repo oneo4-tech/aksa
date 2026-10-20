@@ -34,6 +34,7 @@ Read before working on a factory run: its factory issue, any of its stages, or a
 - Also the owner's: closing at triage, the concept interview, new terms and decisions (`add-memory`), a build blocker, a true merge contradiction, a finding still blocking after its confirm pass, and taking over a claim.
 - The factory lands verified tasks on the integration branch and changes its own factory issues without asking each time (D-028).
 - When the owner is absent, work up to the next point above, then `factory_issue.py set <n> --owner wait`, post what is needed in a `Factory:` comment, release the claim, and stop. The triage route needs no wait; record the guess in the triage comment.
+- The wait ends when the owner answers: `factory_issue.py set <n> --owner clear`. Every stage move also removes `needs:owner`.
 
 ## Factory issue
 

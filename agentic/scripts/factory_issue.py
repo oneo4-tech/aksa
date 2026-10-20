@@ -210,9 +210,11 @@ def require_factory(issue: dict, config: Config) -> tuple[str, str | None, str |
 
 
 def check_move(current: str, target: str, size: str | None, reason: str | None) -> None:
-    """Allow the forward moves of the lifecycle, and any move back with a reason."""
+    """Allow the forward moves of the lifecycle, and any move back with a reason; spec and plan only for a large run."""
     if target == current:
         raise Refused(f"the run is already in stage {current}")
+    if target in ("spec", "plan") and size != "large":
+        raise Refused(f"only a large run has stage {target}; move a small run back to define to size it large")
     if STAGES.index(target) < STAGES.index(current):
         if not reason:
             raise BadInput(f"moving back from {current} to {target} needs --reason")
@@ -293,6 +295,8 @@ def issue_status(issue: dict, config: Config) -> dict:
         problems.append("no delivery branch")
     if stage in ("build", "ship") and size == "large" and not delivery.tasks:
         problems.append("a large run without tasks")
+    if stage in ("spec", "plan") and size == "small":
+        problems.append(f"a small run in stage {stage}")
     done = [task.done for task in delivery.tasks]
     if done != sorted(done, reverse=True):
         problems.append("tasks landed out of order")
@@ -494,7 +498,9 @@ def cmd_stage(gh: GitHub, config: Config, args: argparse.Namespace) -> int:
             delivery.branch = delivery_branch(args.number, issue["title"], size or "small", config.prefixes[run_type])
             sections["Delivery"] = render_delivery(delivery)
             body = render_body(sections)
-    gh.edit(args.number, body=body, add=[f"stage:{args.stage}"], remove=[f"stage:{current}"])
+    # A run moves only once the owner has answered, so a move also ends any wait for the owner.
+    remove = [f"stage:{current}"] + (["needs:owner"] if "needs:owner" in issue["labels"] else [])
+    gh.edit(args.number, body=body, add=[f"stage:{args.stage}"], remove=remove)
     note = f" {args.reason}" if args.reason else ""
     gh.comment(args.number, f"Factory: stage `{current}` -> `{args.stage}`.{note}")
     print(f"#{args.number}: {current} -> {args.stage}")
