@@ -275,34 +275,24 @@ def latest_need(comments: list[str]) -> str | None:
     return None
 
 
-def delivery_pr(body: str) -> int | None:
-    """The run's pull request from its Delivery section; None when there is none or the body is unreadable."""
-    try:
-        return parse_delivery(parse_body(body).get("Delivery", "")).pr
-    except BadInput:
-        return None
-
-
-def queue_problems(issue: dict, config: Config) -> list[str]:
-    """Problems the queue sees without reading comments: extra labels and an unreadable body."""
+def read_run(issue: dict, config: Config) -> tuple[dict[str, list[str]], dict[str, str] | None, Delivery, list[str]]:
+    """Label values, body sections (None when unreadable), and Delivery, with the problems seen without comments."""
+    values = label_values(issue["labels"], config)
     problems = [
-        f"more than one {family} label: {', '.join(found)}"
-        for family, found in label_values(issue["labels"], config).items()
-        if len(found) > 1
+        f"more than one {family} label: {', '.join(found)}" for family, found in values.items() if len(found) > 1
     ]
     try:
-        parse_delivery(parse_body(issue["body"]).get("Delivery", ""))
+        sections = parse_body(issue["body"])
+        delivery = parse_delivery(sections.get("Delivery", ""))
     except BadInput as error:
         problems.append(f"body: {error}")
-    return problems
+        return values, None, Delivery(), problems
+    return values, sections, delivery, problems
 
 
 def issue_status(issue: dict, config: Config) -> dict:
-    labels, problems = issue["labels"], []
-    values = label_values(labels, config)
-    for family, found in values.items():
-        if len(found) > 1:
-            problems.append(f"more than one {family} label: {', '.join(found)}")
+    labels = issue["labels"]
+    values, sections, delivery, problems = read_run(issue, config)
     if not values["stage"]:
         problems.append("no stage label")
     stage = values["stage"][0] if len(values["stage"]) == 1 else None
@@ -315,14 +305,8 @@ def issue_status(issue: dict, config: Config) -> dict:
         problems.append("no size label after define")
     if after_define and run_type and not re.match(rf"{config.prefixes[run_type]}[(:!]", issue["title"]):
         problems.append(f"title does not start with the {run_type} prefix")
-    try:
-        sections = parse_body(issue["body"])
-        delivery = parse_delivery(sections.get("Delivery", ""))
-        if "Request" not in sections:
-            problems.append("no Request section")
-    except BadInput as error:
-        problems.append(f"body: {error}")
-        delivery = Delivery()
+    if sections is not None and "Request" not in sections:
+        problems.append("no Request section")
     if stage in ("build", "ship") and not delivery.branch:
         problems.append("no delivery branch")
     if stage in ("build", "ship") and size == "large" and not delivery.tasks:
@@ -357,9 +341,9 @@ def queue(issues: list[dict], config: Config) -> list[dict]:
     """Open factory issues: those waiting for the owner first, with what each needs, then the furthest along."""
     rows = []
     for issue in issues:
-        stages = label_values(issue["labels"], config)["stage"]
-        if stages:
-            stage = stages[0] if len(stages) == 1 else None
+        values, _, delivery, problems = read_run(issue, config)
+        if values["stage"]:
+            stage = values["stage"][0] if len(values["stage"]) == 1 else None
             waiting = "needs:owner" in issue["labels"]
             rows.append(
                 {
@@ -368,9 +352,9 @@ def queue(issues: list[dict], config: Config) -> list[dict]:
                     "stage": stage,
                     "needs_owner": waiting,
                     "needed": latest_need(issue.get("comments", [])) if waiting else None,
-                    "pr": delivery_pr(issue["body"]),
+                    "pr": delivery.pr,
                     "claimed": "claimed" in issue["labels"],
-                    "problems": queue_problems(issue, config),
+                    "problems": problems,
                 }
             )
     rank = {stage: index for index, stage in enumerate(STAGES)}

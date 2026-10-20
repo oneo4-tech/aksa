@@ -16,7 +16,7 @@ description: Use after implement-task finishes a task of a factory run in stage 
 1. **Fix the scope:** the task branch's diff against its base at the head commit: `origin/int/<n>-<slug>...<head>` for a task, `origin/main...<head>` for a small run. The contract is the criteria the task covers and the rules, nothing else.
 2. **Review once:** fill `references/reviewer-brief.md` with the issue, task, base, head, criteria, and `review-component` results, in full mode, and give it to a fresh sub-agent, or a fresh session where the vendor has none. Add nothing of your own: no summary of the code and no opinion.
 3. **Post the report** unchanged as a comment on the factory issue, starting `Factory: verify T<k>`.
-4. **Blocking findings** go to `implement-task` fix mode. Then run one confirm pass, the same brief in confirm mode for those findings, and post its result. A finding still blocking: post it with the options (fix, accept, or a new work request), follow **Owner in the loop** in `agentic/rules/factory.md`, and stop. The owner's review items sent back to a small run from ship go the same way: fix mode, then one confirm pass for those items.
+4. **Blocking findings** go to `implement-task` fix mode. Then run one confirm pass, the same brief in confirm mode for those findings, and post its result. A finding still blocking: post it with the options (fix, accept, or a new work request), follow **Owner in the loop** in `agentic/rules/factory.md`, and stop. The owner's review items, or a check that failed at ship, sent back to a small run go the same way: fix mode, then one confirm pass for those items or that check.
 5. **Land on a pass,** with no blocking finding left:
    - Large run: from the run's worktree, land the task as `agentic/rules/git.md` describes. If the run has no pull request yet, open its draft as `agentic/rules/git.md` describes and `factory_issue.py set <n> --pr <pr>`. Then `factory_issue.py task <n> --done T<k>`, and delete the task's branch; the worktree stays for the next task.
    - Small run: nothing to land; the change is already on its delivery branch.
@@ -29,7 +29,7 @@ The report and any confirm result on the factory issue, and the task landed and 
 
 ## Constraints
 
-- One full review per task, and one confirm pass for its blocking findings (D-032); the owner's review items sent back to a small run get one confirm pass of their own. Notes are never fixed in the run and never raised again; at ship the owner may turn them into new work requests.
+- One full review per task, and one confirm pass for its blocking findings (D-032); the owner's review items or a failed ship check sent back to a small run get one confirm pass of their own. Notes are never fixed in the run and never raised again; at ship the owner may turn them into new work requests.
 - The reviewer sees artifacts only: the factory issue, the diff, and the rules, never the implementer's reasoning. `review-component` results are inputs, not repeated.
 - Only this skill lands a task on an integration branch (D-040).
 

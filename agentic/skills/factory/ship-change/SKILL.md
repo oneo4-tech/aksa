@@ -12,7 +12,7 @@ description: Use when a factory run is in stage ship, or the owner asks to ship 
 
 ## Procedure
 
-1. **Bring it up to date:** read `gh pr view <pr> --json mergeable,mergeStateStatus`. On `mergeStateStatus` `BEHIND`, run `gh pr update-branch <pr>`, which merges `main` into the delivery branch on GitHub. When `mergeable` is `CONFLICTING`, which a draft does not hide, or the update fails on a conflict: `git fetch origin`, `uv run agentic/scripts/new_worktree.py <prefix>/<n>-sync origin/<delivery branch>`, merge `origin/main` there, resolve with `resolve-merge-conflicts`, `git push origin HEAD:<delivery branch>`, then remove that worktree and branch.
+1. **Bring it up to date:** read `gh pr view <pr> --json mergeable,mergeStateStatus`, and read it again after a few seconds while `mergeable` is `UNKNOWN`, which means GitHub is still computing it. On `mergeStateStatus` `BEHIND`, run `gh pr update-branch <pr>`, which merges `main` into the delivery branch on GitHub. When `mergeable` is `CONFLICTING`, which a draft does not hide, or the update fails on a conflict: `git fetch origin`, `uv run agentic/scripts/new_worktree.py <prefix>/<n>-sync origin/<delivery branch>`, merge `origin/main` there, resolve with `resolve-merge-conflicts`, `git push origin HEAD:<delivery branch>`, then remove that worktree and branch.
 2. **Check:**
    - CI is green on the head: `gh pr checks <pr> --watch`.
    - The verify reports mark every acceptance criterion, AC1 to ACn, met.

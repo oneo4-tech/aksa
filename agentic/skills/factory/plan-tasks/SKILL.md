@@ -32,5 +32,5 @@ The task checklist in the Delivery section, the integration branch on GitHub, an
 
 ## Done when
 
-- Every acceptance criterion is covered by a task, and the owner approved the task table.
+- Every acceptance criterion is covered by a task, and the owner approved the task table or, for a fix task, asked for it in the review of the pull request.
 - `factory_issue.py status <n>` shows the tasks, stage `build`, and no problems, and `git ls-remote origin int/<n>-<slug>` prints the branch.
