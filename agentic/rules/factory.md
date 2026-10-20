@@ -24,7 +24,7 @@ Read before working on a factory run: its factory issue, any of its stages, or a
 | `build` | `implement-task`, then `verify-task`, for each task in order | Every task landed on the delivery branch, with its draft pull request open |
 | `ship` | `ship-change` | The pull request ready, the owner's merge, and closeout |
 
-- Each stage skill runs only in its stage. Stage skills call helpers: `resolve-merge-conflicts` and `diagnose-bug` in build and ship; `research-topic` and `build-prototype` only in concept.
+- Each stage skill runs only in its stage and ends by moving the stage, closing the issue, or stopping for the owner. Stage skills call helpers: `resolve-merge-conflicts` and `diagnose-bug` in build and ship; `research-topic` and `build-prototype` only in concept.
 - Tasks run one at a time in checklist order (D-033). A small run is a single task on its delivery branch.
 - Moving back to an earlier stage needs a reason; its gate is approved again.
 

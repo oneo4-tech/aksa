@@ -17,7 +17,7 @@ Read before creating a branch, worktree, commit, or pull request, or before merg
 ## Worktrees
 
 - Every branch that changes files gets its own worktree: run `git fetch origin`, then `uv run agentic/scripts/new_worktree.py <branch> <base>` with the base from the table, such as `origin/main` or `origin/int/<n>-<slug>`. It lands in `.worktrees/<branch with / replaced by ->`.
-- An integration branch gets no worktree: `plan-tasks` creates it with `git push origin origin/main:refs/heads/int/<n>-<slug>`, and it changes only when a task lands or `ship-change` updates it.
+- An integration branch gets no worktree: `plan-tasks` pushes it from `origin/main`, and it changes only when a task lands or `ship-change` updates it.
 - The main checkout stays on a clean `main`. Run git only inside the worktree you work in; one writer per worktree at a time.
 - After a branch lands or merges, remove its worktree and local branch: `git worktree remove .worktrees/<dir>`, then `git branch -D <branch>` (a squash merge leaves the branch unmerged in git's view). Delete a task branch's remote copy with `git push origin --delete <branch>`; GitHub deletes merged pull request branches (D-037).
 
