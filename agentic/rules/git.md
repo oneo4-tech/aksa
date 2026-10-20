@@ -9,6 +9,7 @@ Read before creating a branch, worktree, commit, or pull request, or before merg
 | Small run | `<prefix>/<n>-<slug>` | `origin/main` | `main`, by pull request and squash merge |
 | Integration branch of a large run | `int/<n>-<slug>` | `origin/main` | `main`, by pull request and merge commit |
 | Task of a large run | `<prefix>/<n>-t<k>-<slug>` | the integration branch | the integration branch, by local squash merge |
+| Update of a delivery branch whose merge with `main` conflicts | `<prefix>/<n>-sync` | the delivery branch | the delivery branch, by push, then deleted |
 | Release | `chore/release-vX.Y.Z` | `origin/main` | `main`, by pull request and squash merge |
 
 - `<n>` is the factory issue number, `<prefix>` the run type's prefix in `config/factory.yaml`, and `<slug>` lowercase hyphenated words (D-030, D-031). `factory_issue.py status <n>` prints a run's branch names; use them as printed.
