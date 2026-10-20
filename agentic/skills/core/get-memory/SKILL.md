@@ -5,10 +5,6 @@ description: Use to look up an agreed term or decision about aksa before relying
 
 # Get memory
 
-## When to use
-
-A task depends on what an aksa term means or what was decided about an area, such as before changing paths, sync, skills, or components.
-
 ## Inputs and prerequisites
 
 - A term, area, or keyword. If only a task is given, derive the areas from the area list in the `agentic/memory/decisions.md` header.
@@ -29,3 +25,8 @@ The matching rows, each with its file path and decision id, or "nothing recorded
 
 - Read only. To record something, use `add-memory`.
 - Domain knowledge is in the Knowledge Base; use `get-kb` (D-015).
+
+## Done when
+
+- Every returned row names its file and, for a decision, its id; or the answer is "nothing recorded" with at least two queries tried.
+- Nothing was changed in `agentic/memory/`.

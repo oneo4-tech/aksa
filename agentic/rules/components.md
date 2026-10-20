@@ -27,22 +27,44 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
 
 ## Skills
 
-- Category, exactly one, by primary purpose **[checked]**:
+- Category, exactly one, by primary purpose, from this list **[checked]**:
   - `core`: foundational operations that fit no more specific domain.
   - `productivity`: personal work organization.
   - `factory`: the Software Factory lifecycle and its supporting operations.
   - `engineering`: software development, testing, review, and delivery.
+  - `auxiliary`: supporting operations that serve any work, such as research, retrospectives, handoffs, clarifications, and prototypes, and fit no domain above.
+- Adding or redefining a category needs a new decision row agreed with the owner through `add-memory` (D-022), before any skill uses it.
 - `name` matches the directory, is lowercase hyphenated verb-object (D-005), and is unique across categories, since vendors get a flat folder **[checked]**.
 - `description` states when to use the skill and the result it produces **[checked: present]**.
-- Sections, in order: **When to use**, **Inputs and prerequisites** (including how to handle missing inputs), **Procedure** (ordered, actionable), **Output** (including how to report failures or blocked work), **Constraints** (approvals, scope limits, applicable decisions) **[checked: present and ordered]**.
-- Files, scripts, and assets used only by the skill stay in its directory.
+- `description` carries when to use the skill; the body has no separate section for it.
+- Sections, in order: **Inputs and prerequisites** (including how to handle missing inputs), **Procedure** (ordered, actionable), **Output** (including how to report failures or blocked work), **Constraints** (approvals, scope limits, applicable decisions, routing to other skills), **Done when** (verifiable conditions checked before reporting completion) **[checked: present and ordered]**.
+- Folder structure, nothing else at the top level **[checked]**:
+
+  ```text
+  agentic/skills/<category>/<skill-name>/
+    SKILL.md      the procedure
+    references/   files the procedure reads on demand: output templates, subagent briefs, branch guides
+    scripts/      deterministic steps of the procedure, only when it has them
+  ```
+
+  `SKILL.md` names each supporting file by its path relative to the skill folder, such as `references/<file>.md`, and states when to read it, so it loads only when a step needs it.
+- No checker scripts: a skill states the rules its output must meet as **Done when** conditions, not as a script that validates the output.
 - After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`.
+
+## Adapting a reference
+
+When a component starts from an outside reference, such as another repository's skill:
+
+1. List its files without cache folders, and read its main file first; read other files only when a part depends on them.
+2. Before writing, state for each part whether it is kept, adapted, or dropped, checked against this standard, active decisions, and the scripts and skills aksa already has.
+3. Write the component in aksa's own shape and terms; never copy a part only because the reference has it.
 
 ## Writing
 
 - Concise, vendor-neutral (D-004), and specific enough to execute reliably.
 - Link to rules, decisions, and shared resources instead of copying them. Referenced repository paths and decisions must exist **[checked]**.
 - No absolute or machine-specific paths (D-012) **[checked]**.
+- No file or folder named after a Windows reserved device name, such as `aux` or `con` (D-021) **[checked]**.
 - Surface errors explicitly; no success-shaped fallbacks.
 
 ## Acceptance

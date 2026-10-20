@@ -5,10 +5,6 @@ description: Use periodically or when Knowledge Base lookups return stale, dupli
 
 # Repair KB
 
-## When to use
-
-On request, after many approvals, or when `get-kb` finds overlapping, outdated, or hard-to-find pages.
-
 ## Inputs and prerequisites
 
 - `.kb` linked; if missing, run `uv run agentic/scripts/link_external.py --check` and report the result.
@@ -32,3 +28,9 @@ Two lists: changes applied (with page paths), and proposals declined or awaiting
 
 - Removing or merging content needs the owner's approval; fixing frontmatter format does not.
 - Never edit `index.md` by hand or modify files in `raw/`; `outputs/` is out of scope.
+
+## Done when
+
+- `uv run agentic/scripts/kb_index.py --check` passes.
+- Every applied change is owner-approved or a frontmatter format fix, and has a `repair` line in `.kb/log.md`.
+- No `[[link]]` points to a merged or moved page, and the changes are committed in the Knowledge Base repository.

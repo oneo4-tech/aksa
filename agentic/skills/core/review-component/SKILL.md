@@ -5,10 +5,6 @@ description: Use before accepting a new or materially changed agentic component 
 
 # Review component
 
-## When to use
-
-A component in `AGENTS.md` or `agentic/` has been created or materially changed and must be checked before acceptance.
-
 ## Inputs and prerequisites
 
 - The component's path and, for a change, its diff.
@@ -26,10 +22,15 @@ A component in `AGENTS.md` or `agentic/` has been created or materially changed 
 
 ## Output
 
-Either "pass" with the component path, or a numbered list of mismatches, each naming the check, the location, and the fix. Report a check that could not run as blocked, with the reason; never report it as passed.
+Either "pass" with the component path and the short commit hash reviewed (`git rev-parse --short HEAD`), such as `agentic/rules/x.md: pass at 585d895`, or a numbered list of mismatches, each naming the check, the location, and the fix. Report a check that could not run as blocked, with the reason; never report it as passed. When the change goes to a pull request, put this output in its **review-component result** section (`.github/pull_request_template.md`). After later commits, re-review only the components changed since that hash (`git diff --name-only <hash>..HEAD`) and update their lines. After fixing mismatches, re-review the fixed components before reporting them as passed; a pass names the commit of the review that produced it, never a later commit that was not reviewed.
 
 ## Constraints
 
 - Review only; do not change the component unless the author asks.
 - Never accept a component that overrides an active decision; a reversal needs a new decision row.
 - Keep standards in `components.md`; this skill holds only the review procedure.
+
+## Done when
+
+- Every procedure step ran, or is reported as blocked with its reason.
+- "pass" is reported only when `uv run pytest` passed and no mismatch remains, with the hash of the commit actually reviewed; fixed mismatches are re-reviewed first.

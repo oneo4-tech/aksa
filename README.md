@@ -22,6 +22,8 @@ uv run agentic/scripts/sync_vendors.py claude codex   # .claude/skills and .agen
 uv run agentic/scripts/kb_index.py        # .kb/index.md from the wiki pages
 ```
 
+Start parallel work in its own worktree, set up the same way: `uv run agentic/scripts/new_worktree.py <branch>`.
+
 The Knowledge Base (`.kb`) is its own git repository with `inbox/`, `raw/`, `wiki/`, and `outputs/`; see `agentic/rules/knowledge.md`.
 
 ## Checks
@@ -32,7 +34,7 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-The pre-commit hook and CI (`.github/workflows/check.yml`) run the same checks.
+The pre-commit hook and CI (`.github/workflows/check.yml`) run the same checks; the hook also checks the vendor sync. On pull requests that change components, `.github/workflows/review.yml` requires a filled **review-component result** section.
 
 ## Where things are decided
 

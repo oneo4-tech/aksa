@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE: {{Prototype title}}</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 960px; margin: 0 auto; padding: 16px; }
+  .banner { background: #b00020; color: #fff; padding: 4px 8px; font-weight: 600; }
+  #question { border: 2px solid #333; padding: 12px; margin: 12px 0; }
+  #state { background: #f4f4f4; padding: 12px; white-space: pre-wrap; font-family: ui-monospace, monospace; }
+  button { margin: 4px 4px 4px 0; }
+  #scenario-tabs button[aria-selected="true"] { font-weight: 700; }
+  #scenario-steps li.done { color: #888; }
+  #log li.refused { color: #b00020; }
+</style>
+</head>
+<body>
+<div class="banner">PROTOTYPE: throwaway, never merged</div>
+<h1>{{Prototype title}}</h1>
+<section id="question"><strong>Question:</strong> {{One paragraph, in agreed terms: the design question this prototype answers.}}</section>
+
+<h2>Current state</h2>
+<pre id="state"></pre>
+
+<h2>Free play</h2>
+<div id="actions"></div>
+
+<h2>Scenarios</h2>
+<div id="scenario-tabs"></div>
+<ol id="scenario-steps"></ol>
+<button id="next-step" disabled>Next step</button>
+
+<h2>Log</h2>
+<ol id="log"></ol>
+
+<script id="module">
+// Pure module: no DOM, no storage, no network. This is the part worth keeping
+// (rewritten with tests). Shape: reducer. Swap for a state machine, pure
+// functions or a class if that fits the question (references/logic.md).
+const Model = {
+  initial() {
+    return { {{initial state fields}} };
+  },
+  // Returns { state, error }. With error set the action is forbidden in this
+  // state and the state is unchanged.
+  step(state, action) {
+    switch (action.type) {
+      {{case "action-name": return { state: { ...state, field: value } };}}
+      default:
+        return { state, error: `unknown action ${action.type}` };
+    }
+  },
+};
+</script>
+
+<script id="page">
+// Labels use agreed terms (agentic/memory/vocabulary.md), not code names.
+const ACTIONS = [
+  {{{ label: "Action label", action: { type: "action-name" } },}}
+];
+// Each step: what the owner is about to do, and the action it sends.
+const SCENARIOS = [
+  { name: "Normal path", steps: [{{{ say: "Step text", action: { type: "action-name" } },}}] },
+  { name: "Edge case", steps: [{{steps}}] },
+  { name: "Forbidden attempt", steps: [{{steps}}] },
+];
+
+const $ = (id) => document.getElementById(id);
+let state;
+let scenario = null;
+let cursor = 0;
+
+function render() {
+  $("state").textContent = JSON.stringify(state, null, 2);
+}
+
+function log(text, refused) {
+  const li = document.createElement("li");
+  li.textContent = text;
+  if (refused) li.className = "refused";
+  $("log").append(li);
+}
+
+function apply(label, action) {
+  const result = Model.step(state, action);
+  state = result.state;
+  log(result.error ? `${label}: refused (${result.error})` : label, result.error);
+  render();
+}
+
+function reset() {
+  state = Model.initial();
+  $("log").replaceChildren();
+  render();
+}
+
+function selectScenario(i) {
+  scenario = SCENARIOS[i];
+  cursor = 0;
+  reset();
+  [...$("scenario-tabs").children].forEach((b, j) => b.setAttribute("aria-selected", String(i === j)));
+  $("scenario-steps").replaceChildren(
+    ...scenario.steps.map((s) => Object.assign(document.createElement("li"), { textContent: s.say })),
+  );
+  $("next-step").disabled = scenario.steps.length === 0;
+}
+
+function nextStep() {
+  const s = scenario.steps[cursor];
+  $("scenario-steps").children[cursor].className = "done";
+  cursor += 1;
+  apply(s.say, s.action);
+  $("next-step").disabled = cursor >= scenario.steps.length;
+}
+
+function button(label, onclick) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.onclick = onclick;
+  return b;
+}
+
+ACTIONS.forEach(({ label, action }) => $("actions").append(button(label, () => apply(label, action))));
+$("actions").append(button("Reset", reset));
+SCENARIOS.forEach((s, i) => $("scenario-tabs").append(button(s.name, () => selectScenario(i))));
+$("next-step").onclick = nextStep;
+reset();
+</script>
+</body>
+</html>

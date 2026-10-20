@@ -5,10 +5,6 @@ description: <when to use this skill and the result it produces>
 
 # <Skill title>
 
-## When to use
-
-<Describe the request or condition that should activate this skill.>
-
 ## Inputs and prerequisites
 
 - <List required inputs, access, and dependencies.>
@@ -18,7 +14,7 @@ description: <when to use this skill and the result it produces>
 
 1. <First actionable step.>
 2. <Next step, including applicable checks or approval gates.>
-3. <Complete the operation and verify its result.>
+3. <Complete the operation.>
 
 ## Output
 
@@ -28,3 +24,8 @@ description: <when to use this skill and the result it produces>
 
 - <State scope limits, approvals, and prohibited actions.>
 - <Link to applicable rules, decisions, or shared resources.>
+
+## Done when
+
+- <A verifiable condition of the end result, checked before reporting completion.>
+- <Another condition, such as a check that passed or a file that exists.>
