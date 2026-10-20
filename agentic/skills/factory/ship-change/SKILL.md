@@ -19,7 +19,7 @@ description: Use when a factory run is in stage ship, or the owner asks to ship 
    - The body has `Closes #<n>`, the run's decisions for the owner, and every changed component's `review-component` result: `uv run agentic/scripts/check_pr_review.py origin/main --body-file <file>` passes.
    A failure goes back: `factory_issue.py stage <n> build --reason "<what failed>"`.
 3. **Hand over:** `gh pr ready <pr>`, then a `Factory: ship` comment on the factory issue: the pull request, CI, each criterion with its evidence, the notes from verify reports each with a recommendation (a new work request or nothing), and the merge method, squash for a small run or a merge commit for an integration branch (D-029). Then `factory_issue.py set <n> --owner wait`, and stop.
-4. **Close out** after the owner's merge (`gh pr view <pr> --json state` says `MERGED`, and `Closes #<n>` closed the issue): `factory_issue.py set <n> --owner clear`; file each note the owner wants as a new work request with `factory_issue.py intake`; remove the run's worktrees and local branches (`agentic/rules/git.md`); and comment `Factory: shipped in <merge commit>.`
+4. **Close out** after the owner's merge (`gh pr view <pr> --json state` says `MERGED`, and `Closes #<n>` closed the issue): `factory_issue.py set <n> --owner clear`; file each note the owner wants as a new work request with `factory_issue.py intake`; remove the run's worktree and its local branches (`agentic/rules/git.md`); and comment `Factory: shipped in <merge commit>.`
 
 ## Output
 
@@ -34,4 +34,4 @@ Before the merge, the ready pull request and the ship comment's link; after it, 
 ## Done when
 
 - Before the merge: the pull request is ready, CI is green, its body passes `check_pr_review.py`, and the factory issue has the ship comment and `needs:owner`.
-- After the merge: the factory issue is closed with `needs:owner` cleared, the closeout comment names the merge commit, and the run's worktrees are removed.
+- After the merge: the factory issue is closed with `needs:owner` cleared, the closeout comment names the merge commit, and the run's worktree is removed.

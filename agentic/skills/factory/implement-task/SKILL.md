@@ -1,6 +1,6 @@
 ---
 name: implement-task
-description: Use when a factory run in stage build has an open task (the next line of its checklist, or the whole of a small run), or when verify-task sends blocking findings back. Builds the task test-first in its own worktree and inside the task's scope, pushes small conventional commits, and opens a small run's draft pull request; in fix mode it fixes only the blocking findings. Returns the evidence for each acceptance criterion.
+description: Use when a factory run in stage build has an open task (the next line of its checklist, or the whole of a small run), or when verify-task sends blocking findings back. Builds the task test-first in the run's worktree and inside the task's scope, pushes small conventional commits, and opens a small run's draft pull request; in fix mode it fixes only the blocking findings. Returns the evidence for each acceptance criterion.
 ---
 
 # Implement task
@@ -13,7 +13,7 @@ description: Use when a factory run in stage build has an open task (the next li
 
 ## Procedure
 
-1. **Worktree:** run `git fetch origin`, then `uv run agentic/scripts/new_worktree.py <task branch> <base>`, with base `origin/int/<n>-<slug>` for a task of a large run or `origin/main` for a small run, and work only there. A branch left by an earlier session: continue it.
+1. **Worktree:** work only in the run's one worktree: create it for the run's first task or a small run, and start each later task on a fresh branch in it, as `agentic/rules/git.md` describes (D-039). A branch left by an earlier session: continue it.
 2. **Restate the contract** before any code: each criterion the task covers and the test that will prove it. A criterion whose test was not agreed at G1 or G2 is a blocker (step 8).
 3. **A fix run** starts with `diagnose-bug`; the fix lands behind its failing regression test.
 4. **Build one behaviour at a time** (`agentic/rules/coding.md`): red, watching the test fail for the expected reason; green, with the least code; refactor with the test green. Run the one test while building; the pre-commit hook runs the full checks on each commit. Reach green by fixing the code.
@@ -26,7 +26,7 @@ description: Use when a factory run in stage build has an open task (the next li
 ## Fix mode
 
 - The input is the blocking findings by id, such as `F2`, from the latest `Factory: verify` comment.
-- Work in the task's worktree and branch. Each fix gets a test first where behaviour changes, then the fix, in a commit naming its finding: `fix(<scope>): address F2`.
+- Work in the run's worktree, on the task's branch. Each fix gets a test first where behaviour changes, then the fix, in a commit naming its finding: `fix(<scope>): address F2`.
 - Return when every blocking finding has its commit; notes are never touched.
 
 ## Output

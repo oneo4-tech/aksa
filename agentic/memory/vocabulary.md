@@ -33,3 +33,4 @@ Agreed terms, alphabetical. Use them as defined. Add or change a term only after
 | Task | One slice of a large run: a line of its factory issue's task checklist, built on its own branch, verified, and squash-merged into the integration branch. A small run is a single task. |
 | Template | A component: a reusable starting structure that standardizes creation of another component. Lives in `agentic/templates/`. |
 | Verdict | The owner's answer to a prototype's question, with what clicking showed, kept in `prototypes/<name>/verdict.md` on the prototype branch. |
+| Worktree | A separate git checkout of one branch under `.worktrees/`, created by `agentic/scripts/new_worktree.py` with its links and vendor folders set up; a factory run builds in one (D-039). |

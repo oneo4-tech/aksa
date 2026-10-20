@@ -18,7 +18,7 @@ description: Use after implement-task finishes a task of a factory run in stage 
 3. **Post the report** unchanged as a comment on the factory issue, starting `Factory: verify T<k>`.
 4. **Blocking findings** go to `implement-task` fix mode. Then run one confirm pass, the same brief in confirm mode for those findings, and post its result. A finding still blocking: post it with the options (fix, accept, or a new work request), follow **Owner in the loop** in `agentic/rules/factory.md`, and stop.
 5. **Land on a pass,** with no blocking finding left:
-   - Large run: from the task's worktree, land the task as `agentic/rules/git.md` describes. If the run has no pull request yet, open its draft as `agentic/rules/git.md` describes and `factory_issue.py set <n> --pr <pr>`. Then `factory_issue.py task <n> --done T<k>`, and remove the task's worktree and branches.
+   - Large run: from the run's worktree, land the task as `agentic/rules/git.md` describes. If the run has no pull request yet, open its draft as `agentic/rules/git.md` describes and `factory_issue.py set <n> --pr <pr>`. Then `factory_issue.py task <n> --done T<k>`, and delete the task's branch; the worktree stays for the next task.
    - Small run: nothing to land; the change is already on its delivery branch.
    - Both: add the task's `review-component` results to the pull request's review-component section.
 6. **Move on** after a large run's last task or a small run's pass: `factory_issue.py stage <n> ship --reason "Every task verified and landed."`.
