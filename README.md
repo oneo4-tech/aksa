@@ -22,6 +22,8 @@ uv run agentic/scripts/sync_vendors.py claude codex   # .claude/skills and .agen
 uv run agentic/scripts/kb_index.py        # .kb/index.md from the wiki pages
 ```
 
+Start parallel work in its own worktree, set up the same way: `uv run agentic/scripts/new_worktree.py <branch>`.
+
 The Knowledge Base (`.kb`) is its own git repository with `inbox/`, `raw/`, `wiki/`, and `outputs/`; see `agentic/rules/knowledge.md`.
 
 ## Checks

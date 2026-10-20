@@ -5,6 +5,7 @@ Agreed terms, alphabetical. Use them as defined. Add or change a term only after
 | Term | Meaning |
 |------|---------|
 | Agent | A component: an operator with a goal and role that owns an outcome and uses rules and skills. Lives in `agentic/agents/`. |
+| AI slop | Agent output that breaks rules, decisions, or owner preferences, makes unverified claims, adds speculative scope, or wastes tokens. Found by the `retrospect-session` skill. |
 | Component | A building block of aksa's agentic system: Rule, Skill, Agent, Memory, Script, or Template indexed from AGENTS.md. External resources (`.kb`, `.projects`, `.worktrees`) are not components. |
 | Knowledge Base | An external resource, not a component: curated domain knowledge kept outside the repository in its own git repository and reached through the `.kb` symlink. Only its `wiki/` pages are trusted (D-017). |
 | Memory | A component: governed, durable context about aksa itself, namely agreed vocabulary and decisions, that agents consult. Lives in `agentic/memory/` (D-015). |

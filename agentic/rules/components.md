@@ -27,12 +27,13 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
 
 ## Skills
 
-- Category, exactly one, by primary purpose **[checked]**:
+- Category, exactly one, by primary purpose, from this list **[checked]**:
   - `core`: foundational operations that fit no more specific domain.
   - `productivity`: personal work organization.
   - `factory`: the Software Factory lifecycle and its supporting operations.
   - `engineering`: software development, testing, review, and delivery.
-  - `aux`: auxiliary utilities that support other work, such as document, file, or tool helpers, and fit no domain above.
+  - `auxiliary`: cross-cutting operations about the agentic system itself, such as retrospectives and audits.
+- A new category needs a definition the owner has agreed, added to this list before any skill uses it.
 - `name` matches the directory, is lowercase hyphenated verb-object (D-005), and is unique across categories, since vendors get a flat folder **[checked]**.
 - `description` states when to use the skill and the result it produces **[checked: present]**.
 - `description` carries when to use the skill; the body has no separate section for it.
@@ -45,6 +46,7 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
 - Concise, vendor-neutral (D-004), and specific enough to execute reliably.
 - Link to rules, decisions, and shared resources instead of copying them. Referenced repository paths and decisions must exist **[checked]**.
 - No absolute or machine-specific paths (D-012) **[checked]**.
+- No file or folder named after a Windows reserved device name, such as `aux` or `con` (D-021) **[checked]**.
 - Surface errors explicitly; no success-shaped fallbacks.
 
 ## Acceptance

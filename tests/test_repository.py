@@ -8,8 +8,10 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 PATHS_FILE = "config/environment.yaml"
-CATEGORIES = {"core", "productivity", "factory", "engineering", "aux"}
-SKILL_SECTIONS = ["Inputs and prerequisites", "Procedure", "Output", "Constraints", "Done when"]
+COMPONENTS = ROOT / "agentic" / "rules" / "components.md"
+SKILL_TEMPLATE = ROOT / "agentic" / "templates" / "skill-template.md"
+# Windows cannot create these names, with or without an extension (D-021).
+RESERVED = re.compile(r"(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?", re.IGNORECASE)
 # Absolute or home-relative paths (D-012). Split so this file does not match itself.
 ABSOLUTE_PATH = re.compile("|".join(["/" + "Users/", "/" + "home/", "~" + "/", r"\$" + "HOME", r"[A-Z]:\\"]))
 # Backticked repo paths, such as `agentic/rules/x.md`, without placeholders.
@@ -73,17 +75,45 @@ def test_rule_index_matches_rule_files():
     assert indexed == on_disk
 
 
+def skill_categories() -> set[str]:
+    """Categories listed under the Category bullet of components.md."""
+    block = COMPONENTS.read_text().split("- Category, exactly one", 1)[1].split("\n- ", 1)[0]
+    return set(re.findall(r"^  - `([a-z-]+)`:", block, re.MULTILINE))
+
+
+def skill_sections() -> list[str]:
+    """Section headings of the skill template, in order."""
+    return re.findall(r"^## (.+)$", SKILL_TEMPLATE.read_text(), re.MULTILINE)
+
+
+def test_components_lists_template_sections():
+    sections_line = next(
+        line for line in COMPONENTS.read_text().splitlines() if line.startswith("- Sections, in order:")
+    )
+    assert re.findall(r"\*\*([^*]+)\*\* \(", sections_line) == skill_sections()
+
+
+def test_no_windows_reserved_names():
+    offenders = [
+        str(path.relative_to(ROOT))
+        for path in repo_files()
+        if any(RESERVED.fullmatch(part) for part in path.relative_to(ROOT).parts)
+    ]
+    assert offenders == [], "Windows cannot check out these paths (D-021)"
+
+
 @pytest.mark.parametrize("skill_md", skill_files(), ids=lambda p: p.parent.name)
 def test_skill_structure(skill_md):
     text = skill_md.read_text()
     fields = frontmatter(text)
-    assert skill_md.parent.parent.name in CATEGORIES
+    assert skill_md.parent.parent.name in skill_categories()
     assert skill_md.parent.parent.parent == ROOT / "agentic" / "skills"
     assert fields.get("name") == skill_md.parent.name
     assert re.fullmatch(r"[a-z]+(-[a-z0-9]+)+", fields["name"]), "verb-object, lowercase hyphenated (D-005)"
     assert fields.get("description")
     headings = re.findall(r"^## (.+)$", text, re.MULTILINE)
-    assert [h for h in headings if h in SKILL_SECTIONS] == SKILL_SECTIONS
+    sections = skill_sections()
+    assert [h for h in headings if h in sections] == sections
 
 
 def test_skill_names_unique():

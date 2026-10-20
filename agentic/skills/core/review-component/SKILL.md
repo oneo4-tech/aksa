@@ -22,7 +22,7 @@ description: Use before accepting a new or materially changed agentic component 
 
 ## Output
 
-Either "pass" with the component path, or a numbered list of mismatches, each naming the check, the location, and the fix. Report a check that could not run as blocked, with the reason; never report it as passed.
+Either "pass" with the component path, or a numbered list of mismatches, each naming the check, the location, and the fix. Report a check that could not run as blocked, with the reason; never report it as passed. When the change goes to a pull request, put this output in its **review-component result** section (`.github/pull_request_template.md`).
 
 ## Constraints
 
