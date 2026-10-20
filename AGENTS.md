@@ -13,7 +13,7 @@ This file is the root rule (D-007), always loaded. It holds the rules every agen
 - **Paths:** no absolute or machine-specific paths anywhere except `config/environment.yaml` (D-012). Use repository-relative paths and the external resource symlinks.
 - **External resources:** reach `.kb`, `.projects`, and `.worktrees` only through their repo-root symlinks, and never commit their contents. Create every git worktree with `uv run agentic/scripts/new_worktree.py <branch>`, which places it under `.worktrees/` and sets up its links and vendor folders.
 - **Secrets:** keys live in the gitignored `.env`. Never print, copy, or commit their values; `.env.example` lists names only.
-- **Checks:** `uv run pytest`, `uv run ruff check .`, and `uv run ruff format --check .` must pass before committing. Before each commit, run `uv run ruff format .` and `uv run ruff check --fix .`, which fix most failures. The pre-commit hook runs the checks and the vendor sync check on every commit, and CI on every push, so run the checks by hand only while fixing a failure. After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`. A pull request that changes components needs its **review-component result** section filled; CI checks it.
+- **Checks:** `uv run pytest`, `uv run ruff check .`, and `uv run ruff format --check .` must pass before committing. Before each commit, run `uv run ruff format .` and `uv run ruff check --fix .`, which fix most failures. The pre-commit hook runs the checks and the vendor sync check on every commit, and CI on every push, so run the checks by hand only while fixing a failure. After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`. A pull request that changes components needs its **review-component result** section to name every changed component; CI checks it, and `uv run agentic/scripts/check_pr_review.py origin/main --body-file <file>` checks a draft body locally.
 - **Writing style:** concise wording; quality over development cost; no em dashes in responses or written artifacts.
 
 ## Think before coding
@@ -24,7 +24,8 @@ Don't assume. Don't hide confusion. Surface tradeoffs. Before implementing:
 - If multiple interpretations exist, present them; don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
-- When the owner is not present: guess a choice that is cheap to undo and list it under "Decisions for the owner" in the report or pull request; block on a choice that is hard to undo.
+- When the owner is not present: guess a choice that is cheap to undo and list it under "Decisions for the owner" in the report and the pull request description; keep it there until the owner answers. Block on a choice that is hard to undo.
+- Always ask first, even when it is cheap to undo, before overriding an earlier explicit owner instruction or changing what others see, such as a pull request, issue, or the remote's shared branches.
 
 ## Simplicity first
 
