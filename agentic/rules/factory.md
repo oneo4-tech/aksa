@@ -8,6 +8,7 @@ Read before working on a factory run: its factory issue, any of its stages, or a
 - All run state lives in the factory issue: labels, body sections, the task checklist, and `Factory:` comments (D-024). Never keep run state in local files or vendor memory.
 - Labels and the body change only through `uv run agentic/scripts/factory_issue.py`, whose `status` command reads the whole run. Comments, closing the issue, and pull requests use `gh` directly. The label set is in `config/factory.yaml`.
 - The `factory-orchestrator` agent runs each run (D-027); start or resume one with `run-factory`.
+- A release is not a run: the owner starts it with `release-version`, the only writer of `CHANGELOG.md` (D-035).
 
 ## Lifecycle
 
