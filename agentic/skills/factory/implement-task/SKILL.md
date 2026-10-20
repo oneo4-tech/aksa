@@ -7,7 +7,7 @@ description: Use when a factory run in stage build has an open task (the next li
 
 ## Inputs and prerequisites
 
-- The factory issue in stage `build`: `uv run agentic/scripts/factory_issue.py status <n>` gives the next task, its branch, and the delivery branch. A small run is one task, `T1`, on its delivery branch. In fix mode, the blocking findings of the task's latest `Factory: verify` comment, or the items of the latest `Factory: owner review` comment marked to change in this run.
+- The factory issue in stage `build`: `uv run agentic/scripts/factory_issue.py status <n>` gives the next task, its branch, and the delivery branch. A small run is one task, `T1`, on its delivery branch. In fix mode, the blocking findings of the task's latest `Factory: verify` comment, the items of the latest `Factory: owner review` comment marked to change in this run, or a check that failed at ship, named in the stage move's reason.
 - The contract: the acceptance criteria the task covers (the end of its title, or all of them for a small run), each with its test from the Requirement or Spec, and the Concept's "To record" items.
 - Rules: `agentic/rules/coding.md` (test first), `agentic/rules/git.md` (worktrees and commits), `agentic/rules/components.md` (component changes).
 
@@ -25,7 +25,7 @@ description: Use when a factory run in stage build has an open task (the next li
 
 ## Fix mode
 
-- The input is the blocking findings by id, such as `F2`, from the latest `Factory: verify` comment, or the owner's review items, such as `R1`.
+- The input is the blocking findings by id, such as `F2`, from the latest `Factory: verify` comment, the owner's review items, such as `R1`, or a check that failed at ship.
 - Work in the run's worktree, on the task's branch. Each fix gets a test first where behaviour changes, then the fix, in a commit naming its finding or item: `fix(<scope>): address F2`.
 - Return when every blocking finding has its commit; notes are never touched.
 

@@ -394,6 +394,18 @@ def test_queue_shows_what_each_waiting_run_needs_and_its_pull_request(gh, capsys
     assert (rows[5]["needed"], rows[5]["pr"]) == (None, None)
 
 
+def test_queue_shows_the_claim_and_reports_unreadable_runs(gh, capsys):
+    gh.add(4, body=BODY.replace("PR: none", "PR: #12") + "- [ ] T3 typed by hand\n", labels=["stage:build", "claimed"])
+    gh.add(5, labels=["stage:build", "stage:ship"])
+    gh.add(6, labels=["stage:define"])
+    run(gh, "status")
+    rows = {row["number"]: row for row in json.loads(capsys.readouterr().out)}
+    assert (rows[4]["claimed"], rows[6]["claimed"]) == (True, False)
+    assert any("unreadable line" in problem for problem in rows[4]["problems"])
+    assert any("more than one stage label" in problem for problem in rows[5]["problems"])
+    assert rows[6]["problems"] == []
+
+
 def test_status_shows_the_need_only_while_waiting(gh, capsys):
     gh.add(7, labels=["stage:define", "needs:owner"], comments=["Factory: needs the owner: Approve G1."])
     run(gh, "status", "7")

@@ -8,7 +8,7 @@ description: Use when a large factory run is in stage plan, or the owner asks to
 ## Inputs and prerequisites
 
 - The factory issue in stage `plan`, with its Requirement and Spec; `uv run agentic/scripts/factory_issue.py status <n>` gives the integration branch name. Another stage: stop and report it.
-- After a step back from build: the existing checklist and the reason given; landed tasks stay.
+- After a step back from build or ship: the existing checklist and the reason given; landed tasks stay.
 
 ## Procedure
 
@@ -16,8 +16,8 @@ description: Use when a large factory run is in stage plan, or the owner asks to
 2. **Slice vertically:** each task goes through every layer it needs, is checkable on its own, and fits one session of implementing, verifying, and landing. A prefactor comes first; a wide change no single slice can keep green goes expand, migrate, contract.
 3. **Order the tasks** so each needs only earlier ones; they run one at a time in this order (D-033).
 4. **Check coverage:** every acceptance criterion is covered by at least one task, and no task adds scope. An uncovered criterion is a missing task; extra scope is cut or filed as a new work request.
-5. **Gate G3.** Show one row per task (`T<k>`, title, slug, the acceptance criteria it covers, what it delivers) and the integration branch name, and ask for the owner's explicit yes. Owner absent: follow **Owner in the loop** in `agentic/rules/factory.md`.
-6. **Write the checklist:** a file with one `<slug>: <title> (AC<i>, ...)` line per task, the title ending with the criteria it covers and short enough that its landing subject, `<prefix>(<scope>): <title>` without the criteria, fits 72 characters (`agentic/rules/git.md`); then `factory_issue.py task <n> --plan <file>`.
+5. **Gate G3.** Show one row per task (`T<k>`, title, slug, the acceptance criteria it covers, what it delivers) and the integration branch name, and ask for the owner's explicit yes. Owner absent: follow **Owner in the loop** in `agentic/rules/factory.md`. A fix task that the owner's review of the pull request asked for needs no second approval: that review stands as G3.
+6. **Write the checklist:** a file with one `<slug>: <title> (AC<i>, ...)` line per task, the title ending with the criteria it covers and short enough that its landing commit's first line, `<prefix>(<scope>): <title>` without the criteria, fits 72 characters (`agentic/rules/git.md`); then `factory_issue.py task <n> --plan <file>`.
 7. **Push the integration branch** if `git ls-remote origin int/<n>-<slug>` prints nothing: `git fetch origin`, then `git push origin origin/main:refs/heads/int/<n>-<slug>` (`agentic/rules/git.md`).
 8. **Move:** `factory_issue.py stage <n> build --reason "G3 approved by the owner."`.
 

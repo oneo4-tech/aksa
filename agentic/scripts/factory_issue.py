@@ -283,6 +283,20 @@ def delivery_pr(body: str) -> int | None:
         return None
 
 
+def queue_problems(issue: dict, config: Config) -> list[str]:
+    """Problems the queue sees without reading comments: extra labels and an unreadable body."""
+    problems = [
+        f"more than one {family} label: {', '.join(found)}"
+        for family, found in label_values(issue["labels"], config).items()
+        if len(found) > 1
+    ]
+    try:
+        parse_delivery(parse_body(issue["body"]).get("Delivery", ""))
+    except BadInput as error:
+        problems.append(f"body: {error}")
+    return problems
+
+
 def issue_status(issue: dict, config: Config) -> dict:
     labels, problems = issue["labels"], []
     values = label_values(labels, config)
@@ -356,6 +370,7 @@ def queue(issues: list[dict], config: Config) -> list[dict]:
                     "needed": latest_need(issue.get("comments", [])) if waiting else None,
                     "pr": delivery_pr(issue["body"]),
                     "claimed": "claimed" in issue["labels"],
+                    "problems": queue_problems(issue, config),
                 }
             )
     rank = {stage: index for index, stage in enumerate(STAGES)}

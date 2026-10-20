@@ -33,7 +33,7 @@ Each run reaches the owner's merge into `main`, or a recorded exit, with its fac
    - Plain text: write it to a file in the session's scratch space, then `F intake --title "<the request in a few words>" --request-file <file>`.
    - `#<n>` without a `stage:*` label: `F intake --issue <n>`; the owner naming it is the approval.
    - `#<n>` with one: resume it.
-   - Nothing: show `F status` as a table of every open run with its stage, pull request, and claim, those waiting for the owner first and flagged with what each needs (`needed`). Ask which to continue. Stop.
+   - Nothing: show `F status` as a table of every open run with its stage, pull request, and claim, those waiting for the owner first and flagged with what each needs (`needed`), and any run with `problems` flagged too. Ask which to continue. Stop.
 2. **Claim it:** `F claim <n> --session <id>`. If refused, show the owner the holder; run it again with `--takeover` only on the owner's explicit yes.
 3. **Read the state:** `F status <n>`. Resolve every reported problem first, asking the owner where it needs a decision. A run waiting for the owner: show its need (`needed`) first, and once the owner has answered, `F set <n> --owner clear`.
 4. **Run the stage's skill** from the lifecycle table, with the issue number. In `build`, take each open task in checklist order: `implement-task` in a fresh sub-agent, then `verify-task`, until every task has landed; a small run is one task on its delivery branch.

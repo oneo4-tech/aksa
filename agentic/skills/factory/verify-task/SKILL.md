@@ -29,7 +29,7 @@ The report and any confirm result on the factory issue, and the task landed and 
 
 ## Constraints
 
-- One full review and at most one confirm pass per task (D-032). Notes are never fixed in the run and never raised again; at ship the owner may turn them into new work requests.
+- One full review per task, and one confirm pass for its blocking findings (D-032); the owner's review items sent back to a small run get one confirm pass of their own. Notes are never fixed in the run and never raised again; at ship the owner may turn them into new work requests.
 - The reviewer sees artifacts only: the factory issue, the diff, and the rules, never the implementer's reasoning. `review-component` results are inputs, not repeated.
 - Only this skill lands a task on an integration branch (D-040).
 
