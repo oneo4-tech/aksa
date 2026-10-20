@@ -25,7 +25,12 @@ description: Use after a session, or on request, to find AI slop and friction in
    - Context found late that the root rule or an on-demand index should have pointed to.
    - Approaches the owner confirmed as right, worth keeping.
 2. **Audit the environment.** Inventory the components without reading them in full: `AGENTS.md`, `agentic/rules/`, skill names and descriptions (`grep -r "^description:" agentic/skills`), `agentic/agents/` when present, `agentic/scripts/`, `agentic/templates/`, `tests/`, `.githooks/`, `.github/workflows/`, and the vendor settings such as `.claude/settings.json`. For each finding, open only the component that governs it, and use `get-memory` for related terms and decisions.
-3. **Find the root cause** of each finding: guidance missing, unclear, not loaded when needed, clear but ignored, or work left to judgment that could be deterministic.
+3. **Find the root cause** of each finding, one of:
+   - `missing`: no guidance covers it.
+   - `unclear`: guidance exists but is ambiguous or conflicts with other guidance.
+   - `not-loaded`: guidance exists but was not in context when needed.
+   - `ignored`: guidance was clear and loaded but not followed.
+   - `not-deterministic`: work was left to judgment that a script, template, or check could do.
 4. **Choose the area of action**, one per learning:
    - `skill`: a repeated instruction set becomes a new skill, or an existing skill's instructions change.
    - `agent`: an agent is added or its instructions change.
@@ -47,10 +52,10 @@ description: Use after a session, or on request, to find AI slop and friction in
 1. **Audit:** the transcript scope (source, turns covered, any summarized part) and the components consulted.
 2. **Learnings:** a table, most impactful first:
 
-   | # | Learning | Evidence | Area | Target | Preventive action |
-   |---|---|---|---|---|---|
+   | # | Learning | Evidence | Root cause | Area | Target | Preventive action |
+   |---|---|---|---|---|---|---|
 
-   Evidence is a turn reference or a quote under 20 words. Target is a repository path or `new: <path>`.
+   Evidence is a turn reference or a quote under 20 words. Root cause is a label from step 3 followed by the specific gap, such as `not-loaded`: the hook checks only the main checkout. Target is a repository path or `new: <path>`.
 3. **Not actioned:** findings judged one-off or not worth a change, one line each with the reason.
 
 If the transcript cannot be read, report blocked with the reason; never audit from memory of the session.
@@ -65,6 +70,6 @@ If the transcript cannot be read, report blocked with the reason; never audit fr
 ## Done when
 
 - The audit states the transcript scope and the components consulted.
-- Every learning has evidence, exactly one area from the list, a target, and a concrete preventive action.
+- Every learning has evidence, a root cause label with its specific gap, exactly one area from the list, a target, and a concrete preventive action.
 - Any action that touches an active decision is marked as a decision proposal.
 - No file in the repository, Memory, or the Knowledge Base was changed.
