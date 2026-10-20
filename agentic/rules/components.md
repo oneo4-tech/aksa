@@ -33,7 +33,7 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
   - `factory`: the Software Factory lifecycle and its supporting operations.
   - `engineering`: software development, testing, review, and delivery.
   - `auxiliary`: supporting operations that serve any work, such as research, retrospectives, handoffs, clarifications, and prototypes, and fit no domain above.
-- A new category needs a definition the owner has agreed, added to this list before any skill uses it.
+- Adding or redefining a category needs a new decision row agreed with the owner through `add-memory` (D-022), before any skill uses it.
 - `name` matches the directory, is lowercase hyphenated verb-object (D-005), and is unique across categories, since vendors get a flat folder **[checked]**.
 - `description` states when to use the skill and the result it produces **[checked: present]**.
 - `description` carries when to use the skill; the body has no separate section for it.
@@ -50,6 +50,14 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
   `SKILL.md` names each supporting file by its path relative to the skill folder, such as `references/<file>.md`, and states when to read it, so it loads only when a step needs it.
 - No checker scripts: a skill states the rules its output must meet as **Done when** conditions, not as a script that validates the output.
 - After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`.
+
+## Adapting a reference
+
+When a component starts from an outside reference, such as another repository's skill:
+
+1. List its files without cache folders, and read its main file first; read other files only when a part depends on them.
+2. Before writing, state for each part whether it is kept, adapted, or dropped, checked against this standard, active decisions, and the scripts and skills aksa already has.
+3. Write the component in aksa's own shape and terms; never copy a part only because the reference has it.
 
 ## Writing
 

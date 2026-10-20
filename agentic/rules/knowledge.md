@@ -26,7 +26,7 @@ Read before retrieving from, adding to, reviewing, or repairing Memory (`agentic
 | `wiki/<domain>/<topic>.md` | Curated, owner-approved pages; the only trusted content | Yes |
 | `inbox/<YYYY-MM-DD>-<slug>.md` | Captures awaiting `review-kb` | No |
 | `raw/<YYYY-MM-DD>-<slug>.<ext>` | Immutable source documents cited by pages or inbox items | Only to verify a citation |
-| `outputs/` | Generated deliverables | No |
+| `outputs/` | Generated deliverables of domain knowledge, such as research; never notes about aksa work, such as handoffs (D-015) | No |
 | `log.md` | Append-only: `- YYYY-MM-DD <action> <path>: <note>`, actions `add`, `approve`, `drop`, `repair` | No |
 
 - Domain, topic, slug, and tag names are lowercase hyphenated. Reuse an existing domain or tag from `index.md` before creating one.

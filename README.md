@@ -34,7 +34,7 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-The pre-commit hook and CI (`.github/workflows/check.yml`) run the same checks.
+The pre-commit hook and CI (`.github/workflows/check.yml`) run the same checks; the hook also checks the vendor sync. On pull requests that change components, `.github/workflows/review.yml` requires a filled **review-component result** section.
 
 ## Where things are decided
 

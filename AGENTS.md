@@ -7,13 +7,13 @@ This file is the root rule (D-007), always loaded. It holds the rules every agen
 ## Always-on rules
 
 - **Repository root:** work from the repository root so guidance, hooks, and relative paths resolve.
-- **Agreed records:** use terms as defined in `agentic/memory/vocabulary.md` and follow active decisions in `agentic/memory/decisions.md`. Do not add terms or reverse decisions without the owner's agreement and the change process at the top of each file.
+- **Agreed records:** use terms as defined in `agentic/memory/vocabulary.md` and follow active decisions in `agentic/memory/decisions.md`. Do not add terms or reverse decisions without the owner's agreement and the change process at the top of each file. When a request conflicts with an active decision, name the decision and ask before building.
 - **Memory and knowledge:** retrieve facts about aksa with `get-memory` and domain knowledge with `get-kb`; change them only through their add, review, and repair skills (`agentic/rules/knowledge.md`). Vendor auto-memory holds personal preferences only (D-019).
 - **Components:** before creating, changing, or reviewing a rule, skill, agent, memory, script, or template, read `agentic/rules/components.md`. Accept the change only after the `review-component` skill passes.
 - **Paths:** no absolute or machine-specific paths anywhere except `config/environment.yaml` (D-012). Use repository-relative paths and the external resource symlinks.
 - **External resources:** reach `.kb`, `.projects`, and `.worktrees` only through their repo-root symlinks, and never commit their contents. Create every git worktree with `uv run agentic/scripts/new_worktree.py <branch>`, which places it under `.worktrees/` and sets up its links and vendor folders.
 - **Secrets:** keys live in the gitignored `.env`. Never print, copy, or commit their values; `.env.example` lists names only.
-- **Checks:** `uv run pytest`, `uv run ruff check .`, and `uv run ruff format --check .` must pass before committing. The pre-commit hook runs them on every commit and CI on every push, so run them by hand only while fixing a failure. After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`.
+- **Checks:** `uv run pytest`, `uv run ruff check .`, and `uv run ruff format --check .` must pass before committing. Before each commit, run `uv run ruff format .` and `uv run ruff check --fix .`, which fix most failures. The pre-commit hook runs the checks and the vendor sync check on every commit, and CI on every push, so run the checks by hand only while fixing a failure. After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`. A pull request that changes components needs its **review-component result** section filled; CI checks it.
 - **Writing style:** concise wording; quality over development cost; no em dashes in responses or written artifacts.
 
 ## Think before coding
@@ -50,7 +50,7 @@ Write the minimum code that solves the problem. Nothing speculative.
 - `config/`: repository settings read by scripts; `environment.yaml` maps the external symlinks to this machine.
 - `tests/`: pytest tests for the scripts and repository invariants.
 - `.githooks/`: tracked hooks; enable once per clone with `git config core.hooksPath .githooks`.
-- `.github/workflows/`: CI running the pre-commit checks. `.github/pull_request_template.md`: pull request sections, including the `review-component` result.
+- `.github/workflows/`: CI running the pre-commit checks (`check.yml`) and the pull request review check (`review.yml`). `.github/pull_request_template.md`: pull request sections, including the `review-component` result.
 - `.claude/settings.json`: shared Claude permissions and the session-start sync check.
 - `.vscode/`: workspace settings, extensions, and agent CLI tasks.
 - `.kb`, `.projects`, `.worktrees`: gitignored symlinks to the external Knowledge Base (its own git repository), project workspace, and git worktrees.
@@ -82,4 +82,5 @@ Load each item when its condition applies, not up front.
 - `agentic/scripts/link_external.py`: create or repair the external symlinks from `config/environment.yaml`; `--check` verifies.
 - `agentic/scripts/sync_vendors.py`: sync skills to vendor folders; `--check` verifies.
 - `agentic/scripts/new_worktree.py`: create a git worktree under `.worktrees/` with its links and vendor folders set up.
+- `agentic/scripts/check_pr_review.py`: in CI, fail a pull request that changes components without a `review-component` result.
 - `agentic/scripts/kb_index.py`: rebuild `.kb/index.md` from wiki page frontmatter; `--check` validates.
