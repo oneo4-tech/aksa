@@ -5,10 +5,6 @@ description: Use when the owner agrees a new or changed term, or a new, rejected
 
 # Add memory
 
-## When to use
-
-The owner has agreed a term or a decision about aksa that should bind future work. Domain knowledge goes to `add-kb` instead (D-015).
-
 ## Inputs and prerequisites
 
 - The term and meaning, or the decision: kind, areas, one-sentence decision, one-sentence why, and source (issue, PR, or session).
@@ -32,3 +28,10 @@ The added or changed rows with their file paths, and the test result. Report fai
 
 - Never edit a decision row except its Status; never reuse an id.
 - Never record without the owner's agreement.
+- Domain knowledge goes to `add-kb`, not Memory (D-015).
+
+## Done when
+
+- Each new or changed row is in the right file, with an unused id and areas from the header list.
+- A superseded row is in `decisions-history.md` with its Status set, and no rule or skill still restates it.
+- `uv run pytest` passes.

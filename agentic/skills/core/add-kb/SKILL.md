@@ -5,10 +5,6 @@ description: Use to capture domain knowledge, a learning, or a source document f
 
 # Add KB
 
-## When to use
-
-Domain knowledge worth keeping has come up: a learning, a finding, a reference, or a document. Facts about aksa go to `add-memory` instead (D-015).
-
 ## Inputs and prerequisites
 
 - The knowledge in a few sentences, and any source document or URL.
@@ -31,3 +27,9 @@ The inbox item path and a reminder that it becomes trusted only after `review-kb
 
 - Never write to `wiki/` or `index.md`; only `review-kb` promotes (D-017).
 - Never modify a file in `raw/` once added.
+- Facts about aksa go to `add-memory`, not the Knowledge Base (D-015).
+
+## Done when
+
+- The inbox item exists in `.kb/inbox/` by the inbox item contract, and any source document is in `.kb/raw/`.
+- `.kb/log.md` has the `add` line, and the change is committed in the Knowledge Base repository.

@@ -5,10 +5,6 @@ description: Use periodically or when Memory feels stale, duplicated, or contrad
 
 # Repair memory
 
-## When to use
-
-On request, after a burst of decisions, or when `get-memory` returns overlapping or conflicting rows.
-
 ## Inputs and prerequisites
 
 - `agentic/memory/vocabulary.md`, `agentic/memory/decisions.md`, `agentic/memory/decisions-history.md`, and the standard in `agentic/rules/knowledge.md`.
@@ -31,3 +27,8 @@ Two lists: changes applied (with file paths and ids), and proposals declined or 
 
 - Mechanical moves only without approval; every change of meaning needs the owner.
 - Never delete a decision; superseded rows go to history.
+
+## Done when
+
+- `uv run pytest` passes.
+- Every applied change of meaning has the owner's approval, and every proposal is reported as applied, declined, or awaiting the owner.

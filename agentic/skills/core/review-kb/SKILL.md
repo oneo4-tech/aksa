@@ -5,10 +5,6 @@ description: Use when the Knowledge Base inbox has items. Walks the owner throug
 
 # Review KB
 
-## When to use
-
-The owner asks to review the inbox, or items in `.kb/inbox/` are waiting.
-
 ## Inputs and prerequisites
 
 - `.kb` linked; if missing, run `uv run agentic/scripts/link_external.py --check` and report the result.
@@ -34,3 +30,8 @@ Lists of approved items (with page paths), dropped items, and skipped items, and
 
 - Only the owner approves or drops (D-017).
 - Never edit `index.md` by hand.
+
+## Done when
+
+- Every inbox item listed at the start is approved, dropped, or skipped by the owner's choice.
+- Each approval and drop has a line in `.kb/log.md`, `uv run agentic/scripts/kb_index.py` reports no error, and the changes are committed in the Knowledge Base repository.

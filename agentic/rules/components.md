@@ -32,9 +32,11 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
   - `productivity`: personal work organization.
   - `factory`: the Software Factory lifecycle and its supporting operations.
   - `engineering`: software development, testing, review, and delivery.
+  - `aux`: auxiliary utilities that support other work, such as document, file, or tool helpers, and fit no domain above.
 - `name` matches the directory, is lowercase hyphenated verb-object (D-005), and is unique across categories, since vendors get a flat folder **[checked]**.
 - `description` states when to use the skill and the result it produces **[checked: present]**.
-- Sections, in order: **When to use**, **Inputs and prerequisites** (including how to handle missing inputs), **Procedure** (ordered, actionable), **Output** (including how to report failures or blocked work), **Constraints** (approvals, scope limits, applicable decisions) **[checked: present and ordered]**.
+- `description` carries when to use the skill; the body has no separate section for it.
+- Sections, in order: **Inputs and prerequisites** (including how to handle missing inputs), **Procedure** (ordered, actionable), **Output** (including how to report failures or blocked work), **Constraints** (approvals, scope limits, applicable decisions, routing to other skills), **Done when** (verifiable conditions checked before reporting completion) **[checked: present and ordered]**.
 - Files, scripts, and assets used only by the skill stay in its directory.
 - After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`.
 

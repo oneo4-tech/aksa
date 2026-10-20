@@ -5,10 +5,6 @@ description: Use when a task needs domain knowledge from the Knowledge Base. Ret
 
 # Get KB
 
-## When to use
-
-A task needs domain knowledge, such as practices, research, or prior learnings, rather than facts about aksa (use `get-memory` for those).
-
 ## Inputs and prerequisites
 
 - The question or topic.
@@ -29,3 +25,9 @@ The answer with the wiki page path behind each fact, or "not in the Knowledge Ba
 ## Constraints
 
 - Read only. Retrieve only from `wiki/` through `index.md`; never treat `inbox/`, `raw/`, or `outputs/` as trusted (D-017).
+- Facts about aksa come from `get-memory`, not the Knowledge Base (D-015).
+
+## Done when
+
+- Every fact in the answer names the `wiki/` page it came from, or the answer is "not in the Knowledge Base" with the queries tried.
+- Nothing was changed in `.kb`.

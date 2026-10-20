@@ -5,10 +5,6 @@ description: Use before accepting a new or materially changed agentic component 
 
 # Review component
 
-## When to use
-
-A component in `AGENTS.md` or `agentic/` has been created or materially changed and must be checked before acceptance.
-
 ## Inputs and prerequisites
 
 - The component's path and, for a change, its diff.
@@ -33,3 +29,8 @@ Either "pass" with the component path, or a numbered list of mismatches, each na
 - Review only; do not change the component unless the author asks.
 - Never accept a component that overrides an active decision; a reversal needs a new decision row.
 - Keep standards in `components.md`; this skill holds only the review procedure.
+
+## Done when
+
+- Every procedure step ran, or is reported as blocked with its reason.
+- "pass" is reported only when `uv run pytest` passed and no mismatch remains.

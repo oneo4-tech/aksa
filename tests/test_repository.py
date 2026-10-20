@@ -8,8 +8,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 PATHS_FILE = "config/environment.yaml"
-CATEGORIES = {"core", "productivity", "factory", "engineering"}
-SKILL_SECTIONS = ["When to use", "Inputs and prerequisites", "Procedure", "Output", "Constraints"]
+CATEGORIES = {"core", "productivity", "factory", "engineering", "aux"}
+SKILL_SECTIONS = ["Inputs and prerequisites", "Procedure", "Output", "Constraints", "Done when"]
 # Absolute or home-relative paths (D-012). Split so this file does not match itself.
 ABSOLUTE_PATH = re.compile("|".join(["/" + "Users/", "/" + "home/", "~" + "/", r"\$" + "HOME", r"[A-Z]:\\"]))
 # Backticked repo paths, such as `agentic/rules/x.md`, without placeholders.
