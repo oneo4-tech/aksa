@@ -32,7 +32,7 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
   - `productivity`: personal work organization.
   - `factory`: the Software Factory lifecycle and its supporting operations.
   - `engineering`: software development, testing, review, and delivery.
-  - `auxiliary`: cross-cutting operations about the agentic system itself, such as retrospectives and audits.
+  - `auxiliary`: supporting operations that serve any work, such as research and retrospectives, and fit no domain above.
 - A new category needs a definition the owner has agreed, added to this list before any skill uses it.
 - `name` matches the directory, is lowercase hyphenated verb-object (D-005), and is unique across categories, since vendors get a flat folder **[checked]**.
 - `description` states when to use the skill and the result it produces **[checked: present]**.
