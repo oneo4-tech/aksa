@@ -116,6 +116,12 @@ def test_skill_structure(skill_md):
     assert [h for h in headings if h in sections] == sections
 
 
+@pytest.mark.parametrize("skill_md", skill_files(), ids=lambda p: p.parent.name)
+def test_skill_folder_structure(skill_md):
+    entries = {p.name for p in skill_md.parent.iterdir() if p.name != "__pycache__"}
+    assert entries <= {"SKILL.md", "references", "scripts"}, "see the folder structure in components.md"
+
+
 def test_skill_names_unique():
     names = [p.parent.name for p in skill_files()]
     assert len(names) == len(set(names))

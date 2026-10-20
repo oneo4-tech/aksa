@@ -60,7 +60,7 @@ If the subagent fails or returns another shape, say so and run `references/re-pi
 
 ## Done when
 
-- A subagent wrote the re-pitch, and the main context holds only the brief and the returned result.
+- A subagent wrote the re-pitch, and the main context holds only the brief and the returned result; or, without a working subagent, the re-pitch was written inline by `references/re-pitch.md` and the reply says so.
 - The re-pitch starts with a Context line and carries every claim of the target message, with no new claim or recommendation.
 - Every term in `MISSING TERMS` is offered, or the list is `none`.
 - The interrupted work has resumed where it stopped.

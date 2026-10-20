@@ -32,13 +32,23 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
   - `productivity`: personal work organization.
   - `factory`: the Software Factory lifecycle and its supporting operations.
   - `engineering`: software development, testing, review, and delivery.
-  - `auxiliary`: supporting operations that serve any work, such as research and retrospectives, and fit no domain above.
+  - `auxiliary`: supporting operations that serve any work, such as research, retrospectives, handoffs, clarifications, and prototypes, and fit no domain above.
 - A new category needs a definition the owner has agreed, added to this list before any skill uses it.
 - `name` matches the directory, is lowercase hyphenated verb-object (D-005), and is unique across categories, since vendors get a flat folder **[checked]**.
 - `description` states when to use the skill and the result it produces **[checked: present]**.
 - `description` carries when to use the skill; the body has no separate section for it.
 - Sections, in order: **Inputs and prerequisites** (including how to handle missing inputs), **Procedure** (ordered, actionable), **Output** (including how to report failures or blocked work), **Constraints** (approvals, scope limits, applicable decisions, routing to other skills), **Done when** (verifiable conditions checked before reporting completion) **[checked: present and ordered]**.
-- Files, scripts, and assets used only by the skill stay in its directory.
+- Folder structure, nothing else at the top level **[checked]**:
+
+  ```text
+  agentic/skills/<category>/<skill-name>/
+    SKILL.md      the procedure
+    references/   files the procedure reads on demand: output templates, subagent briefs, branch guides
+    scripts/      deterministic steps of the procedure, only when it has them
+  ```
+
+  `SKILL.md` names each supporting file by its path relative to the skill folder, such as `references/<file>.md`, and states when to read it, so it loads only when a step needs it.
+- No checker scripts: a skill states the rules its output must meet as **Done when** conditions, not as a script that validates the output.
 - After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`.
 
 ## Writing
