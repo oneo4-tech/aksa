@@ -2,9 +2,9 @@
 
 `aksa` (Sanskrit for central axis) is an AI workflow operating system with an agent harness and software factory.
 
-This file is the root rule (D-007), always loaded. It holds the rules every agent always follows, a map of the repository, and where to find context on demand.
+This file is the root rule (D-007), always loaded. It holds the binding rules every agent always follows, agent principles for guidance, a map of the repository, and where to find context on demand.
 
-## Always-on rules
+## Binding Rules (always enforced)
 
 - **Repository root:** work from the repository root so guidance, hooks, and relative paths resolve.
 - **Agreed records:** use terms as defined in `agentic/memory/vocabulary.md` and follow active decisions in `agentic/memory/decisions.md`. Do not add terms or reverse decisions without the owner's agreement and the change process at the top of each file. When a request conflicts with an active decision, name the decision and ask before building.
@@ -17,7 +17,9 @@ This file is the root rule (D-007), always loaded. It holds the rules every agen
 - **Checks:** `uv run pytest`, `uv run ruff check .`, and `uv run ruff format --check .` must pass before committing. Before each commit, run `uv run ruff format .` and `uv run ruff check --fix .`, which fix most failures. The pre-commit hook runs the checks and the vendor sync check on every commit, and CI on every push, so run the checks by hand only while fixing a failure or when a skill's procedure runs them, such as `review-component`. After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`. A pull request that changes components needs its **review-component result** section to name every changed component; CI checks it, and `uv run agentic/scripts/check_pr_review.py origin/main --body-file <file>` checks a draft body locally.
 - **Writing style:** concise wording; quality over development cost; no em dashes in responses or written artifacts.
 
-## Think before coding
+## Agent Principles (guidance, not enforced by CI)
+
+### Think before coding
 
 Don't assume. Don't hide confusion. Surface tradeoffs. Before implementing:
 
@@ -28,7 +30,7 @@ Don't assume. Don't hide confusion. Surface tradeoffs. Before implementing:
 - When the owner is not present: guess a choice that is cheap to undo and list it under "Decisions for the owner" in the report and the pull request description; keep it there until the owner answers. Block on a choice that is hard to undo.
 - Always ask first, even when it is cheap to undo, before overriding an earlier explicit owner instruction or changing what others see: pull request or issue text, other people's branches, `main`, and merges. Two things need no approval: pushing to the session's own feature branch, and keeping its pull request's **review-component result** and **Decisions for the owner** sections current. In a factory run, landing verified tasks on the run's integration branch and changing its own factory issue need no approval either (D-040).
 
-## Simplicity first
+### Simplicity first
 
 Write the minimum code that solves the problem. Nothing speculative.
 
@@ -39,7 +41,7 @@ Write the minimum code that solves the problem. Nothing speculative.
 - If 200 lines could be 50, rewrite it.
 - Ask: "Would a senior engineer call this overcomplicated?" If yes, simplify.
 
-## Repository map
+## Repository Map
 
 - `AGENTS.md`: this root rule. `README.md`: human setup and checks. `CHANGELOG.md`: release notes, written only by `release-version` from the first release on.
 - `agentic/`: the agentic components.
@@ -58,7 +60,7 @@ Write the minimum code that solves the problem. Nothing speculative.
 - `.kb`, `.projects`, `.worktrees`: gitignored symlinks to the external Knowledge Base (its own git repository), project workspace, and git worktrees.
 - `pyproject.toml`, `uv.lock`: Python project metadata and locked dependencies.
 
-## On-demand context
+## On-Demand Context
 
 Load each item when its condition applies, not up front.
 
@@ -77,7 +79,7 @@ Load each item when its condition applies, not up front.
 - `agentic/memory/decisions-history.md`: only to learn why a decision changed.
 - `.kb/index.md`: the entry point to trusted domain knowledge; read it before any `.kb` page.
 
-### Skills and templates
+### Skills and Templates
 
 - Skills are offered by name through the vendor folders; their sources are in `agentic/skills/`.
 - Start a new rule, skill, or agent from its file in `agentic/templates/`.
