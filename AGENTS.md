@@ -7,39 +7,23 @@ This file is the root rule (D-007), always loaded. It holds the binding rules ev
 ## Binding Rules (always enforced)
 
 - **Repository root:** work from the repository root so guidance, hooks, and relative paths resolve.
-- **Agreed records:** use terms as defined in `agentic/memory/vocabulary.md` and follow active decisions in `agentic/memory/decisions.md`. Do not add terms or reverse decisions without the owner's agreement and the change process at the top of each file. When a request conflicts with an active decision, name the decision and ask before building.
-- **Memory and knowledge:** retrieve facts about aksa with `get-memory` and domain knowledge with `get-kb`; change them only through their add, review, and repair skills (`agentic/rules/knowledge.md`). Vendor auto-memory holds personal preferences only (D-019).
-- **Components:** before creating, changing, or reviewing a rule, skill, agent, memory, script, or template, read `agentic/rules/components.md`. Accept the change only after the `review-component` skill passes.
-- **Software work:** every change to code or components runs as a Software Factory run, started or resumed with `run-factory` (`agentic/rules/factory.md`); a release runs through `release-version` (D-038).
-- **Paths:** no absolute or machine-specific paths anywhere except `config/environment.yaml` (D-012). Use repository-relative paths and the external resource symlinks.
-- **External resources:** reach `.kb`, `.projects`, and `.worktrees` only through their repo-root symlinks, and never commit their contents. Create every git worktree with `uv run agentic/scripts/new_worktree.py <branch>`, which places it under `.worktrees/` and sets up its links and vendor folders.
-- **Secrets:** keys live in the gitignored `.env`. Never print, copy, or commit their values; `.env.example` lists names only.
-- **Checks:** `uv run pytest`, `uv run ruff check .`, and `uv run ruff format --check .` must pass before committing. Before each commit, run `uv run ruff format .` and `uv run ruff check --fix .`, which fix most failures. The pre-commit hook runs the checks and the vendor sync check on every commit, and CI on every push, so run the checks by hand only while fixing a failure or when a skill's procedure runs them, such as `review-component`. After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`. A pull request that changes components needs its **review-component result** section to name every changed component; CI checks it, and `uv run agentic/scripts/check_pr_review.py origin/main --body-file <file>` checks a draft body locally.
-- **Writing style:** concise wording; quality over development cost; no em dashes in responses or written artifacts.
+- **Agreed records:** use terms from `agentic/memory/vocabulary.md` and decisions from `agentic/memory/decisions.md`; change them only through their agreed process.
+- **Memory and knowledge:** retrieve with `get-memory`/`get-kb`; change only via `add-memory`, `add-kb`, `review-kb`, `repair-kb` (`agentic/rules/knowledge.md`).
+- **Components:** before creating/changing/reviewing any component, read `agentic/rules/components.md`; accept only after `review-component` passes.
+- **Software work:** every change to code or components runs as a factory run (`run-factory` / `release-version`) — `agentic/rules/factory.md` (D-038).
+- **Paths:** no absolute/machine paths except `config/environment.yaml` (D-012); use repo-relative paths and symlinks.
+- **External resources:** reach `.kb`, `.projects`, `.worktrees` only through repo-root symlinks; never commit their contents; create worktrees via `uv run agentic/scripts/new_worktree.py` (D-012, D-039).
+- **Secrets:** keys in `.env` (gitignored); never print/copy/commit; `.env.example` lists names only.
+- **Checks:** `uv run pytest`, `ruff check`, `ruff format --check` must pass before commit; pre-commit runs them; run by hand only when fixing or per skill procedure.
+- **Writing style:** concise wording; quality over development cost; no em dashes.
 
-## Agent Principles (guidance, not enforced by CI)
+## Agent Principles (guidance, not enforced)
 
 ### Think before coding
-
-Don't assume. Don't hide confusion. Surface tradeoffs. Before implementing:
-
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them; don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-- When the owner is not present: guess a choice that is cheap to undo and list it under "Decisions for the owner" in the report and the pull request description; keep it there until the owner answers. Block on a choice that is hard to undo.
-- Always ask first, even when it is cheap to undo, before overriding an earlier explicit owner instruction or changing what others see: pull request or issue text, other people's branches, `main`, and merges. Two things need no approval: pushing to the session's own feature branch, and keeping its pull request's **review-component result** and **Decisions for the owner** sections current. In a factory run, landing verified tasks on the run's integration branch and changing its own factory issue need no approval either (D-040).
+State assumptions; present alternatives; push back on complexity; stop when unclear; guess cheap-to-undo choices when owner absent (list under "Decisions for the owner"); ask before overriding owner instructions or shared artifacts (PRs, issues, main). In factory runs: landing verified tasks and updating the factory issue need no approval (D-040).
 
 ### Simplicity first
-
-Write the minimum code that solves the problem. Nothing speculative.
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No flexibility or configurability that wasn't requested.
-- No error handling for impossible scenarios; handle real failures explicitly.
-- If 200 lines could be 50, rewrite it.
-- Ask: "Would a senior engineer call this overcomplicated?" If yes, simplify.
+Minimum code that solves the problem. No speculative features/abstractions/config. Handle real failures explicitly. Rewrite 200→50 lines. "Would a senior engineer call this overcomplicated?"
 
 ## Repository Map
 
