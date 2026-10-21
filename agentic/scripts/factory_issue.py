@@ -275,24 +275,26 @@ def latest_need(comments: list[str]) -> str | None:
     return None
 
 
-def read_run(issue: dict, config: Config) -> tuple[dict[str, list[str]], dict[str, str] | None, Delivery, list[str]]:
-    """Label values, body sections (None when unreadable), and Delivery, with the problems seen without comments."""
+def read_run(
+    issue: dict, config: Config
+) -> tuple[dict[str, list[str]], dict[str, str] | None, Delivery, list[str], list[str]]:
+    """Label values, body sections (None when unreadable), and Delivery, with two problem lists:
+    extra labels in a family, and an unreadable body."""
     values = label_values(issue["labels"], config)
-    problems = [
+    label_problems = [
         f"more than one {family} label: {', '.join(found)}" for family, found in values.items() if len(found) > 1
     ]
     try:
         sections = parse_body(issue["body"])
         delivery = parse_delivery(sections.get("Delivery", ""))
     except BadInput as error:
-        problems.append(f"body: {error}")
-        return values, None, Delivery(), problems
-    return values, sections, delivery, problems
+        return values, None, Delivery(), label_problems, [f"body: {error}"]
+    return values, sections, delivery, label_problems, []
 
 
 def issue_status(issue: dict, config: Config) -> dict:
     labels = issue["labels"]
-    values, sections, delivery, problems = read_run(issue, config)
+    values, sections, delivery, problems, body_problems = read_run(issue, config)
     if not values["stage"]:
         problems.append("no stage label")
     stage = values["stage"][0] if len(values["stage"]) == 1 else None
@@ -305,6 +307,7 @@ def issue_status(issue: dict, config: Config) -> dict:
         problems.append("no size label after define")
     if after_define and run_type and not re.match(rf"{config.prefixes[run_type]}[(:!]", issue["title"]):
         problems.append(f"title does not start with the {run_type} prefix")
+    problems += body_problems
     if sections is not None and "Request" not in sections:
         problems.append("no Request section")
     if stage in ("build", "ship") and not delivery.branch:
@@ -341,7 +344,7 @@ def queue(issues: list[dict], config: Config) -> list[dict]:
     """Open factory issues: those waiting for the owner first, with what each needs, then the furthest along."""
     rows = []
     for issue in issues:
-        values, _, delivery, problems = read_run(issue, config)
+        values, _, delivery, label_problems, body_problems = read_run(issue, config)
         if values["stage"]:
             stage = values["stage"][0] if len(values["stage"]) == 1 else None
             waiting = "needs:owner" in issue["labels"]
@@ -354,7 +357,7 @@ def queue(issues: list[dict], config: Config) -> list[dict]:
                     "needed": latest_need(issue.get("comments", [])) if waiting else None,
                     "pr": delivery.pr,
                     "claimed": "claimed" in issue["labels"],
-                    "problems": problems,
+                    "problems": label_problems + body_problems,
                 }
             )
     rank = {stage: index for index, stage in enumerate(STAGES)}
