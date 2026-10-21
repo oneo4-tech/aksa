@@ -1,0 +1,36 @@
+# Git
+
+Read before creating a branch, worktree, commit, or pull request, or before merging. A factory run's lifecycle is in `agentic/rules/factory.md`.
+
+## Branches
+
+| Branch | Name | From | Lands in |
+|---|---|---|---|
+| Small run | `<prefix>/<n>-<slug>` | `origin/main` | `main`, by pull request and squash merge |
+| Integration branch of a large run | `int/<n>-<slug>` | `origin/main` | `main`, by pull request and merge commit |
+| Task of a large run | `<prefix>/<n>-t<k>-<slug>` | the integration branch | the integration branch, by local squash merge |
+| Update of a delivery branch whose merge with `main` conflicts | `<prefix>/<n>-sync` | the delivery branch | the delivery branch, by push, then deleted |
+| Release | `chore/release-vX.Y.Z` | `origin/main` | `main`, by pull request and squash merge |
+
+- `<n>` is the factory issue number, `<prefix>` the run type's prefix in `config/factory.yaml`, and `<slug>` lowercase hyphenated words (D-030, D-039). `factory_issue.py status <n>` prints a run's branch names; use them as printed.
+- Prototype branches follow `build-prototype` and are never merged.
+
+## Worktrees
+
+- A run builds in one worktree (D-039). Create it for the run's first task, or for a small run's branch: run `git fetch origin`, then `uv run agentic/scripts/new_worktree.py <branch> <base>` with the base from the table, such as `origin/main` or `origin/int/<n>-<slug>`. It lands in `.worktrees/<branch with / replaced by ->`.
+- Each later task starts in the same worktree once the previous one has landed: `git fetch origin`, then `git switch -c <task branch> origin/int/<n>-<slug>`.
+- A sync or release branch gets its own worktree, created the same way. An integration branch gets none: `plan-tasks` pushes it from `origin/main`, and it changes only when a task lands or `ship-change` updates it.
+- The main checkout stays on a clean `main`. Run git only inside the worktree you work in; one writer per worktree at a time.
+- After a task lands, delete its branch: `git branch -D <branch>` (a squash merge leaves it unmerged in git's view) and `git push origin --delete <branch>`. At closeout, remove the run's worktree with `git worktree remove .worktrees/<dir>`; GitHub deletes merged pull request branches (D-037).
+
+## Commits
+
+- Conventional: `<prefix>(<scope>): <subject>`, with an optional lowercase scope and the whole first line at most 72 characters; a body with what and why; a `Refs #<n>` footer for factory work. A breaking change adds `!` after the scope and a `BREAKING CHANGE:` footer. AI co-author trailers are allowed (D-010).
+- Small commits, pushed as you go, so another session can resume.
+- Never bypass a hook, amend a pushed commit, force-push, or rebase a pushed branch. To update a branch, merge its base into it; on conflicts, use `resolve-merge-conflicts`.
+
+## Pull requests and merges
+
+- A factory run has one pull request into `main`, opened as a draft once its delivery branch differs from `main`: at a small run's first push, or when a large run's first task lands (D-025). Title: the factory issue's title. Body: `.github/pull_request_template.md`, with `Closes #<n>`.
+- Mark it ready only at ship. A merge into `main` is the owner's, or the factory's on the owner's explicit yes at ship (D-040): squash for a small run or a release, a merge commit for an integration branch (D-029). `.githooks/pre-push` refuses direct pushes to `main` (D-037).
+- A task lands on its integration branch from the run's worktree (D-039, D-040): `git fetch origin`, `git switch --detach origin/int/<n>-<slug>`, `git merge --squash <task branch>`, a commit whose first line is `<prefix>(<scope>): <task title without its criteria>`, at most 72 characters, then `git push origin HEAD:int/<n>-<slug>`.

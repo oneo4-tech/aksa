@@ -1,0 +1,10 @@
+#!/bin/sh
+# Enable once per clone: git config core.hooksPath .githooks
+# Refuses direct pushes to main; changes reach main only through pull requests merged by the owner or on the owner's yes (D-037, D-040).
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "pre-push: pushing to main is refused; open a pull request (agentic/rules/git.md)" >&2
+    exit 1
+  fi
+done
+exit 0

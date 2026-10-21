@@ -30,8 +30,7 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
 - Category, exactly one, by primary purpose, from this list **[checked]**:
   - `core`: foundational operations that fit no more specific domain.
   - `productivity`: personal work organization.
-  - `factory`: the Software Factory lifecycle and its supporting operations.
-  - `engineering`: software development, testing, review, and delivery.
+  - `factory`: the Software Factory lifecycle and its supporting operations, from work request to release (D-036).
   - `auxiliary`: supporting operations that serve any work, such as research, retrospectives, handoffs, clarifications, and prototypes, and fit no domain above.
 - Adding or redefining a category needs a new decision row agreed with the owner through `add-memory` (D-022), before any skill uses it.
 - `name` matches the directory, is lowercase hyphenated verb-object (D-005), and is unique across categories, since vendors get a flat folder **[checked]**.
@@ -48,7 +47,7 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
   ```
 
   `SKILL.md` names each supporting file by its path relative to the skill folder, such as `references/<file>.md`, and states when to read it, so it loads only when a step needs it.
-- No checker scripts: a skill states the rules its output must meet as **Done when** conditions, not as a script that validates the output.
+- Checks are code only when a script or CI reads the format, or when the check guards an invariant shared across runs (D-034). Such a check lives in the script that writes or reads that format, as validation on write or a `--check` mode. Every other rule a skill's output must meet is a **Done when** condition, never a separate script that validates the output.
 - After adding or renaming a skill, run `uv run agentic/scripts/sync_vendors.py claude codex`.
 
 ## Adapting a reference

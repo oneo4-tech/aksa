@@ -243,7 +243,7 @@ def test_main_check_exits_1_on_conflicting_opencode_field(repo, monkeypatch):
 
 def test_main_refuses_duplicate_names(repo, monkeypatch, capsys):
     add_skill(repo, "do-thing", "core")
-    add_skill(repo, "do-thing", "engineering")
+    add_skill(repo, "do-thing", "factory")
     assert run(monkeypatch, "claude") == 1
     assert "Skills not synced" in capsys.readouterr().err
     assert not (repo / ".claude" / "skills").exists()

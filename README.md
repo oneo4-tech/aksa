@@ -11,7 +11,7 @@ Requires [uv](https://docs.astral.sh/uv/) and git.
 ```sh
 uv sync                                   # Python and dev tools
 cp .env.example .env                      # then fill in keys
-git config core.hooksPath .githooks       # pre-commit checks
+git config core.hooksPath .githooks       # pre-commit checks, pre-push guard for main
 ```
 
 Point the external links at this machine: edit `config/environment.yaml` (the only file with absolute paths), then:
