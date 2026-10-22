@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>aksa — FACTS Framework</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #0a0a0f;
+            --fg: #e8e8ec;
+            --muted: #7a7a8a;
+            --accent: #00e5a0;
+            --accent-dim: #00e5a022;
+            --card: #12121a;
+            --border: #2a2a3a;
+            --gold: #ffd700;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg: #f8f8fc;
+                --fg: #1a1a2e;
+                --muted: #6a6a7a;
+                --accent: #00a87a;
+                --accent-dim: #00a87a1a;
+                --card: #fff;
+                --border: #e0e0eb;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            line-height: 1.65;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 4rem;
+            padding-bottom: 2.5rem;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+
+        header::after {
+            content: "";
+            position: absolute;
+            bottom: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            border-radius: 2px;
+        }
+
+        .logo {
+            font-size: clamp(2.5rem, 5vw, 3.5rem);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 0.75rem;
+            line-height: 1.1;
+        }
+
+        .logo .facts {
+            color: var(--accent);
+            position: relative;
+        }
+
+        .tagline {
+            color: var(--muted);
+            font-size: 1.15rem;
+            font-weight: 400;
+            margin-top: 1rem;
+        }
+
+        .facts-acronym {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 4rem;
+        }
+
+        .fact-letter {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fact-letter::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.25s;
+        }
+
+        .fact-letter:hover {
+            transform: translateY(-6px);
+            border-color: var(--accent);
+            box-shadow: 0 20px 40px var(--accent-dim);
+        }
+
+        .fact-letter:hover::before {
+            opacity: 1;
+        }
+
+        .fact-letter .letter {
+            font-size: clamp(2.5rem, 4vw, 3rem);
+            font-weight: 800;
+            color: var(--accent);
+            line-height: 1;
+            margin-bottom: 0.5rem;
+            font-family: "SF Mono", "Fira Code", ui-monospace, monospace;
+        }
+
+        .fact-letter .word {
+            font-size: 1.05rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--fg);
+            margin-bottom: 0.35rem;
+        }
+
+        .fact-letter .meaning {
+            font-size: 0.78rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            line-height: 1.4;
+        }
+
+        section {
+            margin-bottom: 3.5rem;
+        }
+
+        h2 {
+            font-size: 1.65rem;
+            font-weight: 700;
+            margin-bottom: 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+
+        h2::before {
+            content: "";
+            width: 4px;
+            height: 1.5rem;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .stage-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.75rem;
+            margin-bottom: 1.25rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .stage-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 8px 24px var(--accent-dim);
+        }
+
+        .stage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.85rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .stage-name {
+            font-size: 1.15rem;
+            font-weight: 600;
+        }
+
+        .stage-gate {
+            font-size: 0.72rem;
+            background: var(--accent-dim);
+            color: var(--accent);
+            padding: 0.3rem 0.85rem;
+            border-radius: 999px;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+
+        .stage-skill {
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin-bottom: 0.85rem;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+        }
+
+        .stage-desc {
+            font-size: 0.92rem;
+            color: var(--fg);
+            line-height: 1.7;
+        }
+
+        .stage-desc code {
+            background: var(--bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: var(--accent);
+        }
+
+        .principles {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.75rem;
+        }
+
+        .principle {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.75rem;
+        }
+
+        .principle h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 0.65rem;
+            color: var(--accent);
+        }
+
+        .principle p {
+            font-size: 0.92rem;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .components-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.75rem;
+        }
+
+        .component {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .component:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent);
+        }
+
+        .component-icon {
+            font-size: 2.25rem;
+            margin-bottom: 0.65rem;
+            line-height: 1;
+        }
+
+        .component-name {
+            font-weight: 600;
+            font-size: 1.05rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .component-desc {
+            font-size: 0.82rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .flow-diagram {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            justify-content: center;
+            margin: 2rem 0;
+            padding: 1.25rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+
+        .flow-step {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.7rem 1.1rem;
+            font-size: 0.82rem;
+            font-weight: 500;
+            white-space: nowrap;
+            transition: border-color 0.2s;
+        }
+
+        .flow-step:hover {
+            border-color: var(--accent);
+        }
+
+        .flow-step.gate {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .flow-arrow {
+            color: var(--muted);
+            font-size: 1.15rem;
+            flex-shrink: 0;
+        }
+
+        .dual-nature {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.75rem;
+        }
+
+        .pillar {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.75rem;
+        }
+
+        .pillar h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 0.85rem;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pillar h3::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .pillar ul {
+            list-style: none;
+            font-size: 0.9rem;
+            color: var(--fg);
+            line-height: 2;
+        }
+
+        .pillar li::before {
+            content: "→";
+            color: var(--accent);
+            margin-right: 0.75rem;
+            font-weight: 600;
+        }
+
+        footer {
+            text-align: center;
+            padding-top: 3.5rem;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .gold {
+            color: var(--gold);
+        }
+
+        .highlight {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .pillar-tag {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            background: var(--accent-dim);
+            color: var(--accent);
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 2.5rem 1.25rem;
+            }
+
+            .facts-acronym {
+                grid-template-columns: 1fr;
+            }
+
+            .flow-diagram {
+                flex-direction: column;
+            }
+
+            .flow-arrow {
+                transform: rotate(90deg);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                transition: none !important;
+                animation: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="logo">aksa <span class="facts">FACTS</span></h1>
+            <p class="tagline">AI Workflow Operating System — Agent Harness & Software Factory</p>
+        </header>
+
+        <div class="facts-acronym" role="list" aria-label="FACTS Framework pillars">
+            <article class="fact-letter" role="listitem">
+                <div class="letter">F</div>
+                <div class="word">Factory</div>
+                <div class="meaning">Phased Lifecycle</div>
+            </article>
+            <article class="fact-letter" role="listitem">
+                <div class="letter">A</div>
+                <div class="word">Agents</div>
+                <div class="meaning">Harness + Operators</div>
+            </article>
+            <article class="fact-letter" role="listitem">
+                <div class="letter">C</div>
+                <div class="word">Components</div>
+                <div class="meaning">Governed Standards</div>
+            </article>
+            <article class="fact-letter" role="listitem">
+                <div class="letter">T</div>
+                <div class="word">Tools</div>
+                <div class="meaning">Deterministic Scripts</div>
+            </article>
+            <article class="fact-letter" role="listitem">
+                <div class="letter">S</div>
+                <div class="word">State</div>
+                <div class="meaning">Issue-Centric Truth</div>
+            </article>
+        </div>
+
+        <section aria-labelledby="factory-heading">
+            <h2 id="factory-heading"><span class="pillar-tag">F</span> Factory — Phased, Gated Lifecycle</h2>
+            <p style="color: var(--muted); margin-bottom: 1rem;">A <strong>Run</strong> takes one Software Work Request from triage to close: one factory issue, at most one merged PR into <code>main</code>. Large runs get <code>spec</code> and <code>plan</code> stages; small runs skip them.</p>
+
+            <div class="flow-diagram" role="img" aria-label="Factory lifecycle: triage → concept → define → spec → plan → build → ship">
+                <span class="flow-step">triage</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step gate">G0</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step">concept</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step gate">G1</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step">define</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step gate">G2</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step">spec</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step gate">G3</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step">plan</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step">build</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step">ship</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-step gate">merge</span>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">triage</span>
+                    <span class="stage-gate">route / close</span>
+                </div>
+                <div class="stage-skill">triage-request</div>
+                <div class="stage-desc">Checks duplicates, earlier rejections, existing work. Routes to <strong>concept</strong> when discovery needed (open decisions, unknown feasibility, research, prototype), else to <strong>define</strong>. Owner can close as duplicate/won't-do.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">concept</span>
+                    <span class="stage-gate">G0: feasibility verdict</span>
+                </div>
+                <div class="stage-skill">define-concept (helpers: research-topic, build-prototype)</div>
+                <div class="stage-desc">Settles open decisions one at a time with owner. Prototypes answer one design question by clicking on a never-merged branch. Ends with G0 — decisions settled + verdict. Not feasible = close issue.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">define</span>
+                    <span class="stage-gate">G1: requirement approved</span>
+                </div>
+                <div class="stage-skill">define-requirement</div>
+                <div class="stage-desc">Writes the <strong>Requirement</strong>: problem, outcome, acceptance criteria (AC1…ACn) <em>each with its test</em>, out of scope, constraints. Proposes type (feature/enhancement/fix/chore), size, title.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">spec <span style="color: var(--muted); font-weight: 400;">(large runs only)</span></span>
+                    <span class="stage-gate">G2: spec approved</span>
+                </div>
+                <div class="stage-skill">define-spec</div>
+                <div class="stage-desc">Designs <strong>approach</strong>, <strong>interfaces</strong> (each real choice designed twice), <strong>test for each AC</strong>, notes for planning. No code written yet.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">plan <span style="color: var(--muted); font-weight: 400;">(large runs only)</span></span>
+                    <span class="stage-gate">G3: task checklist + int branch</span>
+                </div>
+                <div class="stage-skill">plan-tasks</div>
+                <div class="stage-desc">Splits into ordered vertical slices (tasks), each checkable, fitting one session. Pushes integration branch <code>int/<n>-<slug></code>. Every AC covered by at least one task.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">build</span>
+                    <span class="stage-gate">every task landed</span>
+                </div>
+                <div class="stage-skill">implement-task → verify-task (per task, in order)</div>
+                <div class="stage-desc">Tasks run one at a time on branches <code><prefix>/<n>-t<k>-<slug></code>. Test-first, small conventional commits. Each task verified by independent reviewer before landing on integration branch. Helpers: <code>diagnose-bug</code>, <code>resolve-merge-conflicts</code>.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">ship</span>
+                    <span class="stage-gate">owner merge</span>
+                </div>
+                <div class="stage-skill">ship-change</div>
+                <div class="stage-desc">PR up to date with <code>main</code>, CI passing, verified work covers all ACs. Asks owner for review feedback. Merges into <code>main</code> only on owner's explicit yes. Closeout.</div>
+            </div>
+        </section>
+
+        <section aria-labelledby="agents-heading">
+            <h2 id="agents-heading"><span class="pillar-tag">A</span> Agents — Harness & Operators</h2>
+            <p style="color: var(--muted); margin-bottom: 1rem;">Agents are first-class components with a goal, role, and owned outcome. They use rules and skills.</p>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">factory-orchestrator</span>
+                    <span class="stage-gate">owns the run</span>
+                </div>
+                <div class="stage-skill">agentic/agents/factory-orchestrator.md</div>
+                <div class="stage-desc">The main session for a factory run. Owns outcome end-to-end. Talks to owner at gates. Spawns sub-agents (which cannot spawn others). Started by <code>run-factory</code> skill.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">Sub-Agents</span>
+                    <span class="stage-gate">explore · general</span>
+                </div>
+                <div class="stage-skill">Via subagent tool</div>
+                <div class="stage-desc"><strong>explore</strong> — fast codebase search, pattern finding, Q&A. <strong>general</strong> — multi-step research, parallel execution. Orchestrator delegates focused work; stays in control.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">Agent Principles (Guidance)</span>
+                </div>
+                <div class="stage-skill">AGENTS.md — Agent Principles section</div>
+                <div class="stage-desc"><strong>Think Before Coding:</strong> state assumptions, present alternatives, push back on complexity, stop when unclear, guess cheap-to-undo when owner absent. <strong>Simplicity First:</strong> minimum code, no speculative features, handle real failures, rewrite 200→50 lines.</div>
+            </div>
+        </section>
+
+        <section aria-labelledby="components-heading">
+            <h2 id="components-heading"><span class="pillar-tag">C</span> Components — Governed Standards</h2>
+            <p style="color: var(--muted); margin-bottom: 1rem;">Every piece of aksa is a <strong>Component</strong> — versioned, reviewable, held to a single standard in <code>agentic/rules/components.md</code> (D-014).</p>
+
+            <div class="components-grid" role="list">
+                <article class="component" role="listitem">
+                    <div class="component-icon">📜</div>
+                    <div class="component-name">Rules</div>
+                    <div class="component-desc">Persistent behaviour & constraints. <code>AGENTS.md</code> = root rule (always loaded). Conditional rules in <code>agentic/rules/</code>.</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">⚙️</div>
+                    <div class="component-name">Skills</div>
+                    <div class="component-desc">Conditional task procedures. Categories: <code>factory</code> (lifecycle), <code>core</code> (memory/kb), <code>auxiliary</code> (helpers). Synced to all vendors.</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">🤖</div>
+                    <div class="component-name">Agents</div>
+                    <div class="component-desc">Operators with goals & roles. <code>factory-orchestrator</code> runs runs. Live in <code>agentic/agents/</code>.</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">🧠</div>
+                    <div class="component-name">Memory</div>
+                    <div class="component-desc">Governed context about aksa: <code>vocabulary.md</code> (terms), <code>decisions.md</code> (active), <code>decisions-history.md</code> (superseded). Changed only via <code>add-memory</code>.</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">🔧</div>
+                    <div class="component-name">Scripts</div>
+                    <div class="component-desc">Deterministic executable work. <code>link_external</code>, <code>sync_vendors</code>, <code>new_worktree</code>, <code>factory_issue</code>, <code>kb_index</code>, <code>check_pr_review</code>. Read <code>config/</code>.</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">📋</div>
+                    <div class="component-name">Templates</div>
+                    <div class="component-desc">Starting structures for rules, skills, agents. Live in <code>agentic/templates/</code>.</div>
+                </article>
+            </div>
+
+            <div class="stage-card" style="margin-top: 1.5rem;">
+                <div class="stage-header">
+                    <span class="stage-name">Governance</span>
+                    <span class="stage-gate">review-component</span>
+                </div>
+                <div class="stage-skill">agentic/skills/core/review-component</div>
+                <div class="stage-desc">Every new or changed component passes <code>review-component</code> before acceptance. One standard for authoring, review, and checks — avoids drift. CI (<code>check_pr_review.py</code>) blocks PRs changing components without a review result.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">Vendor Neutrality</span>
+                    <span class="stage-gate">sync_vendors.py</span>
+                </div>
+                <div class="stage-skill">agentic/scripts/sync_vendors.py</div>
+                <div class="stage-desc">Sources stay vendor-neutral in <code>agentic/skills/</code>. Synced to <code>.claude/skills</code> (Claude) and <code>.agents/skills</code> (Codex, Gemini, Copilot, OpenCode) with vendor frontmatter added. Repo-level only (D-003).</div>
+            </div>
+        </section>
+
+        <section aria-labelledby="tools-heading">
+            <h2 id="tools-heading"><span class="pillar-tag">T</span> Tools — Deterministic Scripts</h2>
+            <p style="color: var(--muted); margin-bottom: 1rem;">Shared scripts in <code>agentic/scripts/</code> read settings from <code>config/</code>. No business logic in skills — skills orchestrate, scripts execute. The only code touching external systems directly.</p>
+
+            <div class="components-grid" role="list">
+                <article class="component" role="listitem">
+                    <div class="component-icon">🔗</div>
+                    <div class="component-name">link_external.py</div>
+                    <div class="component-desc">Creates/repairs <code>.kb</code>, <code>.projects</code>, <code>.worktrees</code> symlinks from <code>config/environment.yaml</code> (only file with absolute paths, D-012)</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">🔄</div>
+                    <div class="component-name">sync_vendors.py</div>
+                    <div class="component-desc">Syncs skills to <code>.claude/skills</code>, <code>.agents/skills</code> with vendor frontmatter</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">🌳</div>
+                    <div class="component-name">new_worktree.py</div>
+                    <div class="component-desc">Creates git worktree under <code>.worktrees/</code> with links & vendor folders set up</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">📋</div>
+                    <div class="component-name">factory_issue.py</div>
+                    <div class="component-desc">Only writer of factory issue labels & body; <code>status</code> reads run, <code>labels</code> syncs label set from <code>config/factory.yaml</code></div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">📚</div>
+                    <div class="component-name">kb_index.py</div>
+                    <div class="component-desc">Rebuilds <code>.kb/index.md</code> from wiki frontmatter; <code>--check</code> validates</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">🔍</div>
+                    <div class="component-name">check_pr_review.py</div>
+                    <div class="component-desc">CI gate: fails PR changing components without <code>review-component</code> result</div>
+                </article>
+            </div>
+
+            <div class="stage-card" style="margin-top: 1.5rem;">
+                <div class="stage-header">
+                    <span class="stage-name">Checks (Must Pass Before Commit)</span>
+                    <span class="stage-gate">pre-commit & CI</span>
+                </div>
+                <div class="stage-skill">uv run pytest, ruff check, ruff format --check</div>
+                <div class="stage-desc">Pre-commit hook runs all three + vendor sync check. CI (<code>.github/workflows/check.yml</code>) runs same. PR review check (<code>review.yml</code>) requires <code>review-component</code> result section.</div>
+            </div>
+        </section>
+
+        <section aria-labelledby="state-heading">
+            <h2 id="state-heading"><span class="pillar-tag">S</span> State — Issue-Centric Truth</h2>
+            <p style="color: var(--muted); margin-bottom: 1rem;">All run state lives in the <strong>Factory Issue</strong> — labels, body sections, task checklist, <code>Factory:</code> comments. Never in local files or vendor memory (D-024).</p>
+
+            <div class="components-grid" role="list">
+                <article class="component" role="listitem">
+                    <div class="component-icon">🏷️</div>
+                    <div class="component-name">Labels</div>
+                    <div class="component-desc">Exactly one <code>stage:*</code>; <code>type:*</code> & <code>size:*</code> from G1; <code>needs:owner</code>; <code>claimed</code></div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">📄</div>
+                    <div class="component-name">Body Sections</div>
+                    <div class="component-desc">Request (quoted, never edited), Concept, Requirement, Spec, Delivery — each written by its stage</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">✅</div>
+                    <div class="component-name">Task Checklist</div>
+                    <div class="component-desc">Markdown list, ticked as tasks land. GitHub counts only tasks (no checkboxes in prose).</div>
+                </article>
+                <article class="component" role="listitem">
+                    <div class="component-icon">💬</div>
+                    <div class="component-name">Factory Comments</div>
+                    <div class="component-desc">Stage moves, gate results, verify reports, blockers, needs, claims, owner review, ship summary</div>
+                </article>
+            </div>
+
+            <div class="stage-card" style="margin-top: 1.5rem;">
+                <div class="stage-header">
+                    <span class="stage-name">Claims</span>
+                    <span class="stage-gate">one session at a time</span>
+                </div>
+                <div class="stage-skill">factory_issue.py claim / release</div>
+                <div class="stage-desc">Session claims before work: <code>factory_issue.py claim <n> --session <id></code>. Releases on stop. Takeover only on owner's yes. Prevents races on integration branch & issue.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">Owner in the Loop</span>
+                    <span class="stage-gate">G0–G3 + merge</span>
+                </div>
+                <div class="stage-skill">factory_issue.py set --owner wait/clear</div>
+                <div class="stage-desc">Gates G0–G3 and merge need owner's explicit yes (recorded in <code>Factory:</code> comment). Owner also decides: triage close, concept interview, new terms/decisions, build blockers, true merge contradictions, findings still blocking after confirm pass. Factory lands verified tasks & updates own issues without asking.</div>
+            </div>
+
+            <div class="stage-card">
+                <div class="stage-header">
+                    <span class="stage-name">Memory & Knowledge: Two Tiers, Never Confused</span>
+                    <span class="stage-gate">D-015</span>
+                </div>
+                <div class="stage-skill">get-memory / get-kb</div>
+                <div class="stage-desc"><strong>Memory (Component):</strong> <code>agentic/memory/</code> — facts about aksa: <code>vocabulary.md</code>, <code>decisions.md</code>, <code>decisions-history.md</code>. Changed only via <code>add-memory</code> with owner agreement.<br><strong>Knowledge Base (External):</strong> Own git repo at <code>.kb/</code> — <code>inbox/</code>, <code>raw/</code>, <code>wiki/</code> (trusted), <code>outputs/</code>. Only <code>wiki/</code> retrieved. Entries reach it only through <code>review-kb</code>.</div>
+            </div>
+        </section>
+
+        <footer>
+            <p>aksa — Sanskrit for <span class="gold">central axis</span></p>
+            <p style="margin-top: 0.5rem;">AI Workflow Operating System · Agent Harness & Software Factory</p>
+            <p style="margin-top: 1rem; font-size: 0.75rem;">Built on the <span class="highlight">FACTS</span> framework · Factory · Agents · Components · Tools · State</p>
+        </footer>
+    </div>
+</body>
+</html>
