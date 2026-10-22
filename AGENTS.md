@@ -16,6 +16,7 @@ This file is the root rule (D-007), always loaded. It holds the binding rules ev
 - **External resources:** reach `.kb`, `.projects`, `.worktrees` only through repo-root symlinks; never commit their contents; create worktrees via `uv run agentic/scripts/new_worktree.py` (D-012, D-039).
 - **Secrets:** keys in `.env` (gitignored); never print/copy/commit; `.env.example` lists names only.
 - **Checks:** `uv run pytest`, `ruff check`, `ruff format --check` must pass before commit; pre-commit runs them; run by hand only when fixing or per skill procedure.
+- **Temporary files:** write temporary files to `.temp/` (gitignored); never create `*_test.txt`, `test_*.txt`, or similar in the repo root.
 - **Writing style:** concise wording, sacrifice grammer if needed, avoid verbiage; quality over development cost; no em dashes.
 
 ## Agent Principles (guidance, not enforced)
