@@ -17,6 +17,7 @@ THUMBS = {
     "html.png": "HTML template rendered by Chrome: free, exact text, reusable, 2s",
     "gemini-2.5-flash-image.png": "Gemini 2.5 Flash Image: ignored 16:9, came back square",
     "gemini-3.1-flash-image-1280.png": "Gemini 3.1 Flash Image, resized to 1280x720: raster art, about 10s",
+    "combined.png": "Combined: Claude SVG layout and text + Gemini 3.1 text-free art (steps/thumb_combined.html)",
     "claude-svg.png": "Designed by Claude as SVG (steps/thumb_claude.html): exact text, editable, free, 3s",
 }
 

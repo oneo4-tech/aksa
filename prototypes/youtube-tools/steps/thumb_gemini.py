@@ -21,9 +21,20 @@ BRIEF = (
 )
 
 
+ART = (
+    "Illustration only, absolutely no text, letters, or numbers. Square image, solid flat background color #0b0f14. "
+    "A glossy cartoon red ladybug-style software bug with a smug grin, crawling out from behind a large glowing "
+    "green checkmark. Soft red rim glow, strong contrast, centered subject with margin around it."
+)
+
+
 def main() -> None:
     model = sys.argv[1]
-    body = {"contents": [{"parts": [{"text": BRIEF}]}], "generationConfig": {"responseModalities": ["IMAGE"]}}
+    art = len(sys.argv) > 2 and sys.argv[2] == "art"
+    body = {
+        "contents": [{"parts": [{"text": ART if art else BRIEF}]}],
+        "generationConfig": {"responseModalities": ["IMAGE"]},
+    }
     req = urllib.request.Request(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         json.dumps(body).encode(),
@@ -36,7 +47,7 @@ def main() -> None:
         sys.exit(f"{model}: {e.code} {e.read().decode()[:300]}")
     parts = data["candidates"][0]["content"]["parts"]
     image = next(p["inlineData"] for p in parts if "inlineData" in p)
-    out = HERE / "out" / "thumbs" / f"{model}.png"
+    out = HERE / "out" / "thumbs" / f"{model}{'-art' if art else ''}.png"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(base64.b64decode(image["data"]))
     print(json.dumps({"step": "thumbnail", "engine": model, "seconds": round(time.time() - start, 1)}))

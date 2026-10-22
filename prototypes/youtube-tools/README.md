@@ -23,3 +23,5 @@ uv run --no-project steps/compare.py && open out/index.html
 ```
 
 Media lands in `out/` (gitignored). `demo/mutate.sh` is the on-screen demo.
+
+Combined thumbnail: `uv run --no-project steps/thumb_gemini.py gemini-3.1-flash-image art`, then render `steps/thumb_combined.html` with headless Chrome and `--allow-file-access-from-files`.
