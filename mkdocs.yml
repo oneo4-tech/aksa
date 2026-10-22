@@ -38,7 +38,7 @@ nav:
   - Skills: skills.md
   - Memory & KB: knowledge.md
   - Scripts: scripts.md
-  - Contributing: ../CONTRIBUTING.md
+  - Contributing: contributing.md
 
 markdown_extensions:
   - admonition
