@@ -1,5 +1,12 @@
 # aksa
 
+![CI](https://github.com/oneo4-tech/aksa/actions/workflows/check.yml/badge.svg)
+![CodeQL](https://github.com/oneo4-tech/aksa/actions/workflows/codeql.yml/badge.svg)
+![Docs](https://github.com/oneo4-tech/aksa/actions/workflows/docs.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/oneo4-tech/aksa?include_prereleases&label=release)
+![License](https://img.shields.io/github/license/oneo4-tech/aksa)
+![Python](https://img.shields.io/badge/python-3.13+-blue)
+
 `aksa` (Sanskrit for central axis) is an AI workflow operating system with an agent harness and software factory. It keeps agentic components (rules, skills, agents, memory, scripts, templates) in one vendor-neutral place and syncs them to Claude Code, OpenCode, Codex, Gemini CLI, and Copilot.
 
 Agents start from [`AGENTS.md`](AGENTS.md), which also holds the repository map.
