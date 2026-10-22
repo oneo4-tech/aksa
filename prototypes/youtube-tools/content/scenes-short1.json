@@ -1,0 +1,33 @@
+{
+  "id": "short1",
+  "title": "This AI test passes. Watch it test nothing.",
+  "format": "1080x1920",
+  "parent": "long",
+  "scenes": [
+    {
+      "kind": "title",
+      "heading": "Spot the bug",
+      "body": "This test is green.",
+      "say": "This test passes. Spot the bug in three seconds."
+    },
+    {
+      "kind": "code",
+      "heading": "AI-written test",
+      "file": "demo/test_discount_ai.py",
+      "say": "It patches the function under test with a fake that returns ninety, then checks for ninety. The real code never runs.",
+      "code": "def test_apply_discount():\n  with patch.object(\n    discount,\n    \"apply_discount\",\n    return_value=90.0,\n  ) as fake:\n    result = (\n      discount.apply_discount(100, 10)\n    )\n  assert result == 90.0"
+    },
+    {
+      "kind": "terminal",
+      "heading": "Break the code",
+      "body": "discount -> markup\n\nAI tests: 2 passed\nReal tests: 2 failed",
+      "say": "I turned the discount into a markup. The AI tests still pass. Real tests fail."
+    },
+    {
+      "kind": "title",
+      "heading": "Ask one question",
+      "body": "What would make this test fail?",
+      "say": "Ask one question of every test: what would make it fail? Full breakdown on the channel."
+    }
+  ]
+}

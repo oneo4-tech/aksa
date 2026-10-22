@@ -1,0 +1,61 @@
+{
+  "id": "long",
+  "title": "Spot the Bug: the AI test that passes and tests nothing",
+  "format": "1920x1080",
+  "scenes": [
+    {
+      "kind": "title",
+      "heading": "Spot the Bug",
+      "body": "Two green tests. Zero protection.",
+      "say": "Here are two unit tests an AI assistant wrote for me. Both pass. Both are green. And I can break the code they test in one keystroke without either of them noticing. Your job for the next few minutes: spot the bug. Not in the code. In the tests."
+    },
+    {
+      "kind": "code",
+      "heading": "The code under test",
+      "file": "demo/discount.py",
+      "say": "First, the code. A small function, apply discount. It takes a price and a percent, rejects anything outside zero to a hundred, and returns the discounted price rounded to two places. Simple enough that an AI should test it perfectly. Keep that thought."
+    },
+    {
+      "kind": "code",
+      "heading": "The AI-written tests",
+      "file": "demo/test_discount_ai.py",
+      "say": "Now the tests the assistant gave me. Pause the video here and look closely. Each one passes. What is each one actually checking? Take ten seconds."
+    },
+    {
+      "kind": "points",
+      "heading": "Bug one: it tests the mock",
+      "body": "patch.object replaces apply_discount\nThe assertion checks the fake's return value\nThe real function never runs",
+      "say": "Test one patches apply discount, the very function under test, with a fake that returns ninety. Then it asserts the result is ninety. Of course it is. We wrote that number into the fake. The real function never runs. This test would pass if the file were empty."
+    },
+    {
+      "kind": "points",
+      "heading": "Bug two: it tests existence",
+      "body": "assert result is not None\nAny number passes\nThe test only proves the code did not crash",
+      "say": "Test two does call the real function. But it only asserts the result is not none. Ninety passes. A hundred and ten passes. Minus forty passes. All this proves is that the code did not crash."
+    },
+    {
+      "kind": "terminal",
+      "heading": "Prove it: break the code",
+      "body": "sed: (1 - percent/100) -> (1 + percent/100)\n\n== AI tests vs broken code ==\n2 passed\n== Real tests vs broken code ==\n2 failed, 2 passed",
+      "say": "Let's prove it. I flip one sign, so a ten percent discount becomes a ten percent markup. Customers now pay more. Run the AI tests: two passed. Run the tests a tester would write: two failed. That one-character mutation is the cheapest test of your tests you will ever run."
+    },
+    {
+      "kind": "code",
+      "heading": "The tester's version",
+      "file": "demo/test_discount_real.py",
+      "say": "Here is the version I trust. Ten percent off a hundred is ninety. A full discount is free. Minus one and a hundred and one are rejected. Each test names one behaviour and can fail for exactly one reason."
+    },
+    {
+      "kind": "points",
+      "heading": "The question AI skipped",
+      "body": "What would make this test fail?\nIf nothing can, it is not a test\nMutate one line and re-run",
+      "say": "The AI was not wrong about syntax. It skipped the question every tester asks: what would make this test fail? If you cannot answer that, you do not have a test. You have decoration. Before you merge an AI-written test, break the code on purpose and see if anything turns red."
+    },
+    {
+      "kind": "title",
+      "heading": "Your turn",
+      "body": "What is the worst passing test you have seen?",
+      "say": "Tell me in the comments: what is the worst passing test you have ever seen? The best one gets its own Spot the Bug episode. Subscribe for more ways to think like a tester when AI writes the code."
+    }
+  ]
+}
