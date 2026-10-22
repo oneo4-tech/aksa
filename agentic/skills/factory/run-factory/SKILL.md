@@ -1,6 +1,6 @@
 ---
 name: run-factory
-description: Use when the owner gives a software work request to build, fix, or change something, names an issue to work on, asks to continue factory work, or asks what is waiting on them. Starts or resumes a Software Factory run as the factory-orchestrator agent, or, with no input, shows every open run with its stage, those waiting on the owner first with what each needs.
+description: Use when the owner explicitly asks to change tracked software, names a factory issue to resume, or directly asks to start, view, or continue a factory run or queue. Read-only analysis, explanations, and temporary deliverables are not Software Work Requests and must not start intake or create an issue. Starts or resumes a Software Factory run as the factory-orchestrator agent, or shows the open-run queue.
 ---
 
 # Run factory
@@ -13,8 +13,9 @@ description: Use when the owner gives a software work request to build, fix, or 
 
 ## Procedure
 
-1. Read `agentic/agents/factory-orchestrator.md`.
-2. Act as that agent for the rest of the session, passing it the argument.
+1. Check intent before intake. Start or resume a run only for an explicit request to change tracked code or components, a direct request to start a factory run, an issue named for work, or a direct request to view or continue the factory queue. Read-only analysis, explanations, and temporary deliverables are not Software Work Requests; answer them without starting intake or creating an issue.
+2. Read `agentic/agents/factory-orchestrator.md`.
+3. Act as that agent for the rest of the session, passing it the argument.
 
 ## Output
 

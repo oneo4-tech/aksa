@@ -11,6 +11,7 @@ This file is the root rule (D-007), always loaded. It holds the binding rules ev
 - **Memory and knowledge:** retrieve with `get-memory`/`get-kb`; change only via `add-memory`, `add-kb`, `review-kb`, `repair-kb` (`agentic/rules/knowledge.md`).
 - **Components:** before creating/changing/reviewing any component, read `agentic/rules/components.md`; accept only after `review-component` passes.
 - **Software work:** every change to code or components runs as a factory run (`run-factory` / `release-version`) — `agentic/rules/factory.md` (D-038).
+- **Factory intake:** start or resume a run only for explicit tracked-software change intent or a direct factory request, including naming an issue or asking to view/continue the queue. Read-only analysis, explanations, and temporary deliverables are not Software Work Requests and must not create an issue.
 - **Paths:** no absolute/machine paths except `config/environment.yaml` (D-012); use repo-relative paths and symlinks.
 - **External resources:** reach `.kb`, `.projects`, `.worktrees` only through repo-root symlinks; never commit their contents; create worktrees via `uv run agentic/scripts/new_worktree.py` (D-012, D-039).
 - **Secrets:** keys in `.env` (gitignored); never print/copy/commit; `.env.example` lists names only.

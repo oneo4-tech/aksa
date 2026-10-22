@@ -22,6 +22,8 @@ Skills stay vendor-neutral. OpenCode needs extra frontmatter to offer a skill as
 a /<name> command and to let agents and other skills load it (OPENCODE_FIELDS), so
 opencode always gets copies with any missing fields added; re-sync after edits.
 A skill that sets one of those fields to another value is a warning; --check exits 1.
+Claude gets run-factory as a rendered copy with `disable-model-invocation: true`;
+its other skills remain symlinked.
 
 --dry-run prints the plan. --check does the same and exits 1 if anything is out
 of sync. Exit 1 also on conflicts or duplicate skill names.
@@ -73,6 +75,7 @@ OPENCODE_FIELDS = {
     "metadata.opencode/slash": "true",
     "metadata.opencode/autoinvoke": "true",
 }
+CLAUDE_RUN_FACTORY_FIELDS = {"disable-model-invocation": True}
 
 
 Render = Callable[[str], str]
@@ -150,10 +153,10 @@ def opencode_warnings(skills: list[Skill]) -> list[str]:
     return warnings
 
 
-def add_opencode_fields(text: str) -> str:
-    """SKILL.md text with any OPENCODE_FIELDS it lacks added to its frontmatter."""
-    fields = parse_frontmatter(text)
-    missing = {k: v for k, v in OPENCODE_FIELDS.items() if k not in fields}
+def add_frontmatter_fields(text: str, desired_fields: dict[str, str | bool]) -> str:
+    """SKILL.md text with any missing fields added to its frontmatter."""
+    existing_fields = parse_frontmatter(text)
+    missing = {k: v for k, v in desired_fields.items() if k not in existing_fields}
     if not missing:
         return text
     lines = text.splitlines(keepends=True)
@@ -168,17 +171,28 @@ def add_opencode_fields(text: str) -> str:
     inserts: list[tuple[int, list[str]]] = []
     nested: dict[str, list[str]] = {}
     for key, value in missing.items():
+        rendered_value = json.dumps(value) if isinstance(value, str) else str(value).lower()
         parent, _, child = key.rpartition(".")
         if parent:
-            nested.setdefault(parent, []).append(f"  {child}: {json.dumps(value)}\n")
+            nested.setdefault(parent, []).append(f"  {child}: {rendered_value}\n")
         else:
-            inserts.append((end, [f"{key}: {json.dumps(value)}\n"]))
+            inserts.append((end, [f"{key}: {rendered_value}\n"]))
     for parent, children in nested.items():
         at = next((i for i in range(1, end) if lines[i].split(":", 1)[0] == parent), None)
         inserts.append((end, [f"{parent}:\n", *children]) if at is None else (at + 1, children))
     for at, new in sorted(inserts, key=lambda item: item[0], reverse=True):
         lines[at:at] = new
     return "".join(lines)
+
+
+def add_opencode_fields(text: str) -> str:
+    """SKILL.md text with any OPENCODE_FIELDS it lacks added to its frontmatter."""
+    return add_frontmatter_fields(text, OPENCODE_FIELDS)
+
+
+def add_claude_run_factory_fields(text: str) -> str:
+    """SKILL.md text with Claude's run-factory invocation setting added."""
+    return add_frontmatter_fields(text, CLAUDE_RUN_FACTORY_FIELDS)
 
 
 def tree_hash(root: Path, render: Render | None = None) -> str:
@@ -212,7 +226,13 @@ def is_current(skill: Skill, target: Path, mode: str, render: Render | None) -> 
 
 
 def sync_dir(
-    target_dir: Path, mode: str, render: Render | None, skills: list[Skill], apply: bool, force: bool
+    target_dir: Path,
+    mode: str,
+    render: Render | None,
+    skills: list[Skill],
+    apply: bool,
+    force: bool,
+    overrides: dict[str, tuple[str, Render | None]] | None = None,
 ) -> tuple[int, int]:
     """Sync one vendor folder; render, if given, rewrites each copied SKILL.md. Returns (changes, conflicts)."""
     manifest_path = target_dir / MANIFEST
@@ -222,7 +242,8 @@ def sync_dir(
 
     for skill in skills:
         target = target_dir / skill.name
-        if is_current(skill, target, mode, render):
+        skill_mode, skill_render = (overrides or {}).get(skill.name, (mode, render))
+        if is_current(skill, target, skill_mode, skill_render):
             owned.add(skill.name)
             continue
         exists = target.exists() or target.is_symlink()
@@ -236,13 +257,13 @@ def sync_dir(
         if apply:
             target_dir.mkdir(parents=True, exist_ok=True)
             remove(target)
-            if mode == "symlink":
+            if skill_mode == "symlink":
                 target.symlink_to(link_target(skill.path, target_dir), target_is_directory=True)
             else:
                 shutil.copytree(skill.path, target, symlinks=True)
-                if render:
+                if skill_render:
                     skill_md = target / "SKILL.md"
-                    rendered = render(skill_md.read_text())
+                    rendered = skill_render(skill_md.read_text())
                     skill_md.unlink()  # Drop a symlinked SKILL.md rather than write through it.
                     skill_md.write_text(rendered)
 
@@ -285,8 +306,11 @@ def sync_skills(vendors: list[str], args: argparse.Namespace, apply: bool) -> tu
         # OpenCode gets rendered copies; a symlink would serve the source without its fields.
         render = add_opencode_fields if vendor == "opencode" else None
         mode = "copy" if args.copy or render else "symlink"
+        overrides = {"run-factory": ("copy", add_claude_run_factory_fields)} if vendor == "claude" else None
         print(f"skills: {vendor} -> {skills_dir} ({mode})")
-        changes, conflicts = sync_dir(REPO_ROOT / skills_dir, mode, render, skills, apply, args.force)
+        changes, conflicts = sync_dir(
+            REPO_ROOT / skills_dir, mode, render, skills, apply, args.force, overrides=overrides
+        )
         if not changes and not conflicts:
             print("  up to date")
         total_changes += changes

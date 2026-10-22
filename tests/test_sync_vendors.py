@@ -235,6 +235,36 @@ def test_main_opencode_always_copies_with_fields(repo, monkeypatch):
     assert run(monkeypatch, "opencode", "--check") == 0
 
 
+def test_main_claude_copies_run_factory_with_disabled_model_invocation(repo, monkeypatch):
+    run_factory = add_skill(repo, "run-factory", category="factory")
+    other_skill = add_skill(repo, "do-thing")
+    source_text = (run_factory / "SKILL.md").read_text()
+
+    assert run(monkeypatch, "claude") == 0
+
+    target = repo / ".claude" / "skills"
+    rendered = target / "run-factory"
+    assert rendered.is_dir() and not rendered.is_symlink()
+    assert "disable-model-invocation: true" in (rendered / "SKILL.md").read_text()
+    assert (run_factory / "SKILL.md").read_text() == source_text
+    assert (target / "do-thing").is_symlink()
+    assert (target / "do-thing").resolve() == other_skill.resolve()
+    assert run(monkeypatch, "claude", "--check") == 0
+
+
+def test_main_keeps_run_factory_source_and_other_vendor_outputs_unchanged(repo, monkeypatch):
+    run_factory = add_skill(repo, "run-factory", category="factory")
+    source_text = (run_factory / "SKILL.md").read_text()
+
+    assert run(monkeypatch, "codex") == 0
+
+    synced = repo / ".agents" / "skills" / "run-factory"
+    assert synced.is_symlink()
+    assert synced.resolve() == run_factory.resolve()
+    assert (run_factory / "SKILL.md").read_text() == source_text
+    assert run(monkeypatch, "codex", "--check") == 0
+
+
 def test_main_check_exits_1_on_conflicting_opencode_field(repo, monkeypatch):
     add_skill(repo, "do-thing", text="---\nname: do-thing\ncompatibility: claude\n---\n")
     assert run(monkeypatch, "opencode") == 0
