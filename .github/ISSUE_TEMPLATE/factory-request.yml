@@ -1,0 +1,46 @@
+name: Factory Work Request
+description: Request a new feature, fix, or change via the Software Factory
+title: "[factory] "
+labels: ["stage:triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Opportunity
+      description: What user pain or gap does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired Outcome
+      description: What should be true when this is done?
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - type:feature (new capability)
+        - type:enhancement (improve existing)
+        - type:fix (defect)
+        - type:chore (maintenance/docs/refactor)
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Estimated Size
+      options:
+        - size:small (one branch/PR, no spec)
+        - size:large (spec, plan, integration branch)
+    validations:
+      required: true
+  - type: checkboxes
+    id: duplicates
+    attributes:
+      label: Duplicates Check
+      options:
+        - label: I searched existing issues and factory runs
+          required: true
