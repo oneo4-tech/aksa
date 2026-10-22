@@ -22,6 +22,8 @@ Skills stay vendor-neutral. OpenCode needs extra frontmatter to offer a skill as
 a /<name> command and to let agents and other skills load it (OPENCODE_FIELDS), so
 opencode always gets copies with any missing fields added; re-sync after edits.
 A skill that sets one of those fields to another value is a warning; --check exits 1.
+Claude gets run-factory as a rendered copy with `disable-model-invocation: true`;
+its other skills remain symlinked.
 
 --dry-run prints the plan. --check does the same and exits 1 if anything is out
 of sync. Exit 1 also on conflicts or duplicate skill names.
