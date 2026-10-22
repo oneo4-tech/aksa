@@ -1,0 +1,52 @@
+#!/bin/sh
+# Enable once per clone: git config core.hooksPath .githooks
+# Validates conventional commit format per agentic/rules/git.md
+
+set -e
+
+commit_msg_file="$1"
+commit_msg=$(cat "$commit_msg_file")
+
+# Skip validation for merge commits, revert commits, and fixup/squash commits
+first_line=$(echo "$commit_msg" | head -n1)
+if echo "$first_line" | grep -qE '^(Merge |Revert |fixup!|squash!)'; then
+  exit 0
+fi
+
+# Allowed prefixes from config/factory.yaml
+allowed_prefixes="feat|fix|chore"
+
+# Conventional commit regex: <prefix>(<scope>)!: <subject> or <prefix>(<scope>): <subject>
+# Scope is optional, lowercase, alphanumeric with hyphens/underscores
+# Subject max 72 chars
+conventional_regex="^(${allowed_prefixes})(\([a-z0-9_-]+\))?(!?): .{1,72}$"
+
+if ! echo "$first_line" | grep -qE "$conventional_regex"; then
+  echo "❌ Invalid commit message format" >&2
+  echo "   Expected: <prefix>(<scope>): <subject> (max 72 chars)" >&2
+  echo "   Prefixes: feat, fix, chore" >&2
+  echo "   Example:  feat(factory): add task validation" >&2
+  echo "   Got:      $first_line" >&2
+  exit 1
+fi
+
+# Check for Refs footer on factory branches
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if echo "$branch" | grep -qE '^(feat|fix|chore)/[0-9]+-'; then
+  issue_num=$(echo "$branch" | sed -E 's/^[^/]+\/([0-9]+)-.*/\1/')
+  if ! echo "$commit_msg" | grep -qE "^Refs #${issue_num}\$"; then
+    echo "⚠️  Missing 'Refs #${issue_num}' footer for factory work" >&2
+    echo "   Add a footer line: Refs #${issue_num}" >&2
+    exit 1
+  fi
+fi
+
+# Check breaking change format
+if echo "$first_line" | grep -q '!:'; then
+  if ! echo "$commit_msg" | grep -q '^BREAKING CHANGE:'; then
+    echo "❌ Breaking change marker '!' requires 'BREAKING CHANGE:' footer" >&2
+    exit 1
+  fi
+fi
+
+exit 0
