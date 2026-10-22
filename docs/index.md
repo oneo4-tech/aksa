@@ -108,10 +108,10 @@ One command syncs `agentic/skills/` to:
 - [Skills Catalog](skills.md)
 - [Memory & Knowledge Base](knowledge.md)
 - [Scripts Reference](scripts.md)
-- [Contributing](../CONTRIBUTING.md)
+- [Contributing](contributing.md)
 
 ---
 
 ## License
 
-MIT — see [LICENSE](../LICENSE).
+MIT — see [LICENSE](license.md).
