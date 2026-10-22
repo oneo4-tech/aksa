@@ -10,6 +10,9 @@ dependencies = [
 dev = [
     "pytest",
     "ruff",
+    "mkdocs-material",
+    "mkdocs-git-revision-date-localized-plugin",
+    "mkdocs-minify-plugin",
 ]
 
 [tool.pytest.ini_options]
