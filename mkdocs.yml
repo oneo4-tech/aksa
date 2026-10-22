@@ -1,0 +1,66 @@
+site_name: aksa
+site_description: AI workflow OS with agent harness & software factory
+site_url: https://oneo4-tech.github.io/aksa/
+repo_url: https://github.com/oneo4-tech/aksa
+repo_name: oneo4-tech/aksa
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+
+nav:
+  - Home: index.md
+  - Setup: setup.md
+  - Architecture: architecture.md
+  - Factory: factory.md
+  - Rules: rules.md
+  - Skills: skills.md
+  - Memory & KB: knowledge.md
+  - Scripts: scripts.md
+  - Contributing: ../CONTRIBUTING.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.details
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+  - minify:
+      minify_html: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/oneo4-tech/aksa
+  generator: false
+
+copyright: Copyright &copy; 2026 oneo4-tech
