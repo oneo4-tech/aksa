@@ -1,0 +1,19 @@
+# <prefix>(<scope>): <subject>
+# 
+# Prefixes: feat, fix, chore
+# Scope: optional, lowercase (e.g., factory, skills, docs)
+# Subject: max 72 chars, imperative mood ("add" not "adds")
+#
+# Body: explain what and why (optional)
+#
+# Footer: Refs #<issue> for factory work
+#         BREAKING CHANGE: <description> if breaking
+#
+# Example:
+# feat(factory): add task validation
+#
+# Refactored the task validation logic to use the new
+# schema format. This fixes the validation errors seen
+# in PR #123.
+#
+# Refs #456
