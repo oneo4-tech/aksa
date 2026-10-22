@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-1. Read [`AGENTS.md`](AGENTS.md) — it's the agent entry point and repository map
+1. Read [`AGENTS.md`](https://github.com/oneo4-tech/aksa/blob/main/AGENTS.md) — it's the agent entry point and repository map
 2. Install dependencies:
    ```bash
    uv sync
@@ -18,7 +18,7 @@
 
 ## Workflow: Software Factory
 
-All tracked changes follow the **Software Factory** ([`agentic/rules/factory.md`](agentic/rules/factory.md)):
+All tracked changes follow the **Software Factory** ([`agentic/rules/factory.md`](https://github.com/oneo4-tech/aksa/blob/main/agentic/rules/factory.md)):
 
 1. Open a **Factory Work Request** issue (use the issue template)
 2. Factory runs through stages:
@@ -34,7 +34,7 @@ All tracked changes follow the **Software Factory** ([`agentic/rules/factory.md`
 ## Component Changes
 
 Before creating or changing any **agentic component** (rules, skills, agents, memory, scripts, templates):
-- Read [`agentic/rules/components.md`](agentic/rules/components.md)
+- Read [`agentic/rules/components.md`](https://github.com/oneo4-tech/aksa/blob/main/agentic/rules/components.md)
 - Run the `review-component` skill (enforced by CI on PRs)
 
 ## Code Standards

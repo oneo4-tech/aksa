@@ -39,6 +39,7 @@ nav:
   - Memory & KB: knowledge.md
   - Scripts: scripts.md
   - Contributing: contributing.md
+  - License: license.md
 
 markdown_extensions:
   - admonition
