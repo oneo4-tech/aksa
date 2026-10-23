@@ -33,6 +33,20 @@ class GitHub:
         )
         return [{**issue, "labels": [label["name"] for label in issue["labels"]]} for issue in data]
 
+    def all_issues(self, labels: list[str]) -> list[dict]:
+        """Open and closed issues holding every one of labels, with their comments."""
+        flags = [flag for label in labels for flag in ("--label", label)]
+        fields = "number,title,state,labels,body,comments"
+        data = json.loads(self._gh("issue", "list", "--state", "all", "--limit", "500", *flags, "--json", fields))
+        return [
+            {
+                **issue,
+                "labels": [label["name"] for label in issue["labels"]],
+                "comments": [comment["body"] for comment in issue["comments"]],
+            }
+            for issue in data
+        ]
+
     def create(self, title: str, body: str, labels: list[str]) -> int:
         flags = [flag for label in labels for flag in ("--label", label)]
         url = self._gh("issue", "create", "--title", title, "--body-file", "-", *flags, stdin=body).strip()

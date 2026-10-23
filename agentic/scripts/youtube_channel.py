@@ -17,7 +17,8 @@ channel.yaml, the machine values every content script reads:
   palette: {background: "#000000", syntax: "#FF3B3B", name: "#FFFFFF", suffix: "#00E5FF"}
   loudness: {lufs: -14, true_peak: -1}   # loudness target, LUFS and dBTP
   music_db: -24                          # music bed level, dB
-  cadence: {long_form_per_week: 1, shorts_per_week: 2}
+  cadence: {long_form_per_week: 1, shorts_per_week: 2, owner_hours_per_week: 5}
+                                         # weekly uploads; the owner-hours budget for them
   labels: {channel: "channel:example-lab"}
   pronunciation: {pytest: "pie test"}    # word -> spoken respelling; may be empty
   banned_phrases: ["in this video"]      # may be empty
@@ -135,7 +136,7 @@ SCHEMA: dict = {
     "palette": {"background": _colour, "syntax": _colour, "name": _colour, "suffix": _colour},
     "loudness": {"lufs": _num, "true_peak": _num},
     "music_db": _num,
-    "cadence": {"long_form_per_week": _count, "shorts_per_week": _count},
+    "cadence": {"long_form_per_week": _count, "shorts_per_week": _count, "owner_hours_per_week": _positive},
     "labels": {"channel": _label},
     "pronunciation": _words,
     "banned_phrases": _phrases,

@@ -14,13 +14,23 @@ Usage: uv run agentic/scripts/content_issue.py COMMAND [ARGS]
   gate N GATE --request | --approve
                       mark the video waiting for the owner at a gate, or record the
                       owner's yes as a "YouTube: gate N approved." comment
+  hours N --stage STAGE --hours H [--date YYYY-MM-DD]
+                      log the owner's hours on a stage (a dated "YouTube: hours" comment)
+                      and rebuild the body's Hours table, one running total per stage
+  summary --channel CHANNEL --week YYYY-Www
+                      JSON for an ISO week: each video of the channel (open or closed) with
+                      hours logged that week, the long-form and Shorts counts, the total, and
+                      the pilot verdict, pass when the week has at least channel.yaml cadence
+                      long_form_per_week and shorts_per_week within owner_hours_per_week,
+                      else fail with reasons (short cadence, hours over budget)
 
 A content issue is one video (D-042): labels kind:youtube, channel:<name>,
 content-type:*, and one youtube-stage:*, a body with a Brief section, and
 YouTube: comments for each state change. Labels, stages, and gates are in
 config/content.yaml. A video moves only to the next stage, and leaves a gate's
 stage only after that gate's approval: gate 1 the idea and angle, gate 2 the
-researched script and demo plan, gate 3 the final video.
+researched script and demo plan, gate 3 the final video. The Hours section is
+written only by this script.
 
 Exit codes: 0 done, 1 GitHub, config, or file error, 2 bad input or an invalid
 channel, 3 refused (a move the stages or gates do not allow, or a Short's link
@@ -28,7 +38,9 @@ to anything but a long-form video of its channel).
 """
 
 import argparse
+import datetime
 import json
+import math
 import re
 import sys
 from dataclasses import dataclass
@@ -49,6 +61,8 @@ TYPES = ["long-form", "short"]
 APPROVED = re.compile(r"YouTube: gate (\d+) approved\.")
 PARENT = re.compile(r"^Cut from long-form #(\d+)\.$", re.MULTILINE)
 RELATED = re.compile(r"^Related long-form: #(\d+)\.$", re.MULTILINE)
+HOURS = re.compile(r"YouTube: hours `([a-z-]+)` \+(\d+(?:\.\d+)?) on (\d{4}-\d{2}-\d{2})\.")
+WEEK = re.compile(r"(\d{4})-W(\d{2})")
 
 
 class Error(Exception):
@@ -108,6 +122,34 @@ def quote(text: str) -> str:
 
 def render_body(sections: dict[str, str]) -> str:
     return "\n".join(f"## {name}\n\n{text}\n" for name, text in sections.items())
+
+
+# Hours: each entry is a `YouTube: hours` comment carrying its date, the source for weekly
+# summaries; the body's Hours table is the per-stage running total, rebuilt from them.
+
+
+def hour_entries(comments: list[str]) -> list[tuple[str, float, datetime.date]]:
+    """(stage, hours, date) of each `YouTube: hours` comment the script wrote."""
+    entries = []
+    for comment in comments:
+        if m := HOURS.fullmatch(comment.strip()):
+            entries.append((m[1], float(m[2]), datetime.date.fromisoformat(m[3])))
+    return entries
+
+
+def number(value: float) -> str:
+    """Hours to two decimals without trailing zeros, such as 1.5 or 2."""
+    return f"{value:.2f}".rstrip("0").rstrip(".")
+
+
+def hours_table(entries: list[tuple[str, float, datetime.date]], config: Config) -> str:
+    """One row per stage with hours, in stage order: the total and the date of the last entry."""
+    rows = ["| Stage | Hours | Last logged |", "|---|---|---|"]
+    for stage in config.stages:
+        mine = [(hours, day) for s, hours, day in entries if s == stage]
+        if mine:
+            rows.append(f"| {stage} | {number(sum(h for h, _ in mine))} | {max(d for _, d in mine)} |")
+    return "\n".join(rows)
 
 
 # Labels, stages, and gates
@@ -277,6 +319,98 @@ def cmd_stage(gh: GitHub, config: Config, args: argparse.Namespace, root: Path) 
     return 0
 
 
+def positive_hours(text: str) -> float:
+    try:
+        value = float(text)
+    except ValueError:
+        value = math.nan
+    if not (math.isfinite(value) and round(value, 2) > 0):
+        raise BadInput(f"hours must be a number of at least 0.01, not {text!r}")
+    return value
+
+
+def iso_date(text: str) -> datetime.date:
+    try:
+        return datetime.date.fromisoformat(text)
+    except ValueError as error:
+        raise BadInput(f"date must be YYYY-MM-DD, not {text!r}") from error
+
+
+def cmd_hours(gh: GitHub, config: Config, args: argparse.Namespace, root: Path) -> int:
+    hours = positive_hours(args.hours)
+    day = iso_date(args.date) if args.date else datetime.date.today()
+    if args.stage not in config.stages:
+        raise BadInput(f"unknown stage {args.stage!r}; the stages are {', '.join(config.stages)}")
+    issue = gh.issue(args.number)
+    require_video(issue)
+    entry = f"YouTube: hours `{args.stage}` +{number(hours)} on {day}."
+    gh.comment(args.number, entry)
+    # Same "## " split as the style guide; the Brief is quoted, so its own headings never split it.
+    sections = youtube_channel.style_sections(issue["body"])
+    sections["Hours"] = hours_table(hour_entries([*issue["comments"], entry]), config)
+    try:
+        gh.edit(args.number, body=render_body(sections))
+    except GitHubError as error:
+        raise GitHubError(f"hours logged, but the Hours table failed; the next entry rebuilds it: {error}") from error
+    print(f"#{args.number}: {number(hours)} h at {args.stage} on {day}")
+    return 0
+
+
+def iso_week(text: str) -> tuple[datetime.date, datetime.date]:
+    """The Monday and Sunday of an ISO week such as 2026-W44."""
+    try:
+        m = WEEK.fullmatch(text)
+        monday = datetime.date.fromisocalendar(int(m[1]), int(m[2]), 1) if m else None
+    except ValueError:
+        monday = None
+    if monday is None:
+        raise BadInput(f"week must be an ISO week such as 2026-W44, not {text!r}")
+    return monday, monday + datetime.timedelta(days=6)
+
+
+def week_summary(issues: list[dict], cadence: dict, start: datetime.date, end: datetime.date) -> dict:
+    """Each video's owner hours logged from start to end, the long-form and Shorts counts, and the
+    pilot verdict: pass when the week has at least the channel's cadence of long-form and Shorts
+    within its weekly owner-hours budget, else fail with the reasons (lower cadence or raise budget)."""
+    videos = []
+    for issue in sorted(issues, key=lambda i: i["number"]):
+        _, kind, _ = require_video(issue)
+        spent = sum(hours for _, hours, day in hour_entries(issue["comments"]) if start <= day <= end)
+        if spent:
+            num, title, state = issue["number"], issue["title"], issue["state"]
+            videos.append({"number": num, "title": title, "type": kind, "state": state, "hours": round(spent, 2)})
+    total = round(sum(v["hours"] for v in videos), 2)
+    budget = cadence["owner_hours_per_week"]
+    long_form = sum(v["type"] == "long-form" for v in videos)
+    shorts = sum(v["type"] == "short" for v in videos)
+    reasons = []
+    if long_form < cadence["long_form_per_week"]:
+        reasons.append(f"long-form {long_form} of the cadence's {cadence['long_form_per_week']}")
+    if shorts < cadence["shorts_per_week"]:
+        reasons.append(f"Shorts {shorts} of the cadence's {cadence['shorts_per_week']}")
+    if total > budget:
+        reasons.append(f"hours {number(total)} over the budget of {number(budget)}")
+    return {
+        "videos": videos,
+        "long_form": long_form,
+        "shorts": shorts,
+        "cadence": {"long_form": cadence["long_form_per_week"], "shorts": cadence["shorts_per_week"]},
+        "hours": total,
+        "budget": budget,
+        "verdict": "fail" if reasons else "pass",
+        "reasons": reasons,
+    }
+
+
+def cmd_summary(gh: GitHub, config: Config, args: argparse.Namespace, root: Path) -> int:
+    start, end = iso_week(args.week)
+    channel = youtube_channel.load(args.channel, root).config
+    issues = gh.all_issues([KIND, channel["labels"]["channel"]])
+    report = {"channel": args.channel, "week": args.week, "from": str(start), "to": str(end)}
+    print(json.dumps(report | week_summary(issues, channel["cadence"], start, end), indent=2))
+    return 0
+
+
 def cmd_gate(gh: GitHub, config: Config, args: argparse.Namespace, root: Path) -> int:
     issue = gh.issue(args.number)
     current, _, _ = require_video(issue)
@@ -326,13 +460,30 @@ def parser() -> argparse.ArgumentParser:
     group.add_argument("--request", action="store_true", help="mark the video waiting for the owner at this gate")
     group.add_argument("--approve", action="store_true", help="only after the owner's explicit yes")
 
+    p = commands.add_parser("hours", help="log the owner's hours on a stage of a video")
+    p.add_argument("number", type=int)
+    p.add_argument("--stage", required=True)
+    p.add_argument("--hours", required=True, help="hours spent, a number above 0, such as 1.5")
+    p.add_argument("--date", help="the day the hours were spent, YYYY-MM-DD; default today")
+
+    p = commands.add_parser("summary", help="JSON of a channel's owner hours in an ISO week, against its budget")
+    p.add_argument("--channel", required=True)
+    p.add_argument("--week", required=True, help="ISO week, such as 2026-W44")
+
     p = commands.add_parser("status", help="JSON for one video, or the queue of open videos")
     p.add_argument("number", type=int, nargs="?")
     p.add_argument("--channel", help="only this channel's videos; with N, refuse a video of another channel")
     return root
 
 
-COMMANDS = {"new": cmd_new, "stage": cmd_stage, "gate": cmd_gate, "status": cmd_status}
+COMMANDS = {
+    "new": cmd_new,
+    "stage": cmd_stage,
+    "gate": cmd_gate,
+    "hours": cmd_hours,
+    "summary": cmd_summary,
+    "status": cmd_status,
+}
 
 
 def main(

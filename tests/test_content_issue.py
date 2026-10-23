@@ -1,5 +1,6 @@
 """Tests for agentic/scripts/content_issue.py, against an in-memory GitHub and a tmp channel workspace."""
 
+import copy
 import json
 
 import content_issue as ci
@@ -19,6 +20,9 @@ class FakeGitHub(FactoryFakeGitHub):
 
     def add_sub_issue(self, parent, child):
         self.sub_issues.setdefault(parent, []).append(child)
+
+    def all_issues(self, labels):
+        return [copy.deepcopy(i) for i in self.issues.values() if set(labels) <= set(i["labels"])]
 
 
 @pytest.fixture
@@ -258,3 +262,134 @@ def test_config_holds_the_agreed_stages_and_gates():
         "idea", "research", "script", "demo", "recording", "editing", "packaging", "review", "ready"
     ]  # fmt: skip
     assert config.gates == {1: "idea", 2: "demo", 3: "review"}
+
+
+# hours
+
+
+def test_hours_accumulates_the_owners_hours_per_stage_in_the_hours_table(gh, tmp_path):
+    video(gh, 5, stage="script")
+    assert run(gh, tmp_path, "hours", "5", "--stage", "research", "--hours", "0.5", "--date", "2026-10-26") == 0
+    assert run(gh, tmp_path, "hours", "5", "--stage", "idea", "--hours", "1.5", "--date", "2026-10-26") == 0
+    assert run(gh, tmp_path, "hours", "5", "--stage", "idea", "--hours", "1", "--date", "2026-10-27") == 0
+    assert gh.issues[5]["body"] == (
+        "## Brief\n\n> An idea.\n\n"
+        "## Hours\n\n"
+        "| Stage | Hours | Last logged |\n|---|---|---|\n"
+        "| idea | 2.5 | 2026-10-27 |\n"
+        "| research | 0.5 | 2026-10-26 |\n"
+    )
+    assert gh.issues[5]["comments"] == [
+        "YouTube: hours `research` +0.5 on 2026-10-26.",
+        "YouTube: hours `idea` +1.5 on 2026-10-26.",
+        "YouTube: hours `idea` +1 on 2026-10-27.",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("argv", "code"),
+    [
+        (["--stage", "publish", "--hours", "1"], 2),
+        (["--stage", "idea", "--hours", "0"], 2),
+        (["--stage", "idea", "--hours", "-1"], 2),
+        (["--stage", "idea", "--hours", "two"], 2),
+        (["--stage", "idea", "--hours", "nan"], 2),
+        (["--stage", "idea", "--hours", "0.001"], 2),
+        (["--stage", "idea", "--hours", "1", "--date", "2026-13-01"], 2),
+    ],
+)
+def test_hours_rejects_an_unknown_stage_bad_hours_or_a_bad_date(gh, tmp_path, argv, code):
+    video(gh, 5)
+    assert run(gh, tmp_path, "hours", "5", *argv) == code
+    assert gh.issues[5]["body"] == "## Brief\n\n> An idea.\n"
+    assert gh.issues[5]["comments"] == []
+
+
+def test_hours_refuses_an_issue_that_is_not_a_video(gh, tmp_path):
+    gh.add(5, labels=["kind:factory", "stage:build"])
+    assert run(gh, tmp_path, "hours", "5", "--stage", "idea", "--hours", "1") == 3
+    assert gh.issues[5]["comments"] == []
+
+
+# summary
+
+
+def hours(stage, h, day):
+    return f"YouTube: hours `{stage}` +{h} on {day}."
+
+
+def pilot_week(gh, extra):
+    """Week 2026-W44 (Oct 26 to Nov 1): one long-form and two Shorts, 4.5 hours plus extra on #1."""
+    video(gh, 1, stage="editing", comments=[hours("idea", 1, "2026-10-26"), hours("script", extra, "2026-11-01")])
+    video(gh, 2, kind="short", comments=[hours("idea", 0.5, "2026-10-25"), hours("script", 1.5, "2026-10-28")])
+    video(gh, 3, kind="short", comments=[hours("editing", 2, "2026-10-30"), "YouTube: gate 1 approved."])
+    gh.issues[3]["state"] = "CLOSED"
+    video(gh, 4, comments=[hours("idea", 1, "2026-11-02")])  # next week
+    video(gh, 5, label="channel:other-lab", comments=[hours("idea", 3, "2026-10-27")])
+
+
+def summary(gh, root, capsys, week="2026-W44"):
+    assert run(gh, root, "summary", "--channel", "example", "--week", week) == 0
+    return json.loads(capsys.readouterr().out)
+
+
+def test_summary_reports_a_channels_videos_with_hours_that_week_against_the_budget(gh, tmp_path, capsys, channel):
+    pilot_week(gh, extra=0.5)
+    assert summary(gh, tmp_path, capsys) == {
+        "channel": "example",
+        "week": "2026-W44",
+        "from": "2026-10-26",
+        "to": "2026-11-01",
+        "videos": [
+            {"number": 1, "title": "Video 1", "type": "long-form", "state": "OPEN", "hours": 1.5},
+            {"number": 2, "title": "Video 2", "type": "short", "state": "OPEN", "hours": 1.5},
+            {"number": 3, "title": "Video 3", "type": "short", "state": "CLOSED", "hours": 2},
+        ],
+        "long_form": 1,
+        "shorts": 2,
+        "cadence": {"long_form": 1, "shorts": 2},
+        "hours": 5,
+        "budget": 5,
+        "verdict": "pass",
+        "reasons": [],
+    }
+
+
+@pytest.mark.parametrize(
+    ("extra", "total", "verdict", "reasons"),
+    [(0.25, 4.75, "pass", []), (0.5, 5, "pass", []), (0.75, 5.25, "fail", ["hours 5.25 over the budget of 5"])],
+)
+def test_summary_verdict_is_pass_at_most_the_budget(gh, tmp_path, capsys, channel, extra, total, verdict, reasons):
+    pilot_week(gh, extra=extra)
+    result = summary(gh, tmp_path, capsys)
+    assert (result["hours"], result["budget"], result["verdict"], result["reasons"]) == (total, 5, verdict, reasons)
+
+
+def test_summary_of_a_week_without_hours_reports_no_videos(gh, tmp_path, capsys, channel):
+    pilot_week(gh, extra=1)
+    result = summary(gh, tmp_path, capsys, week="2026-W40")
+    assert (result["videos"], result["long_form"], result["shorts"], result["hours"]) == ([], 0, 0, 0)
+    assert result["verdict"] == "fail"
+    assert result["reasons"] == ["long-form 0 of the cadence's 1", "Shorts 0 of the cadence's 2"]
+
+
+def test_summary_verdict_fails_a_week_short_of_the_cadence_within_the_budget(gh, tmp_path, capsys, channel):
+    video(gh, 1, comments=[hours("idea", 2, "2026-10-26")])
+    video(gh, 2, kind="short", comments=[hours("script", 1, "2026-10-28")])
+    result = summary(gh, tmp_path, capsys)
+    assert (result["long_form"], result["shorts"], result["hours"], result["budget"]) == (1, 1, 3, 5)
+    assert (result["verdict"], result["reasons"]) == ("fail", ["Shorts 1 of the cadence's 2"])
+
+
+def test_summary_verdict_names_both_a_short_cadence_and_hours_over_the_budget(gh, tmp_path, capsys, channel):
+    video(gh, 1, kind="short", comments=[hours("editing", 6, "2026-10-29")])
+    result = summary(gh, tmp_path, capsys)
+    assert (result["verdict"], result["reasons"]) == (
+        "fail",
+        ["long-form 0 of the cadence's 1", "Shorts 1 of the cadence's 2", "hours 6 over the budget of 5"],
+    )
+
+
+@pytest.mark.parametrize("week", ["2026-44", "2026-W54", "W44"])
+def test_summary_rejects_a_week_that_is_not_an_iso_week(gh, tmp_path, channel, week):
+    assert run(gh, tmp_path, "summary", "--channel", "example", "--week", week) == 2

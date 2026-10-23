@@ -11,7 +11,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `kb_index.py` | Rebuild `.kb/index.md` from wiki frontmatter | `--check` |
 | `factory_issue.py` | **Only writer** of factory issue labels/body | `status`, `labels` |
 | `github_issues.py` | Thin `gh` layer for issues, labels, and sub-issues, imported by `factory_issue.py` and `content_issue.py` | none |
-| `content_issue.py` | **Only writer** of content (video) issue labels/body | `new`, `stage`, `gate`, `status` |
+| `content_issue.py` | **Only writer** of content (video) issue labels/body | `new`, `stage`, `gate`, `hours`, `summary`, `status` |
 | `youtube_channel.py` | Load and validate a channel's config and style guide; set up its workspace | `check`, `init` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
@@ -99,7 +99,7 @@ uv run python -m agentic.scripts.factory_issue labels
 ## youtube_channel.py
 
 Loads a YouTube channel from its workspace `.projects/content/yt-<channel>/` (never committed to aksa):
-- `channel.yaml`: machine values (name, url, voice, palette, loudness, music_db, cadence, labels, pronunciation, banned_phrases, title_max); schema in the script docstring
+- `channel.yaml`: machine values (name, url, voice, palette, loudness, music_db, cadence with its weekly owner-hours budget, labels, pronunciation, banned_phrases, title_max); schema in the script docstring
 - `style-guide.md`: human rules, one `##` section per required heading (Voice through Gate 3 checklist, listed in `SECTIONS`)
 
 A missing file, field, or section stops with a message naming each one.
@@ -123,6 +123,7 @@ One GitHub issue per video, kept apart from factory runs by `kind:youtube` (D-04
 - Labels: `kind:youtube`, `channel:<name>` (from `channel.yaml` `labels.channel`, created on demand), `content-type:long-form|short`, one `youtube-stage:*`
 - Stages: idea, research, script, demo, recording, editing, packaging, review, ready; one forward at a time
 - Gates: leaving `idea` (gate 1), `demo` (gate 2), and `review` (gate 3) needs the owner's yes, recorded as a `YouTube: gate N approved.` comment
+- Hours: each entry is a dated `YouTube: hours `<stage>` +<h> on <date>.` comment; the body's `## Hours` table is the per-stage running total, rebuilt by the script from those comments
 
 ```bash
 # File a video at idea; creates videos/<issue-number>/ in the channel workspace
@@ -136,6 +137,11 @@ uv run agentic/scripts/content_issue.py status --channel testlab      # queue, w
 uv run agentic/scripts/content_issue.py gate 14 1 --request           # wait for the owner
 uv run agentic/scripts/content_issue.py gate 14 1 --approve           # only on the owner's yes
 uv run agentic/scripts/content_issue.py stage 14 research
+uv run agentic/scripts/content_issue.py hours 14 --stage idea --hours 1.5   # --date YYYY-MM-DD to log a past day
+# Weekly pilot summary (JSON): per-video hours that ISO week, long-form and Shorts counts,
+# total vs channel.yaml cadence.owner_hours_per_week; verdict pass only with at least the
+# cadence's long-form and Shorts within the budget, else fail with reasons
+uv run agentic/scripts/content_issue.py summary --channel testlab --week 2026-W44
 ```
 
 Exit codes: 0 done, 1 GitHub/config/file error, 2 bad input or invalid channel, 3 refused.
