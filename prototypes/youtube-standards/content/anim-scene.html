@@ -1,0 +1,134 @@
+<!doctype html>
+<!-- PROTOTYPE: animated "Spot the Bug" scene. Every animation is a Web Animation; window.seek(t) sets the frame. -->
+<meta charset="utf-8">
+<link rel="stylesheet" href="../out/fonts/fonts.css">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { width: 1920px; height: 1080px; overflow: hidden; background: #07070c; color: #f2f2ff;
+    font-family: 'Space Grotesk', sans-serif; position: relative; }
+  .grid { position: absolute; inset: 0; background-image: linear-gradient(#14142233 2px, transparent 2px),
+    linear-gradient(90deg, #14142233 2px, transparent 2px); background-size: 60px 60px; }
+  .brand { position: absolute; top: 44px; left: 80px; font: 700 26px 'Fira Code', monospace; color: #00e5ff; }
+  h1 { position: absolute; top: 96px; left: 80px; font-size: 72px; font-weight: 700; letter-spacing: -1px; }
+  h1 span { color: #ff2e88; }
+  .editor { position: absolute; top: 230px; left: 80px; width: 1340px; background: #10101a; border: 2px solid #2a2a40;
+    border-radius: 18px; padding: 70px 36px 170px; transform-origin: 0 0; }
+  .editor .bar { position: absolute; top: 18px; left: 22px; font: 22px 'Fira Code', monospace; color: #9a9ab8; }
+  .editor .bar i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 8px; }
+  .code { font: 28px/1.7 'Fira Code', monospace; font-variant-ligatures: none; }
+  .line { display: block; white-space: pre; overflow: hidden; width: 0; }
+  .ln { color: #4a4a66; display: inline-block; width: 46px; }
+  .k { color: #ff2e88; } .s { color: #ffe066; } .n { color: #00e5ff; } .f { color: #b8b8ff; }
+  .mark { background-image: linear-gradient(#ff2e8855, #ff2e8855); background-repeat: no-repeat;
+    background-size: 0% 100%; border-radius: 4px; }
+  .mark.cyan { background-image: linear-gradient(#00e5ff44, #00e5ff44); }
+  .run { position: absolute; top: 14px; right: 22px; background: #1f9d4c; color: #fff; font: 700 22px 'Space Grotesk';
+    padding: 8px 20px; border-radius: 10px; }
+  .term { position: absolute; left: 80px; top: 720px; width: 1340px; height: 300px; background: #0b0b12;
+    border: 2px solid #2a2a40; border-radius: 18px; padding: 26px 36px; font: 28px/1.6 'Fira Code', monospace;
+    opacity: 0; }
+  .term div { opacity: 0; } .pass { color: #3fff8a; font-weight: 600; }
+  .badge { position: absolute; left: 1020px; top: 860px; background: #1f9d4c; color: #fff; font: 700 54px 'Space Grotesk';
+    padding: 14px 30px; border-radius: 16px; opacity: 0; box-shadow: 0 0 60px #3fff8a88; }
+  .card { position: absolute; top: 805px; left: 1000px; width: 600px; display: grid; grid-template-columns: 1fr auto; column-gap: 20px; background: #10101a; border: 2px solid #2a2a40;
+    border-radius: 18px; padding: 28px; opacity: 0; }
+  .card h3 { font: 600 24px 'Fira Code', monospace; color: #9a9ab8; }
+  .card .fn { font: 700 30px 'Fira Code', monospace; margin: 14px 0; }
+  .card .calls { grid-row: 1 / 4; grid-column: 2; font: 700 96px 'Space Grotesk'; color: #3fff8a; }
+  .stamp { position: absolute; top: 850px; left: 1615px; border: 6px solid #ff2e88; color: #ff2e88;
+    font: 800 44px "Space Grotesk"; padding: 4px 16px; transform: rotate(-10deg); opacity: 0; }
+  .callout { position: absolute; background: #ff2e88; color: #fff; font: 700 30px 'Space Grotesk'; padding: 12px 22px;
+    border-radius: 12px; opacity: 0; white-space: nowrap; }
+  .callout::after { content: ''; position: absolute; left: 40px; top: -16px; border: 9px solid transparent;
+    border-bottom-color: #ff2e88; border-top: 0; }
+  .art { position: absolute; width: 270px; height: 270px; left: 1630px; top: 330px; opacity: 0;
+    -webkit-mask-image: radial-gradient(circle, #000 55%, transparent 72%); }
+  .cursor { position: absolute; left: 1700px; top: 1000px; width: 40px; height: 40px; z-index: 5; }
+  .ripple { position: absolute; width: 70px; height: 70px; border-radius: 50%; border: 5px solid #00e5ff;
+    left: 1291px; top: 228px; opacity: 0; z-index: 4; }
+</style>
+<body>
+<div class="grid"></div>
+<div class="brand">OneO4TestLab / PROTOTYPE</div>
+<h1>Spot the bug: <span>in the test</span></h1>
+
+<div class="editor" id="editor">
+  <div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i> test_discount_ai.py</div>
+  <div class="run" id="run">&#9654; Run tests</div>
+  <div class="code">
+    <span class="line" data-n="27"><span class="ln">1</span><span class="k">def</span> <span class="f">test_apply_discount</span>():</span>
+    <span class="line" data-n="77"><span class="ln">2</span>    <span class="k">with</span> <span class="mark" id="m1">patch.object(discount, <span class="s">"apply_discount"</span></span>, <span class="mark" id="m2">return_value=<span class="n">90.0</span></span>) <span class="k">as</span> fake:</span>
+    <span class="line" data-n="51"><span class="ln">3</span>        result = discount.apply_discount(<span class="n">100</span>, <span class="n">10</span>)</span>
+    <span class="line" data-n="29"><span class="ln">4</span>    <span class="k">assert</span> <span class="mark cyan" id="m3">result == <span class="n">90.0</span></span></span>
+    <span class="line" data-n="31"><span class="ln">5</span>    fake.assert_called_once()</span>
+  </div>
+  <div class="callout" id="c1" style="left:150px; top:330px">replaces the function under test</div>
+  <div class="callout" id="c2" style="left:800px; top:330px">fake returns 90</div>
+  <div class="callout" id="c3" style="left:200px; top:400px; background:#00a3b8">...then checks for 90</div>
+</div>
+
+<div class="term" id="term">
+  <div>$ pytest -q test_discount_ai.py</div>
+  <div>collected 1 item</div>
+  <div>.                                           [100%]</div>
+  <div class="pass">1 passed in 0.02s</div>
+</div>
+<div class="badge" id="badge">&#10003; GREEN</div>
+
+
+<img class="art" id="art" src="../out/thumbs/art-clay-3d-crop.png">
+
+<div class="card" id="card"><h3>discount.py</h3><div class="fn">apply_discount()</div><div>times called</div>
+  <div class="calls" id="calls">?</div></div>
+<div class="stamp" id="stamp">NEVER RAN</div>
+
+<svg class="cursor" id="cursor" viewBox="0 0 24 24"><path d="M3 2l7 19 2.6-7.6L20 11z" fill="#fff" stroke="#000" stroke-width="1.5"/></svg>
+<div class="ripple" id="ripple"></div>
+
+<script>
+const S = 1000, ease = 'cubic-bezier(.2,.8,.2,1)';
+const $ = id => document.getElementById(id);
+function at(el, frames, start, dur, extra = {}) {
+  return el.animate(frames, { delay: start * S, duration: dur * S, fill: 'both', easing: ease, ...extra });
+}
+// 1. code types in, line by line (0.2 - 2.4 s)
+let t = 0.2;
+document.querySelectorAll('.line').forEach(line => {
+  const n = +line.dataset.n, d = n * 0.012;
+  at(line, [{ width: '0ch' }, { width: (n + 3) + 'ch' }], t, d, { easing: `steps(${n})` });
+  t += d + 0.05;
+});
+// 2. cursor travels to Run, clicks (3.7 - 4.6 s)
+at($('cursor'), [{ transform: 'translate(0,0)' }, { transform: 'translate(-380px,-760px)' }], 3.7, 0.6);
+at($('ripple'), [{ opacity: 1, transform: 'scale(.3)' }, { opacity: 0, transform: 'scale(1.6)' }], 4.35, 0.5);
+at($('run'), [{ transform: 'scale(1)' }, { transform: 'scale(.92)' }, { transform: 'scale(1)' }], 4.35, 0.25);
+// 3. terminal slides up and prints (4.7 - 6.5 s)
+at($('term'), [{ opacity: 0, transform: 'translateY(60px)' }, { opacity: 1, transform: 'translateY(0)' }], 4.7, 0.4);
+[...$('term').children].forEach((row, i) => at(row, [{ opacity: 0 }, { opacity: 1 }], 5.1 + i * 0.45, 0.15));
+at($('badge'), [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'scale(1.12)' },
+  { opacity: 1, transform: 'scale(1)' }], 6.5, 0.5);
+at($('cursor'), [{ opacity: 1 }, { opacity: 0 }], 7.0, 0.3, { fill: 'forwards' });
+// 4. "look closer": terminal and badge leave, editor zooms on lines 2-4 (9.5 - 10.5 s)
+at($('term'), [{ opacity: 1 }, { opacity: 0 }], 9.3, 0.4, { fill: 'forwards' });
+at($('badge'), [{ opacity: 1 }, { opacity: 0 }], 9.3, 0.4, { fill: 'forwards' });
+at($('editor'), [{ transform: 'scale(1)' }, { transform: 'scale(1.15)' }], 9.5, 1.0);
+// 5. explain: highlight sweeps and callouts synced to narration
+at($('m1'), [{ backgroundSize: '0% 100%' }, { backgroundSize: '100% 100%' }], 12.0, 0.8);
+at($('c1'), [{ opacity: 0, transform: 'translateY(20px)' }, { opacity: 1, transform: 'translateY(0)' }], 12.6, 0.4);
+at($('m2'), [{ backgroundSize: '0% 100%' }, { backgroundSize: '100% 100%' }], 15.4, 0.7);
+at($('c2'), [{ opacity: 0, transform: 'translateY(20px)' }, { opacity: 1, transform: 'translateY(0)' }], 15.9, 0.4);
+at($('art'), [{ opacity: 0, transform: 'scale(.3) rotate(-20deg)' }, { opacity: 1, transform: 'scale(1) rotate(0)' }], 15.6, 0.6);
+at($('m3'), [{ backgroundSize: '0% 100%' }, { backgroundSize: '100% 100%' }], 18.0, 0.7);
+at($('c3'), [{ opacity: 0, transform: 'translateY(20px)' }, { opacity: 1, transform: 'translateY(0)' }], 18.4, 0.4);
+// 6. the real function: never called (19.8 - 21.4 s)
+at($('card'), [{ opacity: 0, transform: 'translateX(60px)' }, { opacity: 1, transform: 'translateX(0)' }], 19.6, 0.5);
+at($('calls'), [{ color: '#3fff8a' }, { color: '#ff2e88' }], 20.4, 0.1);
+at($('stamp'), [{ opacity: 0, transform: 'rotate(-10deg) scale(2.4)' }, { opacity: 1, transform: 'rotate(-10deg) scale(1)' }], 20.9, 0.35);
+
+window.seek = sec => {
+  $('calls').textContent = sec >= 20.4 ? '0' : '?';
+  document.getAnimations().forEach(a => { a.pause(); a.currentTime = sec * S; });
+};
+window.seek(0);
+</script>
+</body>
