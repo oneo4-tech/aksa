@@ -19,6 +19,10 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["agentic/scripts"]
+addopts = "-m 'not media'"  # media tests take a minute; run them with: uv run pytest -m media
+markers = [
+    "media: renders real media with Chrome, ffmpeg, whisper-cli, and fonts; runs locally, skipped in CI (#28)",
+]
 
 [tool.ruff]
 line-length = 120

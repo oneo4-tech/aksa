@@ -39,12 +39,23 @@ brew install ffmpeg whisper.cpp
   https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin)   # into the home folder
 ```
 
+Research evidence (`research-video`) and scene rendering (`render-video`) drive Google Chrome through Playwright (no bundled browser); demo recordings (`build-video-demo`) need `vhs`. Rendering also needs `ffmpeg`, `whisper-cli` as above, and the Space Grotesk and Fira Code font files at `.cache/fonts/` in the home folder, or the folder in `RENDER_FONTS`, since scenes never load fonts from the network:
+
+```sh
+brew install --cask google-chrome
+brew install vhs
+(cd && mkdir -p .cache/fonts && cd .cache/fonts \
+  && curl -L -o SpaceGrotesk.ttf 'https://github.com/google/fonts/raw/main/ofl/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf' \
+  && curl -L -o FiraCode.ttf 'https://github.com/google/fonts/raw/main/ofl/firacode/FiraCode%5Bwght%5D.ttf')   # into the home folder
+```
+
 The Knowledge Base (`.kb`) is its own git repository with `inbox/`, `raw/`, `wiki/`, and `outputs/`; see `agentic/rules/knowledge.md`.
 
 ## Checks
 
 ```sh
 uv run pytest            # scripts and repository invariants
+uv run pytest -m media   # real-media render tests, locally only (Chrome, ffmpeg, whisper-cli, fonts)
 uv run ruff check .
 uv run ruff format --check .
 ```

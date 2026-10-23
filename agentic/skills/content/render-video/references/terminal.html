@@ -1,0 +1,42 @@
+<!doctype html>
+<!-- Scene kind "terminal", drawn only when the video has no VHS recording: each line of visual at its cue
+     word, a "$ " command typed in, its output appearing at once. render.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+.panel { background: #0b0b12; }
+.term { padding: calc(10 * var(--u)) calc(36 * var(--u)); font-size: calc(32 * var(--u)); line-height: 1.6; }
+.term div { white-space: pre; overflow: hidden; }
+.term .cmd { width: 0; }
+.term .out { opacity: 0; color: var(--fg); }
+.prompt { color: var(--accent); }
+</style>
+<body data-kind="terminal">
+<div id="stage"><div id="camera">
+  <div class="grid"></div>
+  <div class="brand" id="brand"></div>
+  <h1 id="heading"></h1>
+  <div class="panel" id="panel">
+    <div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i> terminal</div>
+    <div class="term mono" id="term"></div>
+  </div>
+</div></div>
+<script>
+/*{{cues}}*/
+/*{{js}}*/
+function build() {
+  CUES.items.forEach(line => {
+    if (line.text.startsWith('$ ')) {
+      const row = make('div', 'cmd', undefined, $('term'));
+      make('span', 'prompt', '$ ', row);
+      make('span', '', line.text.slice(2), row);
+      const n = line.text.length;
+      at(row, [{ width: '0ch' }, { width: (n + 1) + 'ch' }], line.at, Math.min(n * 0.04, 1.2), { easing: `steps(${n})` });
+    } else {
+      at(make('div', 'out', line.text, $('term')), [{ opacity: 0 }, { opacity: 1 }], line.at, 0.15);
+    }
+  });
+}
+</script>
+</body>

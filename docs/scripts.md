@@ -18,6 +18,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `check_script.py` (skill `write-video-script`) | Check a video's script against the writing rules, length target, and citations | `CHANNEL N` |
 | `scaffold.py` (skill `build-video-demo`) | Create a video's demo folder in the demo repository clone and print its description link | `CHANNEL N --slug --proves` |
 | `narrate.py` (skill `narrate-video`) | Narrate a video's scenes with the channel voice and check each transcript for leaked markup | `CHANNEL N` |
+| `render.py` (skill `render-video`) | Render a video's scenes into silent clips timed from the narration, with terminal scenes from the VHS recording | `CHANNEL N` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
@@ -212,6 +213,17 @@ uv run --env-file .env agentic/skills/content/narrate-video/scripts/narrate.py t
 ```
 
 Exit codes: 0 every scene clean, 1 Gemini/tool/file error or key missing, 2 bad input (invalid script file or channel), 3 refused (a scene leaked markup or misses the script).
+
+### render.py (`render-video`)
+
+Reads a video's `videos/<n>/script.json` (`type`, and per scene `kind`, `heading`, `visual` or `code`), `narration/NN.wav`, `demo.json` and the demo files `code` scenes show (in the clone at `channel.yaml` `demos.path`), `demo.mp4` when it exists, and `channel.yaml` `name` and `palette`. Per scene: `whisper-cli -ml 1 -sow -ojf` gives word start times; the scene lasts 0.4 s + its narration + 0.6 s, rounded up to whole frames at 30 fps. Each item (a title word, a point, a terminal line) appears at the first of its words heard after the previous item's, else at its share of the narration; a code scene types its file in, then focuses the line naming a heard word (held at least 1.2 s), the rest dimmed. Drawn scenes fill `references/<kind>.html` with the cue timeline as JSON, the shared `scene.css` and `scene.js`, and the Space Grotesk and Fira Code files embedded (`RENDER_FONTS`, else `.cache/fonts` in the home folder; nothing loads from the network); the system Chrome, with software raster so two renders give identical frames, seeks each frame (`window.seek(t)`) for a JPEG, and ffmpeg encodes them (H.264, CRF 18, no audio). Terminal scenes, when `demo.mp4` exists, play it in order from where the previous terminal scene ended, fitted inside the frame on the palette background with 0.3 s fades, the final frame held past its end. Writes `render/scenes/NN.mp4` and `render/scenes.json` (type, width, height, fps; per scene kind, source, file, narration, seconds, frames, lead).
+
+```bash
+# Prints render/scenes.json
+uv run agentic/skills/content/render-video/scripts/render.py testlab 14
+```
+
+Exit codes: 0 every scene rendered, 1 tool/font/file error, 2 bad input (invalid script or channel, missing narration or demo file). The media test (`tests/test_render_media.py`, marker `media`) renders a two-scene fixture twice with the real tools: `uv run pytest -m media`; the default run and CI leave it out.
 
 ---
 

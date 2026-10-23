@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- Scene kind "title": the heading, then visual as kinetic words, each popping in at its cue word over a
+     veil, the newest in the accent colour. render.py fills the four placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+.veil { position: absolute; inset: 0; background: var(--bg); opacity: 0; }
+.kinetic { position: absolute; left: var(--pad); right: var(--pad); top: 30%; bottom: 12%; display: flex;
+  flex-wrap: wrap; align-content: center; justify-content: center; gap: 0 calc(40 * var(--u)); }
+.kinetic span { font-size: calc(150 * var(--u)); font-weight: 700; letter-spacing: -4px; line-height: 1.15; opacity: 0; }
+[data-shape="tall"] .kinetic span { font-size: calc(130 * var(--u)); }
+</style>
+<body data-kind="title">
+<div id="stage"><div id="camera">
+  <div class="grid"></div>
+  <div class="brand" id="brand"></div>
+  <h1 id="heading"></h1>
+  <div class="veil" id="veil"></div>
+  <div class="kinetic" id="kinetic"></div>
+</div></div>
+<script>
+/*{{cues}}*/
+/*{{js}}*/
+function build() {
+  const words = CUES.items, box = $('kinetic');
+  if (words.length) at($('veil'), [{ opacity: 0 }, { opacity: 0.6 }], words[0].at - 0.1, 0.4);
+  words.forEach((word, i) => {
+    const span = make('span', '', word.text, box);
+    span.style.color = 'var(--accent)';
+    span.style.textShadow = '0 0 80px currentColor';
+    at(span, [{ opacity: 0, transform: 'scale(1.8)', offset: 0 }, { opacity: 1, transform: 'scale(0.96)', offset: 0.7 },
+      { opacity: 1, transform: 'scale(1)', offset: 1 }], word.at, 0.45, { easing: 'linear' });
+    const next = words[i + 1];
+    if (next) at(span, [{ color: CUES.palette.accent }, { color: CUES.palette.text }], next.at, 0.3, { fill: 'forwards' });
+  });
+}
+</script>
+</body>

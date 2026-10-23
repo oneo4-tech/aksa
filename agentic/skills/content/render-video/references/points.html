@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Scene kind "points": the heading, then each point at its cue word, an arrow drawn before it and the
+     text sliding in, earlier points dimmed so the newest holds the focus. render.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+.points { position: absolute; left: var(--pad); right: var(--pad); top: calc(270 * var(--u)); display: flex;
+  flex-direction: column; gap: calc(44 * var(--u)); }
+[data-shape="tall"] .points { top: calc(480 * var(--u)); gap: calc(60 * var(--u)); }
+.point { display: flex; align-items: center; gap: calc(28 * var(--u)); }
+.point svg { flex: none; width: calc(64 * var(--u)); height: calc(40 * var(--u)); overflow: visible; }
+.point div { font-size: calc(54 * var(--u)); font-weight: 600; line-height: 1.25; opacity: 0; }
+[data-shape="tall"] .point div { font-size: calc(58 * var(--u)); }
+</style>
+<body data-kind="points">
+<div id="stage"><div id="camera">
+  <div class="grid"></div>
+  <div class="brand" id="brand"></div>
+  <h1 id="heading"></h1>
+  <div class="points" id="points"></div>
+</div></div>
+<script>
+/*{{cues}}*/
+/*{{js}}*/
+function build() {
+  const u = Math.min(CUES.width, CUES.height) / 1080;
+  CUES.items.forEach((point, i) => {
+    const row = make('div', 'point', undefined, $('points'));
+    const svg = svgIn(row);
+    svg.setAttribute('viewBox', '0 0 64 40');
+    stroke(svg, 'M4 20 H56 M42 6 L56 20 L42 34', CUES.palette.accent, 6, point.at, 0.35);
+    const text = make('div', '', point.text, row);
+    at(text, [{ opacity: 0, transform: `translateX(${-40 * u}px)` }, { opacity: 1, transform: 'none' }], point.at + 0.15, 0.45);
+    const next = CUES.items[i + 1];
+    if (next) at(row, [{ opacity: 1 }, { opacity: 0.45 }], next.at, 0.3, { fill: 'forwards' });
+  });
+}
+</script>
+</body>

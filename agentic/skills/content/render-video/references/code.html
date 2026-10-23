@@ -1,0 +1,71 @@
+<!doctype html>
+<!-- Scene kind "code": the demo file types into an editor, then at each focus cue the named line lights up,
+     the rest dims, and an arrow draws in pointing at it. render.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+.code { position: relative; padding: calc(10 * var(--u)) calc(36 * var(--u)); }
+.line { display: block; white-space: pre; overflow: hidden; width: 0; position: relative; }
+.ln { color: #4a4a66; display: inline-block; width: 3ch; margin-right: 1ch; text-align: right; }
+.glow { position: absolute; left: 0; right: 0; opacity: 0; background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 6px 0 var(--accent); }
+.pointer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
+</style>
+<body data-kind="code">
+<div id="stage"><div id="camera">
+  <div class="grid"></div>
+  <div class="brand" id="brand"></div>
+  <h1 id="heading"></h1>
+  <div class="panel" id="panel">
+    <div class="bar" id="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+    <div class="code mono" id="code"></div>
+  </div>
+</div></div>
+<script>
+/*{{cues}}*/
+/*{{js}}*/
+function build() {
+  const panel = $('panel'), box = $('code'), lines = CUES.lines;
+  make('span', '', ' ' + CUES.file, $('bar'));
+  // Fit the longest line and every line inside the panel; Fira Code advances 0.6 em a character.
+  const u = Math.min(CUES.width, CUES.height) / 1080;
+  const wide = Math.max(...lines.map(l => l.length), 20) + 4;
+  const room = panel.clientWidth - 72 * u, high = panel.clientHeight - $('bar').offsetHeight - 30 * u;
+  const size = Math.min(30 * u, room / (wide * 0.6), high / (Math.max(lines.length, 1) * 1.6));
+  Object.assign(box.style, { fontSize: size + 'px', lineHeight: 1.6 });
+  const glow = make('div', 'glow', undefined, box);
+  glow.style.height = size * 1.6 + 'px';
+  // Typing: each line in turn, a character a step, sharing CUES.typing seconds by length.
+  const total = Math.max(lines.reduce((n, l) => n + l.length + 1, 0), 1);
+  let t = CUES.lead;
+  const rows = lines.map((text, i) => {
+    const row = make('span', 'line', undefined, box);
+    make('span', 'ln', String(i + 1), row);
+    colour(text, row);
+    const share = CUES.typing * (text.length + 1) / total;
+    at(row, [{ width: '0ch' }, { width: (text.length + 5) + 'ch' }], t, Math.max(share, 0.001),
+      { easing: `steps(${Math.max(text.length, 1)})` });
+    t += share;
+    return row;
+  });
+  // Focus: the named line full, the rest dimmed; the glow moves to it and an arrow draws in pointing at it.
+  const svg = svgIn(box, 'pointer'), x = room - 140 * u;
+  let last = null;
+  const arrows = CUES.focus.map(cue => {
+    rows.forEach((row, i) => {
+      const was = last === null || i === last ? 1 : 0.28;
+      at(row, [{ opacity: was }, { opacity: i === cue.line ? 1 : 0.28 }], cue.at, 0.3, { fill: 'forwards' });
+    });
+    const to = rows[cue.line].offsetTop, from = last === null ? to : rows[last].offsetTop;
+    at(glow, [{ opacity: last === null ? 0 : 1, transform: `translateY(${from}px)` }, { opacity: 1, transform: `translateY(${to}px)` }],
+      cue.at, 0.3, { fill: 'forwards' });
+    const tip = to + size * 0.8;
+    last = cue.line;
+    return stroke(svg, `M${x + 130 * u} ${tip} H${x} M${x + 22 * u} ${tip - 18 * u} L${x} ${tip} L${x + 22 * u} ${tip + 18 * u}`,
+      CUES.palette.accent, 6 * u, cue.at + 0.1, 0.4);
+  });
+  arrows.slice(0, -1).forEach((arrow, i) => at(arrow, [{ opacity: 1 }, { opacity: 0 }], CUES.focus[i + 1].at, 0.2, { fill: 'forwards' }));
+}
+</script>
+</body>

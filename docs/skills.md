@@ -55,6 +55,7 @@ Content production pipelines outside software delivery (D-041).
 | `write-video-script` | One video's `script.json`: scenes in a rotating structure (challenge-first, incident story, myth buster), sized for five to ten minutes or a thirty to sixty second Short, checked against the writing rules and citations |
 | `build-video-demo` | One video's runnable demo, passing tests, and VHS tape in `<n>-<slug>/` of the channel's public demo repository clone; returns the description link; pushes or creates the repository only on the owner's yes |
 | `narrate-video` | One video's narration, scene by scene, with Gemini 3.8 Flash TTS in the channel's voice, style, pace, and pronunciation into `narration/NN.wav`, refused when a whisper transcript shows spoken markup or misses the script's words |
+| `render-video` | One video's scenes as silent clips `render/scenes/NN.mp4` (30 fps, 1920x1080 or 1080x1920 for a Short): drawn scenes as HTML Web Animations in the neon-terminal theme, timed from whisper word timestamps, and terminal scenes cut from the VHS recording |
 
 ### Auxiliary Skills (`agentic/skills/auxiliary/`)
 Specialized utilities.
