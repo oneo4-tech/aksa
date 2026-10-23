@@ -9,10 +9,8 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "out" / "branding"
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-PALETTES = {
-    "spec-red": {"bg": "#000000", "syntax": "#FF0000", "name": "#FFFFFF", "suffix": "#FFFFFF", "accent": "#FF0000"},
-    "neon": {"bg": "#07070c", "syntax": "#ff2e88", "name": "#f2f2ff", "suffix": "#00e5ff", "accent": "#00e5ff"},
-    "red-cyan": {"bg": "#07070c", "syntax": "#FF0000", "name": "#FFFFFF", "suffix": "#00e5ff", "accent": "#00e5ff"},
+PALETTES = {  # owner's pick 2026-10-23: deep red syntax, warm white name, cyan suffix, black background
+    "chosen": {"bg": "#000000", "syntax": "#CC0000", "name": "#F2EFE6", "suffix": "#00E5FF", "accent": "#00E5FF"},
 }
 NAME = """<g transform="translate(68,0)"><ellipse cx="32" cy="90" rx="22" ry="30"/></g>
 <g transform="translate(136,0)"><path d="M12 120 V60 M12 86 C12 70 22 60 34 60 C47 60 54 69 54 84 V120"/></g>
