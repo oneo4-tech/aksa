@@ -32,6 +32,14 @@ QUERIES = {
     14: "LLM evals vs testing",
     15: "will AI replace software testers",
     16: "Post Office Horizon scandal software testing",
+    17: "autonomous AI testing agent failed lessons",
+    18: "self healing tests problems",
+    19: "LLM evaluation framework architecture",
+    20: "CI CD pipeline AI agents testing",
+    21: "AI testing strategy for leadership",
+    22: "manual tester career AI reskilling",
+    23: "cannot reproduce intermittent bug investigation",
+    24: "boundary value analysis off by one AI generated code bugs",
 }
 
 
@@ -42,6 +50,38 @@ def get(endpoint: str, **params: str) -> dict:
         return json.load(urllib.request.urlopen(url, timeout=60))
     except urllib.error.HTTPError as e:
         sys.exit(f"{endpoint}: {e.code} {e.read().decode()[:300]}")
+
+
+ANCHORS = {  # every group needs at least one hit in the title or the first 400 characters of the description
+    1: [["unit test"], ["ai", "copilot", "chatgpt", "llm"]],
+    2: [["playwright"], ["agent", "healer", "mcp"]],
+    3: [["cypress"], ["prompt", "self-heal", "self heal", "ai"]],
+    4: [["oracle"], ["test"]],
+    5: [["sycophan", "agree", "flatter", "yes-man"], ["llm", "ai", "chatgpt", "claude", "gpt"]],
+    6: [["consisten", "determin", "same prompt", "variab"], ["llm", "chatgpt", "gpt", "model"]],
+    7: [["heuristic test strategy", "sfdipot", "htsm", "test strategy"], ["test"]],
+    8: [["bug report"], ["writ", "how to", "good"]],
+    9: [["copilot"], ["agent"], ["test"]],
+    10: [["prompt injection"], ["test", "owasp", "attack"]],
+    11: [["excessive agency", "owasp"], ["agent", "llm"]],
+    12: [["coverage"], ["test", "code"]],
+    14: [["eval"], ["llm", "ai"]],
+    15: [["replace"], ["tester", "qa", "testing"]],
+    16: [["post office", "horizon"], ["software", "bug", "fujitsu", "it system"]],
+    17: [["agent"], ["test"], ["fail", "lesson", "mistake", "scrap", "wrong"]],
+    18: [["self-heal", "self heal", "healing"], ["test"]],
+    19: [["eval"], ["framework", "pipeline", "architect"], ["llm", "ai"]],
+    20: [["ci/cd", "ci cd", "pipeline"], ["test"], ["ai", "agent", "llm"]],
+    21: [["strategy"], ["test", "qa"], ["ai"]],
+    22: [["manual test", "tester", "qa"], ["career", "reskill", "future", "job"], ["ai"]],
+    23: [["reproduc", "intermittent", "flaky", "heisenbug"], ["bug"]],
+    24: [["boundary value", "off-by-one", "off by one"], ["test", "bug", "code"]],
+}
+
+
+def relevant(idea: int, title: str, description: str) -> bool:
+    text = (title + " " + description[:400]).lower()
+    return all(any(term in text for term in group) for group in ANCHORS[idea])
 
 
 def seconds(iso: str) -> int:
@@ -55,8 +95,16 @@ def main() -> None:
     now = datetime.now(UTC)
     report = {}
     for idea, q in QUERIES.items():
-        found = get("search", part="id", type="video", q=q, maxResults="10", relevanceLanguage="en", order="relevance")
-        ids = [i["id"]["videoId"] for i in found.get("items", [])]
+        cache = OUT / "raw" / f"{idea}.json"  # search quota is 100 calls a day: never search twice for the same query
+        cached = json.loads(cache.read_text()) if cache.exists() else {}
+        if cached.get("query") != q:
+            found = get(
+                "search", part="id", type="video", q=q, maxResults="25", relevanceLanguage="en", order="relevance"
+            )
+            cached = {"query": q, "ids": [i["id"]["videoId"] for i in found.get("items", [])]}
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps(cached))
+        ids = cached["ids"]
         if not ids:
             report[idea] = {"query": q, "videos": []}
             continue
@@ -66,6 +114,8 @@ def main() -> None:
             published = datetime.fromisoformat(v["snippet"]["publishedAt"])
             age = max((now - published).days, 1)
             views = int(v["statistics"].get("viewCount", 0))
+            if not relevant(idea, v["snippet"]["title"], v["snippet"].get("description", "")):
+                continue
             rows.append(
                 {
                     "title": v["snippet"]["title"],
@@ -86,7 +136,7 @@ def main() -> None:
         "",
         (
             f"YouTube Data API v3 search.list (relevance, English) and videos.list, run {now.date()}. "
-            "Up to 10 closest videos per idea."
+            "Up to 25 results per idea, kept only when every anchor group matches the title or description start."
         ),
         "",
     ]
