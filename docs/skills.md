@@ -52,6 +52,7 @@ Content production pipelines outside software delivery (D-041).
 | `run-youtube` | File, resume, or list a channel's videos (`youtube-producer` agent) |
 | `scan-video-ideas` | Weekly scan into scored idea cards with competing YouTube videos; one video's card at stage `idea` |
 | `research-video` | One video's research from primary sources, with each claim's quote checked on its live page (`citations.json`, required by gate 2) |
+| `write-video-script` | One video's `script.json`: scenes in a rotating structure (challenge-first, incident story, myth buster), sized for five to ten minutes or a thirty to sixty second Short, checked against the writing rules and citations |
 
 ### Auxiliary Skills (`agentic/skills/auxiliary/`)
 Specialized utilities.

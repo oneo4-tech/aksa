@@ -15,6 +15,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `youtube_channel.py` | Load and validate a channel's config and style guide; set up its workspace | `check`, `init` |
 | `competition.py` (skill `scan-video-ideas`) | Score an idea card and add the closest YouTube videos, cached per query | `CHANNEL CARD`, `--top` |
 | `evidence.py` (skill `research-video`) | Check each claim's quote on its live page and add a text-fragment link | `CHANNEL N` |
+| `check_script.py` (skill `write-video-script`) | Check a video's script against the writing rules, length target, and citations | `CHANNEL N` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
@@ -114,7 +115,7 @@ uv run agentic/scripts/youtube_channel.py check testlab
 uv run agentic/scripts/youtube_channel.py init testlab
 ```
 
-Content scripts import `load(channel)`; no tracked file holds a channel URL.
+Content scripts import `load(channel)` and the pure writing checks `banned_phrases(text, config)` (the channel's banned phrases found in text: whole words, any case, any spacing, curly apostrophes matched) and `title_ok(title, config)` (non-blank and at most `title_max` characters); no tracked file holds a channel URL.
 
 ---
 
@@ -176,6 +177,17 @@ uv run agentic/skills/content/research-video/scripts/evidence.py testlab 14
 ```
 
 Exit codes: 0 every quote found, 1 page/browser/file error, 2 bad input (invalid citations file or channel), 3 a quote not found.
+
+### check_script.py (`write-video-script`)
+
+Reads a video's `videos/<n>/script.json`: `title`, `type` (`long-form` or `short`), `structure` (`challenge-first`, `incident-story`, `myth-buster`), `acronyms`, and `scenes`, each with `kind` (`title`, `points`, `code`, `terminal`), `heading`, `visual` or for a code scene `code`, `say` (the narration), and `claims` (citation ids). Refuses, naming each problem: a banned phrase from `channel.yaml` in the title, a heading, visual, or say; a title over `title_max`; in `say`, a sentence of twenty words or more, three sentences of sixteen or more in a row, digits, markup other than `//` and `...`, more than one CAPS word per sentence other than `acronyms`, or a word the `pronunciation` list respells; a claim id not in `citations.json` or not found; a length outside 300-600 s (long-form) or 30-60 s (Short). Length estimate: words at 160 words a minute times `voice.pace`, plus 1.25 s per `//` and 0.65 s per `...`.
+
+```bash
+# Prints JSON (scenes, words, seconds, target_seconds, words_per_minute)
+uv run agentic/skills/content/write-video-script/scripts/check_script.py testlab 14
+```
+
+Exit codes: 0 the script passes, 1 file error, 2 bad input (invalid script file or channel), 3 refused (a writing rule, length, or citation problem).
 
 ---
 

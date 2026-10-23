@@ -208,3 +208,34 @@ def test_cli_init_creates_the_workspace(tmp_path):
     (tmp_path / ".projects").mkdir()
     assert yc.main(["init", "example"], root=tmp_path) == 0
     assert (tmp_path / ".projects" / "content" / "yt-example" / ".gitignore").is_file()
+
+
+# Writing checks every specialist shares: banned phrases and title length
+
+PHRASES = {"banned_phrases": ["in this video", "let's dive in", "game-changer", "Delve", "unlock"]}
+
+
+@pytest.mark.parametrize(
+    ("text", "found"),
+    [
+        ("In This Video we break a test.", ["in this video"]),
+        ("Let’s dive in and delve into it.", ["let's dive in", "Delve"]),
+        ("A game-changer? No.", ["game-changer"]),
+        ("in  this\nvideo", ["in this video"]),
+    ],
+)
+def test_banned_phrases_finds_each_phrase_ignoring_case_spacing_and_curly_quotes(text, found):
+    assert yc.banned_phrases(text, PHRASES) == found
+
+
+@pytest.mark.parametrize("text", ["The key unlocks nothing.", "Delvers dig.", "Video in this format.", ""])
+def test_banned_phrases_matches_whole_words_only(text):
+    assert yc.banned_phrases(text, PHRASES) == []
+
+
+@pytest.mark.parametrize(
+    ("title", "ok"),
+    [("x" * 60, True), ("x" * 61, False), ("Spot the Bug: a test that tests nothing", True), ("   ", False)],
+)
+def test_title_ok_allows_at_most_title_max_characters(title, ok):
+    assert yc.title_ok(title, {"title_max": 60}) is ok

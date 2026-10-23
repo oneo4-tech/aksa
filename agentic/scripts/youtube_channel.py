@@ -27,6 +27,9 @@ channel.yaml, the machine values every content script reads:
 style-guide.md, the human rules every specialist reads, with one "## " section per
 heading in SECTIONS, spelled exactly.
 
+Content scripts import load(channel) and the pure writing checks banned_phrases(text, config)
+(whole words, any case) and title_ok(title, config) (at most title_max characters).
+
 Media (video, audio, images) is gitignored in the workspace; text artifacts and
 SVG branding sources stay trackable.
 
@@ -165,6 +168,27 @@ def style_sections(text: str) -> dict[str, str]:
     """Second-level heading -> the text under it, up to the next such heading."""
     parts = HEADING.split(text)
     return {parts[i]: parts[i + 1].strip() for i in range(1, len(parts) - 1, 2)}
+
+
+def _plain(text: str) -> str:
+    """Curly apostrophes as straight ones, so "let’s" matches "let's"."""
+    return text.replace("\u2019", "'").replace("\u2018", "'")
+
+
+def banned_phrases(text: str, config: dict) -> list[str]:
+    """The channel's banned phrases in text, as listed in config: whole words, any case or spacing."""
+    text = _plain(text)
+    found = []
+    for phrase in config["banned_phrases"]:
+        words = r"\s+".join(re.escape(word) for word in _plain(phrase).split())
+        if words and re.search(rf"(?<!\w){words}(?!\w)", text, re.IGNORECASE):
+            found.append(phrase)
+    return found
+
+
+def title_ok(title: str, config: dict) -> bool:
+    """Whether title is non-blank and at most the channel's title_max characters."""
+    return bool(title.strip()) and len(title) <= config["title_max"]
 
 
 def workspace(channel: str, root: Path = REPO_ROOT) -> Path:
