@@ -196,7 +196,7 @@ Exit codes: 0 the script passes, 1 file error, 2 bad input (invalid script file 
 
 ### scaffold.py (`build-video-demo`)
 
-Reads `channel.yaml` `demos`: `repo` (the public repository, `owner/name`) and `path` (its local clone, `.projects/content/<path>/`). Creates `<clone>/<n>-<slug>/` with `README.md` (the content issue's title, what the demo proves, how to run, the link back to the issue, the folder link, the MIT note), `demo/`, `tests/`, `demo.tape` (VHS: Menlo 30, 1920x1080, Dracula), and a `.gitignore` for recorded media. Refuses an existing folder, a missing clone or one that is not a git repository, and a repository missing on GitHub (the owner creates it once). Only reads GitHub: never creates a repository, commits, or pushes.
+Reads `channel.yaml` `demos`: `repo` (the public repository, `owner/name`) and `path` (its local clone, `.projects/content/<path>/`), `channel.yaml` `name` and `url`, and the video's `videos/<n>/citations.json`. Creates `<clone>/<n>-<slug>/` with `README.md` (the content issue's title, what the demo proves, how to run, a Video section with the line `- Video: not published yet` that `package.py --video-url` fills, the channel link, and the folder link, a Sources section listing each claim with its quoted line and text-fragment link, the MIT note; never a link to the private aksa tracker), `demo/`, `tests/`, `demo.tape` (VHS: Menlo 30, 1920x1080, Dracula), and a `.gitignore` for recorded media. Refuses an existing folder, a missing clone or one that is not a git repository, a repository missing on GitHub (the owner creates it once), and citations missing or not all verified (`evidence.py`). Only reads GitHub: never creates a repository, commits, or pushes.
 
 ```bash
 # Prints the folder, then https://github.com/<repo>/tree/main/<n>-<slug>
@@ -247,6 +247,18 @@ uv run --env-file .env agentic/skills/content/design-thumbnail/scripts/thumbnail
 ```
 
 Exit codes: 0 written, 1 Gemini/Chrome/font/file error, key missing, or over 2 MB in every format, 2 bad input (invalid channel, text, or subject, no video folder), 3 refused (cached art from another prompt without `--new-art`). The media test (`tests/test_thumbnail_media.py`, marker `media`) composes each layout in the real Chrome from fake art and checks 3840x2160 and the size limit.
+
+### package.py (`package-video`)
+
+Reads a video's `videos/<n>/metadata.json` (`title`, `hook`, `chapters` as `{scene, title}`, `tags`, `hashtags`, `paid_promotion`, and for a Short `related`), `script.json` `type`, `render/scenes.json` (`fps`, each scene's `frames`; a chapter starts where its scene starts), `demo.json` `link`, `citations.json` (every claim verified, `evidence.py`), and `channel.yaml` `title_max` and `banned_phrases`. Writes `description.md` (the hook; chapters, or for a Short `Full video:` and the long-form's `video_url`; `Code:` and the demo link; `Sources:` with each claim and its text-fragment link; `Narration uses a synthetic AI voice.` and the paid promotion or `No paid promotion.`; the hashtags) and `packaging.json` (`type`, `title`, `description`, `chapters` as `{at, title}`, `tags`, `hashtags`, `paid_promotion`, `video_url`, and for a Short `related_video`). Refuses, naming each problem: a blank title or hook, a title over `title_max`, a banned phrase in the title, hook, or a chapter title; chapters not starting at scene 1 (00:00), fewer than three, not ascending, naming a scene not rendered, or shorter than 10 s; a Short with chapters or whose long-form has no `video_url`; tags outside 5-8; more than three hashtags or one not `#` and one word; `<` or `>`; a description over 5,000 characters; no demo link; citations missing or not verified. `--video-url` (a `youtube.com/watch`, `youtube.com/shorts`, or `youtu.be` link) records `video_url` in an existing `packaging.json` and, when `demo.json`'s folder is `<n>-<slug>`, fills that README's `- Video:` line in the local demo clone and rebuilds its Sources section (`scaffold.py`). Local files only: never commits, pushes, or calls YouTube.
+
+```bash
+# Prints the files written; with --video-url, the recorded link and the README filled
+uv run agentic/skills/content/package-video/scripts/package.py testlab 14
+uv run agentic/skills/content/package-video/scripts/package.py testlab 14 --video-url https://www.youtube.com/watch?v=dQw4w9WgXcQ
+```
+
+Exit codes: 0 written, 1 file error, 2 bad input (invalid channel, missing or invalid `metadata.json`, `script.json`, or `scenes.json`, a link that is not a YouTube video), 3 refused (a packaging rule, a missing demo link or citations, `--video-url` before packaging).
 
 ---
 

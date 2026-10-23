@@ -3,10 +3,14 @@
 Usage: uv run agentic/skills/content/build-video-demo/scripts/scaffold.py CHANNEL N --slug SLUG --proves TEXT
 
 Reads channel.yaml's demos: {repo, path}: the public repository (owner/name) and its local
-clone at .projects/content/<path>/. Creates <clone>/<N>-<SLUG>/ with:
+clone at .projects/content/<path>/, and the video's verified citations, videos/<N>/citations.json
+from research-video. Creates <clone>/<N>-<SLUG>/ with:
 
-  README.md    title (the content issue's), what it proves (TEXT), how to run, the link back
-               to the content issue, the folder's own link, and the MIT note
+  README.md    title (the content issue's), what it proves (TEXT), how to run, a Video section
+               (the line VIDEO_PENDING, which package-video fills with the published video's
+               link, the channel's link from channel.yaml url, and the folder's own link) and
+               a Sources section (each claim, its quoted line, and its text-fragment link),
+               and the MIT note; never a link to the content issue, whose tracker is private
   demo/        the code the video shows (empty, with .gitkeep)
   tests/       the tests that prove the claim (empty, with .gitkeep)
   demo.tape    the VHS tape recording the terminal demo, from references/demo.tape
@@ -15,8 +19,8 @@ clone at .projects/content/<path>/. Creates <clone>/<N>-<SLUG>/ with:
 and prints the folder, then the description link https://github.com/<repo>/tree/main/<N>-<SLUG>.
 
 It refuses (exit 3) a folder that already exists, a clone that is missing or not a git
-repository, and a repository that does not exist on GitHub: the owner creates it once and
-clones it. It only reads GitHub; it never creates a repository, commits, or pushes.
+repository, a repository that does not exist on GitHub (the owner creates it once and clones
+it), and citations missing or not all verified (research-video's evidence.py). It only reads GitHub; it never creates a repository, commits, or pushes.
 
 Exit codes: 0 created, 1 a GitHub or file error, 2 bad input (an invalid channel, slug, or an
 issue that is not this channel's), 3 refused.
@@ -30,10 +34,17 @@ from pathlib import Path
 SKILL = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[5]
 sys.path.insert(0, str(REPO_ROOT / "agentic" / "scripts"))
+# The citations format is read through the script that writes it, research-video's evidence.py.
+sys.path.insert(0, str(REPO_ROOT / "agentic" / "skills" / "content" / "research-video" / "scripts"))
+import evidence
 import github_issues
 import youtube_channel
 
 MEDIA_IGNORE = "# Recorded media stays out of git.\n*.mp4\n*.gif\n*.webm\n"
+VIDEO_LINE = "- Video: "
+VIDEO_PENDING = VIDEO_LINE + "not published yet"
+SOURCES = "## Sources"
+SOURCES_INTRO = "The video's claims, each with the line quoted from its source; each link opens the page at that line."
 
 
 class BadInput(Exception):
@@ -57,7 +68,7 @@ class GitHub(github_issues.GitHub):
         return True
 
     def issue_link(self, number: int) -> dict:
-        data = json.loads(self._gh("issue", "view", str(number), "--json", "title,url,labels"))
+        data = json.loads(self._gh("issue", "view", str(number), "--json", "title,labels"))
         return {**data, "labels": [label["name"] for label in data["labels"]]}
 
 
@@ -65,6 +76,39 @@ def fill(template: str, values: dict[str, str]) -> str:
     for key, value in values.items():
         template = template.replace("{{" + key + "}}", value)
     return template
+
+
+def sources(claims: list[dict]) -> str:
+    """The README's Sources section: each verified claim, its quoted line, and its text-fragment link."""
+    lines = [f'- {c["claim"]} "{evidence.normalise(c["quote"])}" ([source]({c["link"]}))' for c in claims]
+    return f"{SOURCES}\n\n{SOURCES_INTRO}\n\n" + "\n".join(lines) + "\n"
+
+
+def verified_claims(path: Path) -> list[dict]:
+    """The claims of a citations file, refused unless every one is checked and found."""
+    try:
+        claims = json.loads(path.read_text())
+    except FileNotFoundError:
+        raise Refused(f"{path}: no citations.json; research-video writes it") from None
+    except json.JSONDecodeError as error:
+        raise Refused(f"{path}: citations.json is not valid JSON ({error})") from None
+    if problems := evidence.gate_problems(claims):
+        raise Refused(f"{path}: citations not verified:\n  " + "\n  ".join(problems))
+    return claims
+
+
+def with_video(readme: str, url: str, claims: list[dict]) -> str:
+    """The README with its Video line linking url and its Sources section rebuilt from claims."""
+    lines = readme.split("\n")
+    video = [i for i, line in enumerate(lines) if line.startswith(VIDEO_LINE)]
+    starts = [i for i, line in enumerate(lines) if line == SOURCES]
+    if len(video) != 1 or len(starts) != 1:
+        raise Refused(f"the README needs exactly one '{VIDEO_LINE}' line and one '{SOURCES}' heading")
+    lines[video[0]] = VIDEO_LINE + url
+    start = starts[0]
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+    tail = "\n" + "\n".join(lines[end:]) if end < len(lines) else ""
+    return "\n".join(lines[:start]) + "\n" + sources(claims) + tail
 
 
 def scaffold(channel: str, number: int, slug: str, proves: str, root: Path, gh) -> tuple[Path, str]:
@@ -82,6 +126,7 @@ def scaffold(channel: str, number: int, slug: str, proves: str, root: Path, gh) 
         raise Refused(f"{folder.relative_to(root)} already exists; continue it or pick another slug")
     if not gh.repo_exists(repo):
         raise Refused(f"{repo} does not exist on GitHub; the owner creates it once (public, MIT) and clones it")
+    claims = verified_claims(youtube_channel.workspace(channel, root) / "videos" / str(number) / "citations.json")
     issue = gh.issue_link(number)
     if config["labels"]["channel"] not in issue["labels"]:
         raise BadInput(f"#{number} is not a content issue of {channel} (no {config['labels']['channel']} label)")
@@ -89,8 +134,10 @@ def scaffold(channel: str, number: int, slug: str, proves: str, root: Path, gh) 
     values = {
         "title": issue["title"],
         "channel": config["name"],
+        "channel_url": config["url"],
         "proves": proves.strip(),
-        "issue_url": issue["url"],
+        "video": VIDEO_PENDING,
+        "sources": sources(claims).rstrip("\n"),
         "link": link,
         "folder": folder.name,
         "prompt": channel,

@@ -24,7 +24,11 @@ Record the terminal demo with `vhs demo.tape`; it writes `demo.mp4`, which git i
 
 ## Video
 
-Made for the video tracked in [{{issue_url}}]({{issue_url}}). This folder: {{link}}
+{{video}}
+- Channel: [{{channel}}]({{channel_url}})
+- This folder: {{link}}
+
+{{sources}}
 
 ## Licence
 
