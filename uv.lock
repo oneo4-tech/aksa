@@ -7,6 +7,8 @@ name = "aksa"
 version = "0.2.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "markdown" },
+    { name = "pymdown-extensions" },
     { name = "pyyaml" },
 ]
 
@@ -20,7 +22,11 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pyyaml", specifier = ">=6.0" }]
+requires-dist = [
+    { name = "markdown", specifier = ">=3.7" },
+    { name = "pymdown-extensions", specifier = ">=12.3" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
 
 [package.metadata.requires-dev]
 dev = [
