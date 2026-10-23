@@ -114,13 +114,95 @@ def test_stage_refuses_to_pass_a_gate_without_the_owners_recorded_yes(gh, tmp_pa
 
 
 def test_gate_approval_records_the_owners_yes_and_lets_the_video_pass(gh, tmp_path):
-    video(gh, 5, stage="demo")
+    video(gh, 5, stage="idea")
     gh.issues[5]["labels"].append("needs:owner")
-    assert run(gh, tmp_path, "gate", "5", "2", "--approve") == 0
-    assert gh.issues[5]["comments"] == ["YouTube: gate 2 approved."]
+    assert run(gh, tmp_path, "gate", "5", "1", "--approve") == 0
+    assert gh.issues[5]["comments"] == ["YouTube: gate 1 approved."]
     assert "needs:owner" not in gh.issues[5]["labels"]
+    assert run(gh, tmp_path, "stage", "5", "research") == 0
+    assert stage_of(gh, 5) == ["youtube-stage:research"]
+
+
+# Gate 2 citations (AC17)
+
+FILED = "YouTube: filed for channel `example`; stage `idea`."
+URL = "https://www.satisfice.com/blog/archives/856"
+QUOTE = "Checking is the mechanistic process of verifying propositions about the product"
+
+
+def cited(claim_id="C1", **fields):
+    """A claim as evidence.py leaves it once its quote was found on the live page."""
+    claim = {"id": claim_id, "claim": "A check verifies propositions.", "url": URL, "quote": QUOTE}
+    return (
+        claim
+        | {"link": ci.evidence.fragment_link(URL, QUOTE), "found": True, "checked": "2026-10-23T09:30:00+00:00"}
+        | fields
+    )
+
+
+def citations(channel, claims, number=5):
+    folder = channel / "videos" / str(number)
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "citations.json").write_text(json.dumps(claims))
+
+
+def test_gate_2_approves_a_video_whose_every_claim_was_found(gh, tmp_path, channel):
+    video(gh, 5, stage="demo", comments=[FILED])
+    citations(channel, [cited("C1"), cited("C2")])
+    assert run(gh, tmp_path, "gate", "5", "2", "--approve") == 0
+    assert gh.issues[5]["comments"] == [FILED, "YouTube: gate 2 approved."]
     assert run(gh, tmp_path, "stage", "5", "recording") == 0
-    assert stage_of(gh, 5) == ["youtube-stage:recording"]
+
+
+@pytest.mark.parametrize(
+    ("claims", "named"),
+    [
+        ([cited("C1"), cited("C2", found=False)], ["C2: quote not found on " + URL]),
+        ([cited("C1", found=False, error="HTTP 404")], ["C1: quote not found on " + URL + " (HTTP 404)"]),
+        (
+            [{k: v for k, v in cited("C1").items() if k not in ("found", "checked", "link")}, cited("C2")],
+            ["C1: never checked"],
+        ),
+        ([cited("C1", quote=QUOTE + " and more")], ["C1: url or quote changed since checked"]),
+        ([cited("C1"), cited("C1")], ["C1: id: used by more than one claim"]),
+        ([], ["citations.json: must be a non-empty list of claims"]),
+    ],
+)
+def test_gate_2_refuses_a_claim_not_found_and_names_it(gh, tmp_path, channel, capsys, claims, named):
+    video(gh, 5, stage="demo", comments=[FILED])
+    citations(channel, claims)
+    assert run(gh, tmp_path, "gate", "5", "2", "--approve") == 3
+    err = capsys.readouterr().err
+    assert all(problem in err for problem in named)
+    assert gh.issues[5]["comments"] == [FILED]
+
+
+@pytest.mark.parametrize("text", [None, "{not json"])
+def test_gate_2_refuses_missing_or_unreadable_citations(gh, tmp_path, channel, capsys, text):
+    video(gh, 5, stage="demo", comments=[FILED])
+    if text is not None:
+        (channel / "videos" / "5").mkdir(parents=True)
+        (channel / "videos" / "5" / "citations.json").write_text(text)
+    assert run(gh, tmp_path, "gate", "5", "2", "--approve") == 3
+    assert "videos/5/citations.json" in capsys.readouterr().err
+    assert gh.issues[5]["comments"] == [FILED]
+
+
+def test_gate_2_refuses_a_video_whose_channel_is_unknown(gh, tmp_path, channel, capsys):
+    video(gh, 5, stage="demo")
+    citations(channel, [cited()])
+    assert run(gh, tmp_path, "gate", "5", "2", "--approve") == 3
+    assert "filed for channel" in capsys.readouterr().err
+    video(gh, 6, stage="demo", label="channel:other-lab", comments=[FILED])
+    citations(channel, [cited()], number=6)
+    assert run(gh, tmp_path, "gate", "6", "2", "--approve") == 3
+    assert "channel:other-lab" in capsys.readouterr().err
+
+
+def test_gate_2_request_needs_no_citations(gh, tmp_path, channel):
+    video(gh, 5, stage="demo", comments=[FILED])
+    assert run(gh, tmp_path, "gate", "5", "2", "--request") == 0
+    assert "needs:owner" in gh.issues[5]["labels"]
 
 
 def test_gate_refuses_an_approval_away_from_its_stage(gh, tmp_path):

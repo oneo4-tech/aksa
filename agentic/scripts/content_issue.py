@@ -13,7 +13,11 @@ Usage: uv run agentic/scripts/content_issue.py COMMAND [ARGS]
                       the queue of open videos, those waiting for the owner first
   gate N GATE --request | --approve
                       mark the video waiting for the owner at a gate, or record the
-                      owner's yes as a "YouTube: gate N approved." comment
+                      owner's yes as a "YouTube: gate N approved." comment; gate 2 is
+                      refused while videos/<n>/citations.json in the workspace of the
+                      channel the video was filed for is missing or invalid, or has any
+                      claim not checked, changed since checked, or not found on its page
+                      (research-video's evidence.py writes and checks it)
   hours N --stage STAGE --hours H [--date YYYY-MM-DD]
                       log the owner's hours on a stage (a dated "YouTube: hours" comment)
                       and rebuild the body's Hours table, one running total per stage
@@ -33,8 +37,8 @@ researched script and demo plan, gate 3 the final video. The Hours section is
 written only by this script.
 
 Exit codes: 0 done, 1 GitHub, config, or file error, 2 bad input or an invalid
-channel, 3 refused (a move the stages or gates do not allow, or a Short's link
-to anything but a long-form video of its channel).
+channel, 3 refused (a move the stages or gates do not allow, gate 2 with a claim
+not found, or a Short's link to anything but a long-form video of its channel).
 """
 
 import argparse
@@ -51,14 +55,20 @@ import youtube_channel
 from github_issues import GitHub, GitHubError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+# Gate 2 reads the citations format from the script that writes it, research-video's evidence.py.
+sys.path.insert(0, str(REPO_ROOT / "agentic" / "skills" / "content" / "research-video" / "scripts"))
+import evidence
+
 CONFIG = REPO_ROOT / "config" / "content.yaml"
 FACTORY_CONFIG = REPO_ROOT / "config" / "factory.yaml"
 
 KIND = "kind:youtube"
 OWNER = "needs:owner"
 TYPES = ["long-form", "short"]
+CITATION_GATE = 2  # the researched script: every claim's quote found on its live page (AC17)
 
 APPROVED = re.compile(r"YouTube: gate (\d+) approved\.")
+FILED = re.compile(r"YouTube: filed for channel `([a-z0-9-]+)`")
 PARENT = re.compile(r"^Cut from long-form #(\d+)\.$", re.MULTILINE)
 RELATED = re.compile(r"^Related long-form: #(\d+)\.$", re.MULTILINE)
 HOURS = re.compile(r"YouTube: hours `([a-z-]+)` \+(\d+(?:\.\d+)?) on (\d{4}-\d{2}-\d{2})\.")
@@ -411,9 +421,30 @@ def cmd_summary(gh: GitHub, config: Config, args: argparse.Namespace, root: Path
     return 0
 
 
+def citation_problems(issue: dict, label: str, root: Path) -> list[str]:
+    """Why the video's videos/<n>/citations.json, in the workspace of the channel it was filed for,
+    cannot pass the citation gate; empty when every claim was found."""
+    filed = next((m[1] for c in issue["comments"] if (m := FILED.match(c.strip()))), None)
+    if filed is None:
+        raise Refused(f"#{issue['number']} has no 'YouTube: filed for channel' comment, so its workspace is unknown")
+    channel = youtube_channel.load(filed, root)
+    if channel.config["labels"]["channel"] != f"channel:{label}":
+        raise Refused(
+            f"#{issue['number']} carries channel:{label}, but channel {filed} uses {channel.config['labels']['channel']}"
+        )
+    relative = f"videos/{issue['number']}/citations.json"
+    try:
+        claims = json.loads((channel.workspace / relative).read_text())
+    except FileNotFoundError:
+        return [f"{relative}: missing; research-video writes it"]
+    except json.JSONDecodeError as error:
+        return [f"{relative}: not valid JSON ({error})"]
+    return [f"{relative}: {problem}" for problem in evidence.gate_problems(claims)]
+
+
 def cmd_gate(gh: GitHub, config: Config, args: argparse.Namespace, root: Path) -> int:
     issue = gh.issue(args.number)
-    current, _, _ = require_video(issue)
+    current, _, label = require_video(issue)
     if args.gate not in config.gates:
         raise BadInput(f"unknown gate {args.gate}; the gates are {', '.join(map(str, config.gates))}")
     stage = config.gates[args.gate]
@@ -428,7 +459,11 @@ def cmd_gate(gh: GitHub, config: Config, args: argparse.Namespace, root: Path) -
         gh.comment(args.number, f"YouTube: gate {args.gate} needs the owner.")
         print(f"#{args.number}: gate {args.gate} waits for the owner")
         return 0
-    # Gate checks that can refuse an approval, such as gate 2's citations (AC17), go here.
+    if args.gate == CITATION_GATE and (problems := citation_problems(issue, label, root)):
+        raise Refused(
+            f"gate {args.gate} needs every claim's quote found on its page; rerun research-video:\n  "
+            + "\n  ".join(problems)
+        )
     gh.comment(args.number, f"YouTube: gate {args.gate} approved.")
     if OWNER in issue["labels"]:
         gh.edit(args.number, remove=[OWNER])

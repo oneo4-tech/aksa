@@ -14,6 +14,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `content_issue.py` | **Only writer** of content (video) issue labels/body | `new`, `stage`, `gate`, `hours`, `summary`, `status` |
 | `youtube_channel.py` | Load and validate a channel's config and style guide; set up its workspace | `check`, `init` |
 | `competition.py` (skill `scan-video-ideas`) | Score an idea card and add the closest YouTube videos, cached per query | `CHANNEL CARD`, `--top` |
+| `evidence.py` (skill `research-video`) | Check each claim's quote on its live page and add a text-fragment link | `CHANNEL N` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
@@ -124,6 +125,7 @@ One GitHub issue per video, kept apart from factory runs by `kind:youtube` (D-04
 - Labels: `kind:youtube`, `channel:<name>` (from `channel.yaml` `labels.channel`, created on demand), `content-type:long-form|short`, one `youtube-stage:*`
 - Stages: idea, research, script, demo, recording, editing, packaging, review, ready; one forward at a time
 - Gates: leaving `idea` (gate 1), `demo` (gate 2), and `review` (gate 3) needs the owner's yes, recorded as a `YouTube: gate N approved.` comment
+- Gate 2 is refused while `videos/<n>/citations.json` (in the workspace of the channel named by the issue's `YouTube: filed for channel` comment) is missing or invalid, or has any claim never checked, changed since checked, or not found; the refusal names each claim
 - Hours: each entry is a dated `YouTube: hours `<stage>` +<h> on <date>.` comment; the body's `## Hours` table is the per-stage running total, rebuilt by the script from those comments
 
 ```bash
@@ -163,6 +165,17 @@ uv run --env-file .env agentic/skills/content/scan-video-ideas/scripts/competiti
 ```
 
 Exit codes: 0 done, 1 YouTube/file error, 2 bad input (invalid card or channel, key missing).
+
+### evidence.py (`research-video`)
+
+Reads a video's `videos/<n>/citations.json`, a JSON list of claims (`id`, `claim`, `url`, `quote`). Loads each source page once in the system Chrome through Playwright (`playwright` dependency, Chrome channel; no bundled browser), checks each quote is on the rendered text exactly, with only whitespace normalised, and writes back per claim: `link` (a text fragment `url#:~:text=<first 4 words>,<last 3 words>`, the whole quote when it has 7 words or fewer, that opens the page at the quote), `found`, `checked` (UTC), and `error` for a page that did not load. No screenshots or snapshots. `content_issue.py` gate 2 reads the same file through `gate_problems`.
+
+```bash
+# Prints JSON (claims, found, the ids not found)
+uv run agentic/skills/content/research-video/scripts/evidence.py testlab 14
+```
+
+Exit codes: 0 every quote found, 1 page/browser/file error, 2 bad input (invalid citations file or channel), 3 a quote not found.
 
 ---
 
