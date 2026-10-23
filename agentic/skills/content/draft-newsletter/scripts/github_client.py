@@ -4,8 +4,10 @@ Uses the `gh` CLI subprocess for authentication and API calls.
 """
 
 import json
+import os
 import subprocess
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Self
 
 
@@ -53,7 +55,7 @@ class GitHubIssueClient:
             capture_output=True,
             text=True,
             check=True,
-            env={**subprocess.os.environ, **env},
+            env={**os.environ, **env},
         )
         return result.stdout.strip()
 
@@ -98,6 +100,54 @@ class GitHubIssueClient:
         """
         issue = self.get_issue(number)
         return label in issue.labels
+
+    def has_approval_comment(self, number: int, marker: str, since: datetime | None = None) -> bool:
+        """
+        Check if an issue has a comment that contains the approval marker.
+
+        Args:
+            number: The issue number.
+            marker: The text the owner writes to approve, such as `newsletter:approve`.
+            since: Only comments created after this time count, so the
+                skill's own draft comment never approves the send.
+
+        Returns:
+            True if a comment contains the marker, False otherwise.
+        """
+        output = self._run_gh(["issue", "view", str(number), "--json", "comments"])
+        data = json.loads(output)
+        for comment in data.get("comments", []):
+            body = comment.get("body") or ""
+            if marker not in body:
+                continue
+            if since is not None:
+                created_at = datetime.fromisoformat(comment.get("createdAt") or "")
+                if created_at <= since:
+                    continue
+            return True
+        return False
+
+    def latest_comment_time(self, number: int) -> datetime | None:
+        """
+        Return the creation time of the newest comment on an issue.
+
+        Uses GitHub's clock, so the skill's own comments can be excluded from
+        the approval check without trusting the local clock.
+
+        Args:
+            number: The issue number.
+
+        Returns:
+            The newest comment time, or None when the issue has no comments.
+        """
+        output = self._run_gh(["issue", "view", str(number), "--json", "comments"])
+        data = json.loads(output)
+        times = [
+            datetime.fromisoformat(comment["createdAt"])
+            for comment in data.get("comments", [])
+            if comment.get("createdAt")
+        ]
+        return max(times) if times else None
 
     def add_label(self, number: int, label: str) -> None:
         """

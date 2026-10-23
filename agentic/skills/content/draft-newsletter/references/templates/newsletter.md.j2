@@ -1,26 +1,34 @@
-# {{ issue_title }}
+# {{ video_title }}
 
-**{{ date }}** | Issue #{{ issue_number }}
-
----
-
-## {{ section_intro }}
-
-{{ intro_content }}
+**Watch the video:** [{{ video_url }}]({{ video_url }})
 
 ---
 
-{% for section in sections %}
-## {{ section.title }}
+## Summary
 
-{{ section.content }}
+{{ script_summary }}
 
 ---
+
+## Key Points
+
+{% for point in key_points %}
+- {{ point }}
 {% endfor %}
 
-## {{ section_footer }}
+---
 
-{{ footer_content }}
+## References & Citations
+
+{{ citations }}
+
+---
+
+## Stay Connected
+
+Subscribe to the newsletter: [{{ signup_url }}]({{ signup_url }})
+
+Unsubscribe: [Unsubscribe]({% raw %}{{ unsubscribe_url }}{% endraw %})
 
 ---
 
