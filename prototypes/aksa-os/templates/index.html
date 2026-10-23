@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE · AKSA OS</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="proto-banner">
+    <span class="proto-tag">PROTOTYPE</span>
+    <span class="proto-question">{{ question }}</span>
+  </div>
+
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand">
+        <span class="brand-tag">&lt;oneo4/&gt;</span><span class="brand-suffix">aksa</span>
+      </div>
+      <div class="rail-label">Command</div>
+      <nav class="nav">
+        <a class="nav-item active" href="#"><span class="nav-dot"></span>Overview</a>
+        <a class="nav-item" href="#factory"><span class="nav-dot"></span>Factory<span class="nav-count">{{ factory.runs|length }}</span></a>
+        <a class="nav-item" href="#projects"><span class="nav-dot"></span>Projects<span class="nav-count">{{ projects.list|length }}</span></a>
+        <a class="nav-item" href="#knowledge"><span class="nav-dot"></span>Knowledge<span class="nav-count">{{ kb.count }}</span></a>
+        <a class="nav-item" href="#credits"><span class="nav-dot"></span>Agents<span class="nav-count">{{ credits.values()|selectattr('ok')|list|length }}</span></a>
+      </nav>
+
+      <div class="rail-label">Vitals</div>
+      <dl class="vitals">
+        <div><dt>Branch</dt><dd>{{ system.branch }}</dd></div>
+        <div><dt>Worktrees</dt><dd>{{ system.worktrees }}</dd></div>
+        <div><dt>Python</dt><dd>{{ system.python }}</dd></div>
+        <div><dt>Read at</dt><dd>{{ now.strftime('%H:%M:%S') }}</dd></div>
+      </dl>
+
+      <div class="rail-foot">
+        <span class="pulse-dot"></span> localhost · no auth
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <span class="eyebrow">AKSA OS</span>
+          <span class="topbar-sub">operating picture</span>
+        </div>
+        <div class="topbar-right">
+          <span class="status-pill {{ 'warn' if factory.waiting else 'ok' }}">
+            <span class="pulse-dot"></span>{{ 'attention' if factory.waiting else 'nominal' }}
+          </span>
+          <span class="clock" id="clock">{{ now.strftime('%H:%M:%S') }}</span>
+          <a class="refresh" href="/">Refresh</a>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div class="core-wrap">
+          <div class="core">
+            <div class="ring ring-outer"></div>
+            <div class="ring ring-mid"></div>
+            <div class="ring ring-inner"></div>
+            <div class="sweep"></div>
+            <div class="core-center">
+              <span class="core-state">{{ 'ATTENTION' if factory.waiting else 'NOMINAL' }}</span>
+              <span class="core-sub">{{ factory.runs|length }} open runs</span>
+            </div>
+          </div>
+          <div class="core-ticks">
+            <span>factory</span><span>kb</span><span>agents</span><span>projects</span>
+          </div>
+        </div>
+
+        <div class="hero-copy">
+          <p class="greeting">Good {{ 'morning' if now.hour < 12 else 'afternoon' if now.hour < 18 else 'evening' }}, Shiv.</p>
+          <h1>Everything aksa knows, in one picture.</h1>
+          <p class="hero-line">
+            {% if factory.waiting %}
+              {{ factory.waiting }} factory {{ 'run needs' if factory.waiting == 1 else 'runs need' }} your decision.
+            {% else %}
+              No factory run is waiting on you.
+            {% endif %}
+            {% if kb.inbox %} {{ kb.inbox }} knowledge {{ 'item waits' if kb.inbox == 1 else 'items wait' }} in the inbox.{% endif %}
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/oneo4-tech/aksa/issues" target="_blank" rel="noreferrer">Open factory</a>
+            <a class="button" href="#credits">Agent credits</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats">
+        <article class="stat">
+          <span class="stat-label">Open runs</span>
+          <strong class="stat-value">{{ factory.runs|length }}</strong>
+          <span class="stat-note">{{ factory.waiting }} waiting on you</span>
+        </article>
+        <article class="stat">
+          <span class="stat-label">Projects</span>
+          <strong class="stat-value">{{ projects.list|length }}</strong>
+          <span class="stat-note">under .projects</span>
+        </article>
+        <article class="stat">
+          <span class="stat-label">KB pages</span>
+          <strong class="stat-value">{{ kb.count }}</strong>
+          <span class="stat-note">{{ kb.inbox }} in inbox</span>
+        </article>
+        <article class="stat">
+          <span class="stat-label">Credit sources</span>
+          <strong class="stat-value">{{ credits.values()|selectattr('ok')|list|length }}<span class="stat-of">/4</span></strong>
+          <span class="stat-note">live and manual</span>
+        </article>
+      </section>
+
+      <section class="panel" id="factory">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">Factory</span>
+            <h2>Open runs</h2>
+          </div>
+          <span class="panel-meta">{{ factory.runs|length }} tracked</span>
+        </div>
+        {% if not factory.ok %}
+          <p class="empty error">Factory unavailable: {{ factory.error }}</p>
+        {% elif factory.runs %}
+          <div class="run-list">
+            {% for run in factory.runs %}
+              <a class="run" href="{{ run.url }}" target="_blank" rel="noreferrer">
+                <span class="run-number">#{{ run.number }}</span>
+                <span class="run-title">{{ run.title }}</span>
+                <span class="stage stage-{{ run.stage }}">{{ run.stage }}</span>
+                {% if run.waiting %}<span class="flag warn">needs you</span>{% endif %}
+                {% if run.claimed %}<span class="flag">claimed</span>{% endif %}
+                <span class="run-updated">{{ run.updated }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="empty">No open factory runs.</p>
+        {% endif %}
+      </section>
+    </main>
+
+    <aside class="right">
+      <section class="panel credits" id="credits">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">Agents</span>
+            <h2>Credits</h2>
+          </div>
+          <span class="panel-meta">live + manual</span>
+        </div>
+
+        <article class="credit">
+          <div class="credit-head">
+            <span class="credit-name">Claude Code</span>
+            {% if credits.claude.ok %}<span class="credit-plan">{{ credits.claude.plan }}</span>{% endif %}
+          </div>
+          {% if credits.claude.ok %}
+            <div class="meter-row">
+              <span>5 hour</span>
+              <div class="meter"><span style="width: {{ [credits.claude.five or 0, 100]|min }}%"></span></div>
+              <span class="meter-value">{{ '%.0f'|format(credits.claude.five or 0) }}%</span>
+            </div>
+            <div class="meter-row">
+              <span>7 day</span>
+              <div class="meter"><span style="width: {{ [credits.claude.seven or 0, 100]|min }}%"></span></div>
+              <span class="meter-value">{{ '%.0f'|format(credits.claude.seven or 0) }}%</span>
+            </div>
+            <p class="credit-note">resets {{ credits.claude.five_reset }} · {{ credits.claude.seven_reset }} · {{ credits.claude.source }}</p>
+          {% else %}
+            <p class="credit-down">Unavailable · {{ credits.claude.source }}</p>
+          {% endif %}
+        </article>
+
+        <article class="credit">
+          <div class="credit-head">
+            <span class="credit-name">OpenRouter</span>
+            {% if credits.openrouter.ok %}<span class="credit-amount">${{ '%.2f'|format(credits.openrouter.remaining) }}</span>{% endif %}
+          </div>
+          {% if credits.openrouter.ok %}
+            <div class="meter-row">
+              <span>used</span>
+              <div class="meter"><span style="width: {{ [credits.openrouter.percent, 100]|min }}%"></span></div>
+              <span class="meter-value">${{ '%.2f'|format(credits.openrouter.used) }}</span>
+            </div>
+            <p class="credit-note">of ${{ '%.2f'|format(credits.openrouter.total) }} · {{ credits.openrouter.source }}</p>
+          {% else %}
+            <p class="credit-down">Unavailable · {{ credits.openrouter.source }}</p>
+          {% endif %}
+        </article>
+
+        <article class="credit">
+          <div class="credit-head">
+            <span class="credit-name">OpenCode</span>
+            {% if credits.opencode.ok %}<span class="credit-amount">${{ '%.2f'|format(credits.opencode.cost) }}</span>{% endif %}
+          </div>
+          {% if credits.opencode.ok %}
+            <p class="credit-line">{{ '{:,}'.format(credits.opencode.tokens) }} tokens · {{ credits.opencode.sessions }} sessions · 30 days</p>
+            <p class="credit-note">local spend · {{ credits.opencode.source }}</p>
+          {% else %}
+            <p class="credit-down">Unavailable · {{ credits.opencode.source }}</p>
+          {% endif %}
+        </article>
+
+        <article class="credit">
+          <div class="credit-head">
+            <span class="credit-name">Google AI Studio</span>
+            {% if credits.google.balance is not none %}<span class="credit-amount">${{ '%.2f'|format(credits.google.balance) }}</span>{% endif %}
+          </div>
+          {% if credits.google.balance is not none %}
+            <p class="credit-line">prepay balance · updated {{ credits.google.updated }}</p>
+            <p class="credit-note">{{ credits.google.source }}</p>
+          {% else %}
+            <p class="credit-down">Not set · enter locally</p>
+            <p class="credit-note">no balance API · <a href="https://aistudio.google.com/billing" target="_blank" rel="noreferrer">billing</a></p>
+          {% endif %}
+        </article>
+      </section>
+
+      <section class="panel" id="projects">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">Workspace</span>
+            <h2>Projects</h2>
+          </div>
+          <span class="panel-meta">{{ projects.list|length }}</span>
+        </div>
+        {% if not projects.ok %}
+          <p class="empty error">{{ projects.error }}</p>
+        {% elif projects.list %}
+          <div class="project-list">
+            {% for project in projects.list %}
+              <div class="project">
+                <div class="project-top">
+                  <span class="project-name">{{ project.name }}</span>
+                  <span class="project-files">{{ project.files }} {{ 'file' if project.files == 1 else 'files' }}</span>
+                </div>
+                <div class="project-meta">
+                  <span>{{ project.kind }}</span>
+                  {% if project.repo %}<span class="mono">{{ project.branch }}</span>{% endif %}
+                  {% if project.dirty %}<span class="flag warn">{{ project.dirty }} dirty</span>{% endif %}
+                  <span>{{ project.changed }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="empty">No projects under .projects.</p>
+        {% endif %}
+      </section>
+
+      <section class="panel" id="knowledge">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">Knowledge</span>
+            <h2>Recent pages</h2>
+          </div>
+          <span class="panel-meta">{{ kb.count }} pages</span>
+        </div>
+        {% if not kb.ok %}
+          <p class="empty error">{{ kb.error }}</p>
+        {% elif kb.pages %}
+          <ul class="kb-list">
+            {% for page in kb.pages %}
+              <li><span class="kb-area">{{ page.area }}</span><span class="kb-name">{{ page.name }}</span><span class="kb-time">{{ page.changed }}</span></li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="empty">No wiki pages yet.</p>
+        {% endif %}
+      </section>
+    </aside>
+  </div>
+
+  <footer class="ticker">
+    <span class="ticker-item"><span class="pulse-dot"></span>AKSA OS prototype</span>
+    <span class="ticker-item">read-only</span>
+    <span class="ticker-item">localhost:8765</span>
+    <span class="ticker-item">source: filesystem · gh · keychain · openrouter</span>
+    <span class="ticker-spacer"></span>
+    <span class="ticker-item mono">{{ now.strftime('%Y-%m-%d %H:%M:%S %Z') }}</span>
+  </footer>
+
+  <script>
+    const clock = document.getElementById('clock');
+    setInterval(() => {
+      const now = new Date();
+      clock.textContent = now.toLocaleTimeString([], { hour12: false });
+    }, 1000);
+  </script>
+</body>
+</html>
