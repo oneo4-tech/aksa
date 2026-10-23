@@ -135,5 +135,45 @@ def main() -> None:
             )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and "combos" not in __import__("sys").argv:
     main()
+
+
+SYNTAX_COLORS = {
+    "signal red": "#FF0000",
+    "deep red": "#CC0000",
+    "orange-red": "#FF3D00",
+    "amber": "#FFB000",
+    "magenta": "#FF2E88",
+    "cyan": "#00E5FF",
+    "green": "#3FFF8A",
+}
+NAME_COLORS = {"white": "#FFFFFF", "silver": "#C9CED6", "warm white": "#F2EFE6", "cyan": "#00E5FF", "amber": "#FFB000"}
+
+
+def combos(suffix_color: str = "#00e5ff") -> None:
+    """Grid of syntax (< / >) x name (oneo4) colours on black, suffix fixed. -> out/branding/combos.png"""
+    cells = []
+    for sname, s in SYNTAX_COLORS.items():
+        for nname, n in NAME_COLORS.items():
+            if s.lower() == n.lower():
+                continue
+            p = {"syntax": s, "name": n, "suffix": suffix_color}
+            body, width = wordmark(p, "testlab")
+            cells.append(
+                f'<div class="c"><svg viewBox="-10 16 {width} 132">{body}</svg>'
+                f'<svg class="i" viewBox="2 -18 200 200">{icon(p)}</svg>'
+                f"<p>&lt;/&gt; {sname} {s} &middot; oneo4 {nname} {n}</p></div>"
+            )
+    css = (
+        ".g{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding:24px}"
+        ".c{border:1px solid #222;border-radius:10px;padding:14px;display:grid;grid-template-columns:1fr 90px;gap:10px;"
+        "align-items:center}.c svg{width:100%}.c p{grid-column:1/3;color:#888;font:15px 'Fira Code',monospace;margin:0}"
+    )
+    rows = (len(cells) + 2) // 3
+    h = 40 + rows * 205
+    shoot(page(2400, h, "#000000", f'<div class="g">{"".join(cells)}</div>', css), 2400, h, OUT / "combos.png")
+
+
+if __name__ == "__main__" and "combos" in __import__("sys").argv:
+    combos()

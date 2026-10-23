@@ -2,7 +2,7 @@
 
 YouTube states no channel description limit on its help page; the description must follow Community Guidelines; up to 14 profile links (Help 2972003).
 
-## D1. Short
+## D1. Short (one wording option for the single channel)
 
 How testers think when AI writes the code.
 
@@ -10,7 +10,7 @@ Spot the Bug challenges, AI systems put under test, and testing concepts explain
 
 New video every week. Testing approach inspired by Rapid Software Testing (James Bach and Michael Bolton); no endorsement implied.
 
-## D2. Structured
+## D2. Structured (alternative wording for the same channel)
 
 **How testers think when AI writes the code.**
 

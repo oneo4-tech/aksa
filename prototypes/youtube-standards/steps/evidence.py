@@ -1,12 +1,11 @@
 """PROTOTYPE: evidence capture for a citation dossier.
 
-For each claim: load the source page in Chrome, confirm the exact quote is on the page, highlight it, screenshot the
-viewport, save a text snapshot with its SHA-256, and build a text-fragment link that opens the page at the quote.
+For each claim: load the source page in Chrome, confirm the exact quote is on the page, and build a text-fragment
+link that opens the page at the quote. Owner's format: link plus quoted line, no screenshots.
 
-uv run --no-project --with playwright steps/evidence.py -> out/evidence/<id>.png, <id>.txt, evidence.json
+uv run --no-project --with playwright steps/evidence.py -> out/evidence/evidence.json
 """
 
-import hashlib
 import json
 import re
 import urllib.parse
@@ -58,18 +57,6 @@ CLAIMS = [
         "should be regenerated whenever Playwright is updated to pick up new tools and instructions",
     ),
 ]
-MARK = """quote => {
-  const norm = s => s.replace(/\\s+/g, ' ');
-  const head = quote.slice(0, 40);
-  let best = null;
-  for (const el of document.body.querySelectorAll('p, li, td, blockquote, h1, h2, h3, h4, div, span, em, strong')) {
-    if (norm(el.innerText || '').includes(head) && (!best || best.contains(el))) best = el;
-  }
-  if (!best) return false;
-  best.style.outline = '6px solid #ff2e88'; best.style.background = '#ffe06688';
-  best.scrollIntoView({ block: 'center' });
-  return true;
-}"""
 
 
 def fragment(url: str, quote: str) -> str:
@@ -89,18 +76,13 @@ def main() -> None:
             page.wait_for_timeout(1500)
             text = re.sub(r"\s+", " ", page.inner_text("body"))
             found = quote in text
-            marked = page.evaluate(MARK, quote) if found else False
-            page.screenshot(path=str(OUT / f"{cid}.png"))
-            (OUT / f"{cid}.txt").write_text(text)
             rows.append(
                 {
                     "claim": cid,
                     "url": url,
                     "quote": quote,
                     "found_exact": found,
-                    "highlighted": marked,
                     "link": fragment(url, quote),
-                    "sha256": hashlib.sha256(text.encode()).hexdigest()[:16],
                     "checked": datetime.now(UTC).isoformat(timespec="seconds"),
                 }
             )
