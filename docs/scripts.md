@@ -13,6 +13,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `github_issues.py` | Thin `gh` layer for issues, labels, and sub-issues, imported by `factory_issue.py` and `content_issue.py` | none |
 | `content_issue.py` | **Only writer** of content (video) issue labels/body | `new`, `stage`, `gate`, `hours`, `summary`, `status` |
 | `youtube_channel.py` | Load and validate a channel's config and style guide; set up its workspace | `check`, `init` |
+| `competition.py` (skill `scan-video-ideas`) | Score an idea card and add the closest YouTube videos, cached per query | `CHANNEL CARD`, `--top` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
@@ -145,6 +146,23 @@ uv run agentic/scripts/content_issue.py summary --channel testlab --week 2026-W4
 ```
 
 Exit codes: 0 done, 1 GitHub/config/file error, 2 bad input or invalid channel, 3 refused.
+
+---
+
+## Skill scripts
+
+A script serving one skill lives in that skill's `scripts/` folder (`agentic/rules/components.md`); its tests are still in `tests/`.
+
+### competition.py (`scan-video-ideas`)
+
+Validates an idea card (JSON: pillar, RST concept, claim, tester's question, proof, format, hook, sources, risks, scores, search query and anchor terms), computes its weighted score (lens 3, proof 3, freshness 2, audience pull 2, distinctness 2, effort 1; max 65, parked under 40), and adds the closest relevant YouTube videos from the YouTube Data API v3 (`search.list`, then `videos.list`). Needs `GOOGLE_CLOUD_API_KEY`. Each query's results are cached for the day in the channel workspace's `research/competition-cache/`, so no query spends search quota (100 a day) twice.
+
+```bash
+# Prints JSON (score, closest videos); writes card.md beside the card, the brief for content_issue.py new
+uv run --env-file .env agentic/skills/content/scan-video-ideas/scripts/competition.py testlab card.json
+```
+
+Exit codes: 0 done, 1 YouTube/file error, 2 bad input (invalid card or channel, key missing).
 
 ---
 

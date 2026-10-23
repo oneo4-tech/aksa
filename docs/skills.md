@@ -50,6 +50,7 @@ Content production pipelines outside software delivery (D-041).
 | Skill | Purpose |
 |-------|---------|
 | `run-youtube` | File, resume, or list a channel's videos (`youtube-producer` agent) |
+| `scan-video-ideas` | Weekly scan into scored idea cards with competing YouTube videos; one video's card at stage `idea` |
 
 ### Auxiliary Skills (`agentic/skills/auxiliary/`)
 Specialized utilities.
