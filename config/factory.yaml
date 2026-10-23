@@ -26,3 +26,4 @@ labels:
   "stage:ship": ["5319e7", "Factory stage: the owner's review and the merge"]
   "needs:owner": ["b60205", "The factory is waiting for the owner"]
   "claimed": ["fbca04", "A session is working on this factory issue"]
+  "kind:factory": ["0052cc", "Software Factory run"]

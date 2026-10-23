@@ -78,3 +78,4 @@ Load each item when its condition applies, not up front.
 - `agentic/scripts/check_pr_review.py`: in CI, fail a pull request that changes components without a `review-component` result.
 - `agentic/scripts/kb_index.py`: rebuild `.kb/index.md` from wiki page frontmatter; `--check` validates.
 - `agentic/scripts/factory_issue.py`: the only writer of factory issue labels and bodies; `status` reads a run, `labels` syncs the label set.
+- `agentic/scripts/github_issues.py`: the thin `gh` layer for issues and labels, imported by the issue scripts; not a command.

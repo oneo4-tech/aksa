@@ -39,7 +39,7 @@ Read before working on a factory run: its factory issue, any of its stages, or a
 ## Factory issue
 
 - Title: the request's own words until G1, then `<prefix>(<scope>): <summary>` with the type's prefix; a breaking change adds `!` after the scope.
-- Labels: exactly one `stage:*`; one `type:*` and one `size:*` from G1; `needs:owner` while waiting for the owner; `claimed` while a session works on it.
+- Labels: `kind:factory` from intake; exactly one `stage:*`; one `type:*` and one `size:*` from G1; `needs:owner` while waiting for the owner; `claimed` while a session works on it.
 - Body sections, in this order, each written by its stage:
   - `## Request`: the request, quoted, never edited.
   - `## Concept`: destination, decisions with how each was settled, items left open or out of scope, and the verdict.

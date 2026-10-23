@@ -13,7 +13,8 @@ Usage: uv run agentic/scripts/factory_issue.py COMMAND [ARGS]
   claim N --session ID [--takeover]          hold the issue for this session
   release N --session ID [--takeover]        end the claim
   status [N]                                 JSON for one issue, or the queue of open factory issues
-  labels [--check]                           create or update the labels in config/factory.yaml
+  labels [--check] [--backfill-kind]         create or update the labels in config/factory.yaml;
+                                             --backfill-kind also adds kind:factory to open factory issues
 
 A factory issue's state is its labels, its body sections, and its Factory: comments
 (agentic/rules/factory.md). Every write is checked first: one label per family, only
@@ -28,12 +29,12 @@ or a move the lifecycle does not allow).
 import argparse
 import json
 import re
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+from github_issues import GitHub, GitHubError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG = REPO_ROOT / "config" / "factory.yaml"
@@ -41,6 +42,7 @@ CONFIG = REPO_ROOT / "config" / "factory.yaml"
 STAGES = ["triage", "concept", "define", "spec", "plan", "build", "ship"]
 SECTIONS = ["Request", "Concept", "Requirement", "Spec", "Delivery"]
 PROSE = ["Concept", "Requirement", "Spec"]
+KIND = "kind:factory"
 
 TITLE = re.compile(r"(?P<prefix>[a-z]+)(\([a-z0-9-]+\))?!?: (?P<summary>\S.*)")
 TASK = re.compile(r"- \[(?P<done>[ xX])\] T(?P<id>\d+): (?P<title>.+) \(branch `(?P<branch>[^`]+)`\)")
@@ -52,7 +54,7 @@ NEED = re.compile(r"Factory: needs the owner: (?P<need>.+)")
 
 
 class Error(Exception):
-    """GitHub or config failure: exit 1."""
+    """Config failure: exit 1, like a GitHubError."""
 
 
 class BadInput(Exception):
@@ -89,7 +91,7 @@ def load_config(path: Path) -> Config:
         raise Error(f"{path.name}: stage labels must be, in order: {', '.join(STAGES)}")
     if set(config.family("type")) != set(config.prefixes):
         raise Error(f"{path.name}: type labels and prefixes must name the same types")
-    for name in ("needs:owner", "claimed"):
+    for name in ("needs:owner", "claimed", KIND):
         if name not in parsed:
             raise Error(f"{path.name}: missing label {name!r}")
     return config
@@ -373,60 +375,13 @@ def label_plan(existing: dict[str, tuple[str, str]], config: Config) -> list[tup
     ]
 
 
-# GitHub
-
-
-class GitHub:
-    """The thin layer over the gh CLI; tests replace it with a fake."""
-
-    def _gh(self, *args: str, stdin: str | None = None) -> str:
-        result = subprocess.run(["gh", *args], input=stdin, capture_output=True, text=True, check=False)
-        if result.returncode:
-            raise Error(f"gh {' '.join(args[:2])} failed: {result.stderr.strip()}")
-        return result.stdout
-
-    def issue(self, number: int) -> dict:
-        fields = "number,title,state,body,labels,comments"
-        data = json.loads(self._gh("issue", "view", str(number), "--json", fields))
-        data["labels"] = [label["name"] for label in data["labels"]]
-        data["comments"] = [comment["body"] for comment in data["comments"]]
-        return data
-
-    def open_issues(self) -> list[dict]:
-        data = json.loads(
-            self._gh("issue", "list", "--state", "open", "--limit", "500", "--json", "number,title,labels,body")
-        )
-        return [{**issue, "labels": [label["name"] for label in issue["labels"]]} for issue in data]
-
-    def create(self, title: str, body: str, labels: list[str]) -> int:
-        flags = [flag for label in labels for flag in ("--label", label)]
-        url = self._gh("issue", "create", "--title", title, "--body-file", "-", *flags, stdin=body).strip()
-        return int(url.rsplit("/", 1)[1])
-
-    def edit(
-        self,
-        number: int,
-        body: str | None = None,
-        title: str | None = None,
-        add: list[str] | None = None,
-        remove: list[str] | None = None,
-    ) -> None:
-        args = ["issue", "edit", str(number)]
-        args += ["--body-file", "-"] if body is not None else []
-        args += ["--title", title] if title is not None else []
-        args += [flag for label in add or [] for flag in ("--add-label", label)]
-        args += [flag for label in remove or [] for flag in ("--remove-label", label)]
-        self._gh(*args, stdin=body)
-
-    def comment(self, number: int, text: str) -> None:
-        self._gh("issue", "comment", str(number), "--body-file", "-", stdin=text)
-
-    def labels(self) -> dict[str, tuple[str, str]]:
-        data = json.loads(self._gh("label", "list", "--limit", "500", "--json", "name,color,description"))
-        return {label["name"]: (label["color"].lower(), label["description"] or "") for label in data}
-
-    def save_label(self, name: str, color: str, description: str, exists: bool) -> None:
-        self._gh("label", "edit" if exists else "create", name, "--color", color, "--description", description)
+def backfill_plan(issues: list[dict], config: Config) -> list[int]:
+    """Open factory issues, those with a stage label, that lack kind:factory."""
+    return [
+        issue["number"]
+        for issue in issues
+        if label_values(issue["labels"], config)["stage"] and KIND not in issue["labels"]
+    ]
 
 
 # Commands
@@ -444,13 +399,15 @@ def cmd_intake(gh: GitHub, config: Config, args: argparse.Namespace) -> int:
         issue = gh.issue(args.issue)
         if label_values(issue["labels"], config)["stage"]:
             raise Refused(f"#{args.issue} is already a factory issue")
-        gh.edit(args.issue, body=render_body({"Request": quote(issue["body"])}), add=["stage:triage"])
+        gh.edit(args.issue, body=render_body({"Request": quote(issue["body"])}), add=["stage:triage", KIND])
         gh.comment(args.issue, "Factory: adopted as a factory issue; stage `triage`.")
         print(f"adopted #{args.issue}")
         return 0
     if not (args.title and args.request_file):
         raise BadInput("intake needs --issue, or --title with --request-file")
-    number = gh.create(args.title, render_body({"Request": quote(read_file(args.request_file))}), ["stage:triage"])
+    number = gh.create(
+        args.title, render_body({"Request": quote(read_file(args.request_file))}), ["stage:triage", KIND]
+    )
     gh.comment(number, "Factory: filed from a work request; stage `triage`.")
     print(f"created #{number}")
     return 0
@@ -648,7 +605,12 @@ def cmd_labels(gh: GitHub, config: Config, args: argparse.Namespace) -> int:
             gh.save_label(name, *config.labels[name], exists=name in existing)
     if not plan:
         print("labels match config/factory.yaml")
-    return 1 if args.check and plan else 0
+    backfill = backfill_plan(gh.open_issues(), config) if args.backfill_kind else []
+    for number in backfill:
+        print(f"backfill #{number} with {KIND}")
+        if not args.check:
+            gh.edit(number, add=[KIND])
+    return 1 if args.check and (plan or backfill) else 0
 
 
 def parser() -> argparse.ArgumentParser:
@@ -696,6 +658,7 @@ def parser() -> argparse.ArgumentParser:
 
     p = commands.add_parser("labels", help="create or update the factory labels")
     p.add_argument("--check", action="store_true", help="only report; exit 1 when GitHub differs")
+    p.add_argument("--backfill-kind", action="store_true", help=f"also add {KIND} to open factory issues without it")
     return root
 
 
@@ -722,7 +685,7 @@ def main(argv: list[str] | None = None, gh: GitHub | None = None, config: Path =
     except Refused as error:
         print(f"refused: {error}", file=sys.stderr)
         return 3
-    except Error as error:
+    except (Error, GitHubError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
 

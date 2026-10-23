@@ -10,6 +10,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `sync_vendors.py` | Sync `agentic/skills/` to vendor folders | `--check`, `<vendor>...` |
 | `kb_index.py` | Rebuild `.kb/index.md` from wiki frontmatter | `--check` |
 | `factory_issue.py` | **Only writer** of factory issue labels/body | `status`, `labels` |
+| `github_issues.py` | Thin `gh` layer for issues and labels, imported by `factory_issue.py` | none |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
