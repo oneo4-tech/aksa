@@ -1,0 +1,30 @@
+# YouTube content settings, read by agentic/scripts/content_issue.py.
+# Content issues are kept apart from factory runs by their kind:* label (D-042).
+# needs:owner is shared with the factory and defined once, in config/factory.yaml.
+
+# Every content label: name -> [color, description]. Stage labels are listed in
+# production order, which content_issue.py uses as the stage order.
+labels:
+  "kind:youtube": ["ff0000", "YouTube video, one issue per published video"]
+  "content-type:long-form": ["c5def5", "YouTube video: a long-form tutorial"]
+  "content-type:short": ["bfdadc", "YouTube video: a Short"]
+  "youtube-stage:idea": ["ededed", "YouTube stage: the idea and its angle (gate 1)"]
+  "youtube-stage:research": ["d4c5f9", "YouTube stage: research with citations"]
+  "youtube-stage:script": ["c2e0c6", "YouTube stage: the script"]
+  "youtube-stage:demo": ["bfd4f2", "YouTube stage: the demo and its plan (gate 2)"]
+  "youtube-stage:recording": ["fef2c0", "YouTube stage: narration and recordings"]
+  "youtube-stage:editing": ["f9d0c4", "YouTube stage: render and edit"]
+  "youtube-stage:packaging": ["e99695", "YouTube stage: thumbnail and metadata"]
+  "youtube-stage:review": ["5319e7", "YouTube stage: the final video (gate 3)"]
+  "youtube-stage:ready": ["0e8a16", "YouTube stage: ready to schedule"]
+
+# Owner gate -> the stage it closes: leaving that stage needs the owner's yes,
+# recorded as a "YouTube: gate N approved" comment.
+gates:
+  1: idea      # idea and angle
+  2: demo      # researched script and demo plan
+  3: review    # final video
+
+# The [color, description] of each channel:<name> label, created on demand from
+# the channel's labels.channel value; {name} is the channel's display name.
+channel_label: ["006b75", "YouTube channel: {name}"]

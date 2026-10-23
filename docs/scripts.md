@@ -10,7 +10,8 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `sync_vendors.py` | Sync `agentic/skills/` to vendor folders | `--check`, `<vendor>...` |
 | `kb_index.py` | Rebuild `.kb/index.md` from wiki frontmatter | `--check` |
 | `factory_issue.py` | **Only writer** of factory issue labels/body | `status`, `labels` |
-| `github_issues.py` | Thin `gh` layer for issues and labels, imported by `factory_issue.py` | none |
+| `github_issues.py` | Thin `gh` layer for issues, labels, and sub-issues, imported by `factory_issue.py` and `content_issue.py` | none |
+| `content_issue.py` | **Only writer** of content (video) issue labels/body | `new`, `stage`, `gate`, `status` |
 | `youtube_channel.py` | Load and validate a channel's config and style guide; set up its workspace | `check`, `init` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
@@ -112,6 +113,32 @@ uv run agentic/scripts/youtube_channel.py init testlab
 ```
 
 Content scripts import `load(channel)`; no tracked file holds a channel URL.
+
+---
+
+## content_issue.py
+
+One GitHub issue per video, kept apart from factory runs by `kind:youtube` (D-042). Labels, stage order, and gates: `config/content.yaml`; `needs:owner` comes from `config/factory.yaml`.
+
+- Labels: `kind:youtube`, `channel:<name>` (from `channel.yaml` `labels.channel`, created on demand), `content-type:long-form|short`, one `youtube-stage:*`
+- Stages: idea, research, script, demo, recording, editing, packaging, review, ready; one forward at a time
+- Gates: leaving `idea` (gate 1), `demo` (gate 2), and `review` (gate 3) needs the owner's yes, recorded as a `YouTube: gate N approved.` comment
+
+```bash
+# File a video at idea; creates videos/<issue-number>/ in the channel workspace
+uv run agentic/scripts/content_issue.py new testlab --type long-form --title "..." --brief-file brief.md
+# A Short cut from long-form #12 (sub-issue), or an independent Short linking it
+uv run agentic/scripts/content_issue.py new testlab --type short --title "..." --parent 12
+uv run agentic/scripts/content_issue.py new testlab --type short --title "..." --related 12
+
+uv run agentic/scripts/content_issue.py status 14 --channel testlab   # resume one video
+uv run agentic/scripts/content_issue.py status --channel testlab      # queue, waiting first
+uv run agentic/scripts/content_issue.py gate 14 1 --request           # wait for the owner
+uv run agentic/scripts/content_issue.py gate 14 1 --approve           # only on the owner's yes
+uv run agentic/scripts/content_issue.py stage 14 research
+```
+
+Exit codes: 0 done, 1 GitHub/config/file error, 2 bad input or invalid channel, 3 refused.
 
 ---
 

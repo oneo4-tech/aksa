@@ -1,6 +1,6 @@
 """The thin layer over the gh CLI for GitHub issues and labels, shared by the issue scripts.
 
-Not a command: factory_issue.py imports it, and tests replace GitHub with a fake.
+Not a command: factory_issue.py and content_issue.py import it, and tests replace GitHub with a fake.
 """
 
 import json
@@ -55,6 +55,18 @@ class GitHub:
 
     def comment(self, number: int, text: str) -> None:
         self._gh("issue", "comment", str(number), "--body-file", "-", stdin=text)
+
+    def add_sub_issue(self, parent: int, child: int) -> None:
+        """Link child as a sub-issue of parent; the REST API takes the child's id, not its number."""
+        child_id = self._gh("api", f"repos/{{owner}}/{{repo}}/issues/{child}", "--jq", ".id").strip()
+        self._gh(
+            "api",
+            "--method",
+            "POST",
+            f"repos/{{owner}}/{{repo}}/issues/{parent}/sub_issues",
+            "-F",
+            f"sub_issue_id={child_id}",
+        )
 
     def labels(self) -> dict[str, tuple[str, str]]:
         data = json.loads(self._gh("label", "list", "--limit", "500", "--json", "name,color,description"))
