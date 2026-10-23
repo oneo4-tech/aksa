@@ -20,6 +20,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `narrate.py` (skill `narrate-video`) | Narrate a video's scenes with the channel voice and check each transcript for leaked markup | `CHANNEL N` |
 | `render.py` (skill `render-video`) | Render a video's scenes into silent clips timed from the narration, with terminal scenes from the VHS recording | `CHANNEL N` |
 | `assemble.py` (skill `render-video`) | Assemble the clips, narration, and music bed into the final video with two-pass loudness and captions from the script | `CHANNEL N` |
+| `thumbnail.py` (skill `design-thumbnail`) | Compose a video's thumbnail from a layout template with the exact text and cached, text-free Gemini art | `CHANNEL N --text --subject [--layout] [--new-art]` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
@@ -106,7 +107,7 @@ uv run python -m agentic.scripts.factory_issue labels
 ## youtube_channel.py
 
 Loads a YouTube channel from its workspace `.projects/content/yt-<channel>/` (never committed to aksa):
-- `channel.yaml`: machine values (name, url, voice, palette, loudness, music_db, cadence with its weekly owner-hours budget, labels, pronunciation, banned_phrases, title_max, demos with the public demo repository and its local clone folder under `.projects/content/`); schema in the script docstring
+- `channel.yaml`: machine values (name, url, voice, palette, loudness, music_db, cadence with its weekly owner-hours budget, labels, pronunciation, banned_phrases, title_max, demos with the public demo repository and its local clone folder under `.projects/content/`, thumbnail with the art style every thumbnail's art is asked in); schema in the script docstring
 - `style-guide.md`: human rules, one `##` section per required heading (Voice through Gate 3 checklist, listed in `SECTIONS`)
 
 A missing file, field, or section stops with a message naming each one.
@@ -235,6 +236,17 @@ uv run agentic/skills/content/render-video/scripts/assemble.py testlab 14
 ```
 
 Exit codes: 0 assembled, 1 tool/font/file error, 2 bad input (invalid script or channel, missing or stale `scenes.json`, missing clip, narration, or music bed, silent mix). The media test in `tests/test_render_media.py` speaks a two-scene fixture with macOS `say`, renders and assembles it twice, and checks size, -14 LUFS within 1 LU, true peak at or below -1 dBTP, SRT text equal to the script, and identical frames.
+
+### thumbnail.py (`design-thumbnail`)
+
+Reads `channel.yaml` `palette` and `thumbnail.art_style`; the video folder `videos/<n>/` must exist. `--text` is one to four words on one line; `--subject` says what the art shows. Art: one Gemini `generateContent` request (`gemini-3.1-flash-image`, `responseModalities: ["IMAGE"]`, aspect ratio 1:1) with the prompt `<art_style>: <subject>.` plus "Absolutely no text, letters, or numbers" and a solid flat background in `palette.background`, about USD 0.07 an image (no free tier). The art and its prompt are cached in `thumbnail/art.<ext>` and `thumbnail/art.json`: the same prompt reuses it with no call and no key, another prompt is refused (exit 3) unless `--new-art`. Compose: `references/<layout>.html` (layout `split`, `code-circle`, or `face-off`, by default the issue number mod 3) with `thumbnail.css` and `fit.js`, the palette as CSS variables (`syntax` red only for large shapes), the text HTML-escaped into its lines (split two, code-circle one, face-off a word each) and shrunk to fit, the art embedded, centre-cropped to 62% and faded at its edges, and the fonts embedded as `render.py` does (`RENDER_FONTS`). The system Chrome shoots the 1280x720 page at 3x for 3840x2160, as PNG, else JPEG at quality 92 down to 65, the first at most 2,000,000 bytes; the other format's stale file is removed. Writes `thumbnail.png` or `thumbnail.jpg`. Needs `GEMINI_API_KEY` only for new art, never printed.
+
+```bash
+# Prints JSON (layout, text, art generated or cached, prompt, file, format, quality, bytes, width, height)
+uv run --env-file .env agentic/skills/content/design-thumbnail/scripts/thumbnail.py testlab 14 --text "Tests Check Nothing" --subject "a smug red bug behind a green checkmark"
+```
+
+Exit codes: 0 written, 1 Gemini/Chrome/font/file error, key missing, or over 2 MB in every format, 2 bad input (invalid channel, text, or subject, no video folder), 3 refused (cached art from another prompt without `--new-art`). The media test (`tests/test_thumbnail_media.py`, marker `media`) composes each layout in the real Chrome from fake art and checks 3840x2160 and the size limit.
 
 ---
 

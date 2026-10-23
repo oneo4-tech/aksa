@@ -21,6 +21,7 @@ CONFIG = {
     "banned_phrases": ["in this video"],
     "title_max": 60,
     "demos": {"repo": "example-org/example-demos", "path": "example-demos"},
+    "thumbnail": {"art_style": "3D clay render, soft studio lighting, playful toy-like materials"},
 }
 
 
@@ -89,6 +90,8 @@ def test_load_returns_config_and_style_sections(tmp_path):
         "demos",
         "demos.repo",
         "demos.path",
+        "thumbnail",
+        "thumbnail.art_style",
     ],
 )
 def test_load_names_a_missing_field(tmp_path, field):
@@ -117,6 +120,7 @@ def test_load_names_a_missing_field(tmp_path, field):
         ("demos.path", "../outside"),
         ("demos.path", "/abs/example-demos"),
         ("demos.path", "yt-example"),
+        ("thumbnail.art_style", " "),
     ],
 )
 def test_load_names_an_invalid_field(tmp_path, field, value):

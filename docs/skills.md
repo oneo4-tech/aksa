@@ -56,6 +56,7 @@ Content production pipelines outside software delivery (D-041).
 | `build-video-demo` | One video's runnable demo, passing tests, and VHS tape in `<n>-<slug>/` of the channel's public demo repository clone; returns the description link; pushes or creates the repository only on the owner's yes |
 | `narrate-video` | One video's narration, scene by scene, with Gemini 3.8 Flash TTS in the channel's voice, style, pace, and pronunciation into `narration/NN.wav`, refused when a whisper transcript shows spoken markup or misses the script's words |
 | `render-video` | One video's final cut `render/final.mp4` (30 fps, 1920x1080 with `final.srt`, or 1080x1920 for a Short with burned word-highlight captions): scenes drawn as HTML Web Animations in the neon-terminal theme, timed from whisper word timestamps, terminal scenes cut from the VHS recording, the music bed under the narration, and two-pass loudness to the channel's target |
+| `design-thumbnail` | One video's thumbnail `thumbnail.png` or `.jpg` (3840x2160, under 2 MB): at most four words of exact text in the issue's rotating layout (split, code-circle, face-off) around Gemini 3.1 Flash Image art asked for without text in the channel's art style; the art is paid once (about USD 0.07, after the owner's yes) and cached |
 
 ### Auxiliary Skills (`agentic/skills/auxiliary/`)
 Specialized utilities.

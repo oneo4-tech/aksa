@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- Layout "split": the text left on two lines (the second in the accent colour) over a deep red bar,
+     the art right. thumbnail.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+/*{{palette}}*/
+.art { left: 650px; top: 70px; width: 620px; height: 620px; }
+#text { left: 64px; top: 100px; width: 620px; height: 460px; }
+.bar { left: 64px; top: 590px; width: 280px; height: 26px; transform: rotate(-2deg); }
+</style>
+<body data-layout="split">
+<div class="grid"></div>
+<div class="art"><img src="{{art}}" alt=""></div>
+<div class="shape bar"></div>
+<div class="fit" id="text" data-size="160"><!--{{text}}--></div>
+<script>
+/*{{js}}*/
+</script>
+</body>

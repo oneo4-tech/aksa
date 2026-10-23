@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- Layout "code-circle": the text as one line of code in a panel, circled by a deep red ring, the art
+     lower right. thumbnail.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+/*{{palette}}*/
+.art { left: 820px; top: 250px; width: 460px; height: 460px; }
+.panel { position: absolute; left: 60px; top: 150px; width: 820px; height: 230px; border-radius: 22px;
+  background: #161616; border: 3px solid #2c2c2c; box-shadow: 0 14px 40px #000c; }
+.ring { position: absolute; left: 20px; top: 100px; width: 900px; height: 330px; border-radius: 50%;
+  border: 14px solid var(--red); transform: rotate(-4deg); }
+#text { left: 110px; top: 180px; width: 720px; height: 170px; }
+</style>
+<body data-layout="code-circle">
+<div class="grid"></div>
+<div class="art"><img src="{{art}}" alt=""></div>
+<div class="panel"></div>
+<div class="fit mono" id="text" data-size="96"><!--{{text}}--></div>
+<div class="ring"></div>
+<script>
+/*{{js}}*/
+</script>
+</body>

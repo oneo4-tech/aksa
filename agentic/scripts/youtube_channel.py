@@ -27,6 +27,8 @@ channel.yaml, the machine values every content script reads:
                                          # the public demo repository (owner/name) and its
                                          # local clone, a folder of .projects/content/ that is
                                          # not a channel workspace (yt-*)
+  thumbnail: {art_style: "3D clay render, soft studio lighting"}
+                                         # the style every thumbnail's art is asked in
 
 style-guide.md, the human rules every specialist reads, with one "## " section per
 heading in SECTIONS, spelled exactly.
@@ -159,6 +161,7 @@ SCHEMA: dict = {
     "banned_phrases": _phrases,
     "title_max": _length,
     "demos": {"repo": _repo, "path": _folder},
+    "thumbnail": {"art_style": _text},
 }
 
 
