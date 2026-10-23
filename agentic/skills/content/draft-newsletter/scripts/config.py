@@ -1,7 +1,7 @@
 """Config loader for the draft-newsletter skill."""
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import yaml
@@ -75,3 +75,47 @@ def get_kit_api_key() -> str:
         return os.environ["KIT_API_KEY"]
     except KeyError:
         raise KeyError("KIT_API_KEY environment variable is not set") from None
+
+
+def update_signup_url(config: NewsletterConfig, signup_url: str) -> NewsletterConfig:
+    """
+    Create a new NewsletterConfig with an updated signup URL.
+
+    Since NewsletterConfig is frozen, this uses dataclasses.replace()
+    to create a new instance with the updated field.
+
+    Args:
+        config: The original NewsletterConfig.
+        signup_url: The new signup URL to set.
+
+    Returns:
+        A new NewsletterConfig with the updated signup_url.
+    """
+    return replace(config, signup_url=signup_url)
+
+
+def save_newsletter_config(project_slug: str, config: NewsletterConfig) -> None:
+    """
+    Save the newsletter configuration to the project's config.yaml.
+
+    Args:
+        project_slug: The slug of the newsletter project.
+        config: The NewsletterConfig to save.
+
+    Raises:
+        FileNotFoundError: If the config file's directory doesn't exist.
+    """
+    config_path = Path(f".projects/content/{project_slug}/config.yaml")
+    if not config_path.parent.exists():
+        raise FileNotFoundError(f"Config directory not found: {config_path.parent}")
+
+    data = {
+        "platform": config.platform,
+        "publication_id": config.publication_id,
+        "sender_name": config.sender_name,
+        "sender_email": config.sender_email,
+        "signup_url": config.signup_url,
+    }
+
+    with config_path.open("w") as f:
+        yaml.safe_dump(data, f, sort_keys=False)
