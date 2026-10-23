@@ -208,10 +208,10 @@ def hello():
         mock_github_client.latest_comment_time = Mock(return_value=None)
 
         with (
-            patch("draft_newsletter.wait_for_approval_label", return_value=True),
-            patch("draft_newsletter.KitClient", return_value=mock_kit_client),
-            patch("draft_newsletter.GitHubIssueClient", return_value=mock_github_client),
-            patch("draft_newsletter.get_kit_api_key", return_value="test-api-key"),
+            patch.object(_draft_newsletter_module, "wait_for_approval_label", return_value=True),
+            patch.object(_draft_newsletter_module, "KitClient", return_value=mock_kit_client),
+            patch.object(_draft_newsletter_module, "GitHubIssueClient", return_value=mock_github_client),
+            patch.object(_draft_newsletter_module, "get_kit_api_key", return_value="test-api-key"),
         ):
             result = run(VIDEO_ISSUE, VIDEO_PROJECT, NEWSLETTER_PROJECT)
 
@@ -261,10 +261,10 @@ def hello():
         mock_github_client.latest_comment_time = Mock(return_value=None)
 
         with (
-            patch("draft_newsletter.wait_for_approval_label", return_value=False),
-            patch("draft_newsletter.KitClient", return_value=mock_kit_client),
-            patch("draft_newsletter.GitHubIssueClient", return_value=mock_github_client),
-            patch("draft_newsletter.get_kit_api_key", return_value="test-api-key"),
+            patch.object(_draft_newsletter_module, "wait_for_approval_label", return_value=False),
+            patch.object(_draft_newsletter_module, "KitClient", return_value=mock_kit_client),
+            patch.object(_draft_newsletter_module, "GitHubIssueClient", return_value=mock_github_client),
+            patch.object(_draft_newsletter_module, "get_kit_api_key", return_value="test-api-key"),
         ):
             result = run(VIDEO_ISSUE, VIDEO_PROJECT, NEWSLETTER_PROJECT)
 
@@ -309,9 +309,9 @@ def hello():
         mock_github_client.add_comment = Mock()
 
         with (
-            patch("draft_newsletter.KitClient", return_value=mock_kit_client),
-            patch("draft_newsletter.GitHubIssueClient", return_value=mock_github_client),
-            patch("draft_newsletter.get_kit_api_key", return_value="test-api-key"),
+            patch.object(_draft_newsletter_module, "KitClient", return_value=mock_kit_client),
+            patch.object(_draft_newsletter_module, "GitHubIssueClient", return_value=mock_github_client),
+            patch.object(_draft_newsletter_module, "get_kit_api_key", return_value="test-api-key"),
         ):
             result = run(
                 VIDEO_ISSUE,
