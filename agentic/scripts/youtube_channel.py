@@ -23,6 +23,10 @@ channel.yaml, the machine values every content script reads:
   pronunciation: {pytest: "pie test"}    # word -> spoken respelling; may be empty
   banned_phrases: ["in this video"]      # may be empty
   title_max: 60                          # longest title, characters
+  demos: {repo: example-org/example-demos, path: example-demos}
+                                         # the public demo repository (owner/name) and its
+                                         # local clone, a folder of .projects/content/ that is
+                                         # not a channel workspace (yt-*)
 
 style-guide.md, the human rules every specialist reads, with one "## " section per
 heading in SECTIONS, spelled exactly.
@@ -67,6 +71,7 @@ MEDIA = ["mp4", "mov", "webm", "wav", "mp3", "m4a", "png", "jpg", "jpeg", "gif",
 GITIGNORE = ["# Generated media stays out of git; only text artifacts are committed."] + [f"*.{ext}" for ext in MEDIA]
 
 NAME = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
+REPO = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
 HEADING = re.compile(r"^## (.+?)\s*$", re.MULTILINE)
 
@@ -127,6 +132,15 @@ def _words(value) -> str | None:
     return None if ok else "must map each word to its spoken form"
 
 
+def _repo(value) -> str | None:
+    return None if isinstance(value, str) and REPO.fullmatch(value) else "must be a GitHub repository like owner/name"
+
+
+def _folder(value) -> str | None:
+    ok = isinstance(value, str) and NAME.fullmatch(value) and not value.startswith("yt-")
+    return None if ok else "must be one lowercase hyphenated folder name of .projects/content/, not yt-*"
+
+
 def _phrases(value) -> str | None:
     return None if isinstance(value, list) and all(isinstance(p, str) for p in value) else "must be a list of strings"
 
@@ -144,6 +158,7 @@ SCHEMA: dict = {
     "pronunciation": _words,
     "banned_phrases": _phrases,
     "title_max": _length,
+    "demos": {"repo": _repo, "path": _folder},
 }
 
 

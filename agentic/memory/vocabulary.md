@@ -6,13 +6,15 @@ Agreed terms, alphabetical. Use them as defined. Add or change a term only after
 |------|---------|
 | Agent | A component: an operator with a goal and role that owns an outcome and uses rules and skills. Lives in `agentic/agents/`. |
 | AI slop | Agent output that breaks rules, decisions, or owner preferences, makes unverified claims, adds speculative scope, or wastes tokens. Found by the `retrospect-session` skill. |
+| Channel workspace | A channel's text-only git repository at `.projects/content/yt-<channel>/` holding its `channel.yaml`, style guide, and per-video folders `videos/<issue-number>/`; generated media is ignored. |
 | Claim | A session's hold on a factory issue while it works on the run: the `claimed` label and a `Factory:` comment naming the session. Taken over only on the owner's yes (D-033). |
 | Component | A building block of aksa's agentic system: Rule, Skill, Agent, Memory, Script, or Template indexed from AGENTS.md. External resources (`.kb`, `.projects`, `.worktrees`) are not components. |
 | Concept | The factory stage, and the `## Concept` section of a factory issue, where an idea's open decisions are settled one at a time and its feasibility is judged before a requirement is written. |
+| Content issue | A GitHub issue in the aksa tracker for one separately publishable piece of content, a video or a Short, labelled `kind:youtube` and `channel:<name>`, and kept apart from factory issues (D-042). |
 | Delivery branch | The branch whose single pull request brings a run into `main`: the run's own branch for a small run, its integration branch for a large one. |
 | Factory issue | The one GitHub issue that tracks a run from triage to close through its labels, body sections, task checklist, and `Factory:` comments; the only place run state lives (D-024). |
 | Finding | A reviewer's statement about a task's change. It blocks only when it cites an unmet acceptance criterion, a broken rule or decision, or a reproduced defect; any other finding is a note, never fixed in the run (D-032). |
-| Gate | An owner approval that ends a stage: G0 concept, G1 requirement, G2 spec, G3 plan. The merge into `main`, by the owner or on the owner's explicit yes, ends the run (D-040). |
+| Gate | An owner approval that ends a stage. In a run: G0 concept, G1 requirement, G2 spec, G3 plan; the merge into `main`, by the owner or on the owner's explicit yes, ends the run (D-040). In a content issue: gate 1 idea and angle, gate 2 researched script and demo plan, gate 3 final video, recorded by `content_issue.py`. |
 | Handoff | A self-contained note that lets another tool, agent, or person continue a session's work without its context. Written by the `create-handoff` skill; never stored in Memory or the Knowledge Base. |
 | Integration branch | The `int/<n>-<slug>` delivery branch of a large run: its tasks are squash-merged into it, and its pull request brings the run into `main`. |
 | Knowledge Base | An external resource, not a component: curated domain knowledge kept outside the repository in its own git repository and reached through the `.kb` symlink. Only its `wiki/` pages are trusted (D-017). |

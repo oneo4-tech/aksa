@@ -20,6 +20,7 @@ CONFIG = {
     "pronunciation": {"pytest": "pie test"},
     "banned_phrases": ["in this video"],
     "title_max": 60,
+    "demos": {"repo": "example-org/example-demos", "path": "example-demos"},
 }
 
 
@@ -85,6 +86,9 @@ def test_load_returns_config_and_style_sections(tmp_path):
         "pronunciation",
         "banned_phrases",
         "title_max",
+        "demos",
+        "demos.repo",
+        "demos.path",
     ],
 )
 def test_load_names_a_missing_field(tmp_path, field):
@@ -108,6 +112,11 @@ def test_load_names_a_missing_field(tmp_path, field):
         ("pronunciation", ["pytest"]),
         ("banned_phrases", "in this video"),
         ("title_max", 0),
+        ("demos.repo", "example-demos"),
+        ("demos.repo", "https://github.com/example-org/example-demos"),
+        ("demos.path", "../outside"),
+        ("demos.path", "/abs/example-demos"),
+        ("demos.path", "yt-example"),
     ],
 )
 def test_load_names_an_invalid_field(tmp_path, field, value):

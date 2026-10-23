@@ -16,6 +16,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `competition.py` (skill `scan-video-ideas`) | Score an idea card and add the closest YouTube videos, cached per query | `CHANNEL CARD`, `--top` |
 | `evidence.py` (skill `research-video`) | Check each claim's quote on its live page and add a text-fragment link | `CHANNEL N` |
 | `check_script.py` (skill `write-video-script`) | Check a video's script against the writing rules, length target, and citations | `CHANNEL N` |
+| `scaffold.py` (skill `build-video-demo`) | Create a video's demo folder in the demo repository clone and print its description link | `CHANNEL N --slug --proves` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
@@ -102,7 +103,7 @@ uv run python -m agentic.scripts.factory_issue labels
 ## youtube_channel.py
 
 Loads a YouTube channel from its workspace `.projects/content/yt-<channel>/` (never committed to aksa):
-- `channel.yaml`: machine values (name, url, voice, palette, loudness, music_db, cadence with its weekly owner-hours budget, labels, pronunciation, banned_phrases, title_max); schema in the script docstring
+- `channel.yaml`: machine values (name, url, voice, palette, loudness, music_db, cadence with its weekly owner-hours budget, labels, pronunciation, banned_phrases, title_max, demos with the public demo repository and its local clone folder under `.projects/content/`); schema in the script docstring
 - `style-guide.md`: human rules, one `##` section per required heading (Voice through Gate 3 checklist, listed in `SECTIONS`)
 
 A missing file, field, or section stops with a message naming each one.
@@ -188,6 +189,17 @@ uv run agentic/skills/content/write-video-script/scripts/check_script.py testlab
 ```
 
 Exit codes: 0 the script passes, 1 file error, 2 bad input (invalid script file or channel), 3 refused (a writing rule, length, or citation problem).
+
+### scaffold.py (`build-video-demo`)
+
+Reads `channel.yaml` `demos`: `repo` (the public repository, `owner/name`) and `path` (its local clone, `.projects/content/<path>/`). Creates `<clone>/<n>-<slug>/` with `README.md` (the content issue's title, what the demo proves, how to run, the link back to the issue, the folder link, the MIT note), `demo/`, `tests/`, `demo.tape` (VHS: Menlo 30, 1920x1080, Dracula), and a `.gitignore` for recorded media. Refuses an existing folder, a missing clone or one that is not a git repository, and a repository missing on GitHub (the owner creates it once). Only reads GitHub: never creates a repository, commits, or pushes.
+
+```bash
+# Prints the folder, then https://github.com/<repo>/tree/main/<n>-<slug>
+uv run agentic/skills/content/build-video-demo/scripts/scaffold.py testlab 14 --slug mocked-tests --proves "..."
+```
+
+Exit codes: 0 created, 1 GitHub or file error, 2 bad input (invalid channel or slug, or an issue without the channel's label), 3 refused.
 
 ---
 
