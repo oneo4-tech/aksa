@@ -44,6 +44,13 @@ Software Factory stage execution.
 | `ship-change` | Ship | — |
 | `release-version` | Post-ship | — |
 
+### Content Skills (`agentic/skills/content/`)
+Content production pipelines outside software delivery (D-041).
+
+| Skill | Purpose |
+|-------|---------|
+| `run-youtube` | File, resume, or list a channel's videos (`youtube-producer` agent) |
+
 ### Auxiliary Skills (`agentic/skills/auxiliary/`)
 Specialized utilities.
 
