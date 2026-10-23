@@ -60,18 +60,15 @@ CLAIMS = [
 ]
 MARK = """quote => {
   const norm = s => s.replace(/\\s+/g, ' ');
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  const head = quote.slice(0, 30);
-  let node;
-  while ((node = walker.nextNode())) {
-    const i = norm(node.textContent).indexOf(head);
-    if (i < 0) continue;
-    const el = node.parentElement;
-    el.style.outline = '6px solid #ff2e88'; el.style.background = '#ffe06688';
-    el.scrollIntoView({ block: 'center' });
-    return true;
+  const head = quote.slice(0, 40);
+  let best = null;
+  for (const el of document.body.querySelectorAll('p, li, td, blockquote, h1, h2, h3, h4, div, span, em, strong')) {
+    if (norm(el.innerText || '').includes(head) && (!best || best.contains(el))) best = el;
   }
-  return false;
+  if (!best) return false;
+  best.style.outline = '6px solid #ff2e88'; best.style.background = '#ffe06688';
+  best.scrollIntoView({ block: 'center' });
+  return true;
 }"""
 
 
