@@ -29,7 +29,7 @@ Each video reaches stage `ready`, its content issue showing the true state at ev
   | `script` | `write-video-script`: scenes under the writing rules | |
   | `demo` | `build-video-demo`: the runnable demo and its tape | 2: researched script and demo plan |
   | `recording` | `narrate-video`: narration with the channel voice | |
-  | `editing` | `render-video`: animated scenes, captions, loudness | |
+  | `editing` | `render-video`: animated scenes assembled with music, loudness, and captions | |
   | `packaging` | `design-thumbnail`, `package-video`, and for a long-form `plan-shorts` | |
   | `review` | none: the producer shows the finished video and its outputs | 3: final video |
   | `ready` | none: the retrospective | |

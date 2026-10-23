@@ -39,7 +39,7 @@ brew install ffmpeg whisper.cpp
   https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin)   # into the home folder
 ```
 
-Research evidence (`research-video`) and scene rendering (`render-video`) drive Google Chrome through Playwright (no bundled browser); demo recordings (`build-video-demo`) need `vhs`. Rendering also needs `ffmpeg`, `whisper-cli` as above, and the Space Grotesk and Fira Code font files at `.cache/fonts/` in the home folder, or the folder in `RENDER_FONTS`, since scenes never load fonts from the network:
+Research evidence (`research-video`) and scene rendering (`render-video`) drive Google Chrome through Playwright (no bundled browser); demo recordings (`build-video-demo`) need `vhs`. Rendering also needs `ffmpeg`, `whisper-cli` as above, and the Space Grotesk and Fira Code font files at `.cache/fonts/` in the home folder, or the folder in `RENDER_FONTS`, since scenes never load fonts from the network. Assembly also needs each channel's music bed at `music/bed.mp3` in its workspace, supplied by the owner:
 
 ```sh
 brew install --cask google-chrome
@@ -55,7 +55,7 @@ The Knowledge Base (`.kb`) is its own git repository with `inbox/`, `raw/`, `wik
 
 ```sh
 uv run pytest            # scripts and repository invariants
-uv run pytest -m media   # real-media render tests, locally only (Chrome, ffmpeg, whisper-cli, fonts)
+uv run pytest -m media   # real-media render tests, locally only (Chrome, ffmpeg, whisper-cli, fonts, macOS say)
 uv run ruff check .
 uv run ruff format --check .
 ```

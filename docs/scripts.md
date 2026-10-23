@@ -19,6 +19,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `scaffold.py` (skill `build-video-demo`) | Create a video's demo folder in the demo repository clone and print its description link | `CHANNEL N --slug --proves` |
 | `narrate.py` (skill `narrate-video`) | Narrate a video's scenes with the channel voice and check each transcript for leaked markup | `CHANNEL N` |
 | `render.py` (skill `render-video`) | Render a video's scenes into silent clips timed from the narration, with terminal scenes from the VHS recording | `CHANNEL N` |
+| `assemble.py` (skill `render-video`) | Assemble the clips, narration, and music bed into the final video with two-pass loudness and captions from the script | `CHANNEL N` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
@@ -224,6 +225,16 @@ uv run agentic/skills/content/render-video/scripts/render.py testlab 14
 ```
 
 Exit codes: 0 every scene rendered, 1 tool/font/file error, 2 bad input (invalid script or channel, missing narration or demo file). The media test (`tests/test_render_media.py`, marker `media`) renders a two-scene fixture twice with the real tools: `uv run pytest -m media`; the default run and CI leave it out.
+
+### assemble.py (`render-video`)
+
+Reads a video's `videos/<n>/script.json` (`type`, each scene's `say`), `render/scenes.json` and its clips from `render.py`, `narration/NN.wav`, the channel's music bed `music/bed.mp3` in the workspace (supplied by the owner), and `channel.yaml` `loudness` and `music_db`. The clips play in order (ffmpeg concat); each narration starts at its scene's start plus its `lead`; the bed loops under the voice at `music_db` dB and fades out over the last 2 s. Loudness is two-pass `loudnorm`: the first pass measures the mix, the second applies the measured values with `linear=true` to `loudness.lufs`, aiming 0.5 dB below `loudness.true_peak` since AAC encoding lifts peaks a little. Captions use the script's `say` words with `//` and `...` removed (real words, not the pronunciation respellings), timed by `whisper-cli -ml 1` word starts (matched words at their heard start, the rest sharing the time between): a long-form gets `render/final.srt` (a cue per sentence, at most 7 words and 42 characters) with the clips copied unchanged; a Short gets burned captions, three words with the word being said in the accent colour, in the lower area clear of the Shorts buttons, drawn per state from `references/captions.html` in Chrome as transparent PNGs and overlaid on whole frames. Writes `render/final.mp4` (H.264, AAC 192 kb/s 48 kHz) and prints type, width, height, seconds, file, captions, and the mix's measured loudness.
+
+```sh
+uv run agentic/skills/content/render-video/scripts/assemble.py testlab 14
+```
+
+Exit codes: 0 assembled, 1 tool/font/file error, 2 bad input (invalid script or channel, missing or stale `scenes.json`, missing clip, narration, or music bed, silent mix). The media test in `tests/test_render_media.py` speaks a two-scene fixture with macOS `say`, renders and assembles it twice, and checks size, -14 LUFS within 1 LU, true peak at or below -1 dBTP, SRT text equal to the script, and identical frames.
 
 ---
 
