@@ -8,7 +8,15 @@ from pathlib import Path
 import pytest
 
 # Load the config module from the hyphenated directory
-_config_path = Path(__file__).resolve().parents[1] / "agentic" / "skills" / "content" / "draft-newsletter" / "config.py"
+_config_path = (
+    Path(__file__).resolve().parents[1]
+    / "agentic"
+    / "skills"
+    / "content"
+    / "draft-newsletter"
+    / "scripts"
+    / "config.py"
+)
 _spec = importlib.util.spec_from_file_location("draft_newsletter_config", _config_path)
 _config_module = importlib.util.module_from_spec(_spec)
 sys.modules["draft_newsletter_config"] = _config_module
