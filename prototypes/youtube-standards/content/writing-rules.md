@@ -24,8 +24,7 @@
 ## Narration markup (Gemini 3.8 TTS)
 
 - Delivery and pace go in the style field (Puck, warm, played at 0.92), never in the script text.
-- Pauses: `<short pause>`, `<long pause>`, and ellipses are the documented tags. Measured pauses: ellipsis about 0.5-0.8 s, `<short pause>` about 1.1-1.4 s, `<long pause>` about 1.8-2.3 s.
-- `[pause]` and `//` also paused in testing but are undocumented; do not use them. (The draft's claim that `<short pause>` was spoken aloud is not what was tested: `<long pause>` leaked once in 4 earlier runs and 0 of 1 later.)
+- Pauses (owner's pick): `//` for a pause (measured about 1.1-1.4 s, not spoken), ellipses for a short hesitation (about 0.5-0.8 s). `//` is not a documented Gemini tag, so it stays only while the leak check passes; fallback is the documented `<short pause>`.
 - **Leak check:** the narration transcript (whisper) must match the script words; any spoken tag fails gate 3.
 - CAPS for at most one stressed word per sentence.
 

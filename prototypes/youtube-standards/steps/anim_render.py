@@ -4,6 +4,7 @@ uv run --no-project --with playwright steps/anim_render.py  -> out/anim/animated
 """
 
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -19,7 +20,7 @@ start = time.time()
 with sync_playwright() as p:
     browser = p.chromium.launch(channel="chrome")
     page = browser.new_page(viewport={"width": 1920, "height": 1080})
-    page.goto((HERE / "content" / "anim-scene.html").as_uri())
+    page.goto((HERE / "content" / ("anim-scene-more.html" if "more" in sys.argv else "anim-scene.html")).as_uri())
     page.evaluate("document.fonts.ready")
     for i in range(int(FPS * SECONDS)):
         page.evaluate(f"seek({i / FPS})")
@@ -87,7 +88,7 @@ subprocess.run(
         "aac",
         "-ar",
         "48000",
-        str(OUT / "animated.mp4"),
+        str(OUT / ("animated-more.mp4" if "more" in sys.argv else "animated.mp4")),
     ],
     check=True,
 )
