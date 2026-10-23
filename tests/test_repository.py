@@ -81,6 +81,17 @@ def skill_categories() -> set[str]:
     return set(re.findall(r"^  - `([a-z-]+)`:", block, re.MULTILINE))
 
 
+def in_listed_category(skill_md: Path) -> bool:
+    """A skill's folder sits directly under a category listed in components.md (D-022)."""
+    return skill_md.parent.parent.name in skill_categories()
+
+
+@pytest.mark.parametrize(("category", "accepted"), [("content", True), ("factory", True), ("unlisted", False)])
+def test_skill_category_must_be_listed(category, accepted):
+    skill_md = ROOT / "agentic" / "skills" / category / "run-example" / "SKILL.md"
+    assert in_listed_category(skill_md) is accepted
+
+
 def skill_sections() -> list[str]:
     """Section headings of the skill template, in order."""
     return re.findall(r"^## (.+)$", SKILL_TEMPLATE.read_text(), re.MULTILINE)
@@ -106,7 +117,7 @@ def test_no_windows_reserved_names():
 def test_skill_structure(skill_md):
     text = skill_md.read_text()
     fields = frontmatter(text)
-    assert skill_md.parent.parent.name in skill_categories()
+    assert in_listed_category(skill_md)
     assert skill_md.parent.parent.parent == ROOT / "agentic" / "skills"
     assert fields.get("name") == skill_md.parent.name
     assert re.fullmatch(r"[a-z]+(-[a-z0-9]+)+", fields["name"]), "verb-object, lowercase hyphenated (D-005)"
