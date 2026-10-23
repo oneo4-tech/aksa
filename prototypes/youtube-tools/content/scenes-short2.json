@@ -1,0 +1,14 @@
+{
+  "id": "short2",
+  "title": "Spot the bug in 5 seconds",
+  "format": "1080x1920",
+  "scenes": [
+    {"kind": "code", "heading": "Spot the bug: 5 seconds", "file": "demo/test_discount_ai.py",
+     "code": "def test_apply_discount_runs():\n  result = (\n    apply_discount(100, 10)\n  )\n  assert result is not None",
+     "say": "This test passes. Spot the bug. Five. Four. Three. Two. One."},
+    {"kind": "points", "heading": "It only checks existence", "body": "90 passes\n110 passes\n-40 passes",
+     "say": "It only checks the result exists. Ninety passes. A hundred and ten passes. Minus forty passes."},
+    {"kind": "title", "heading": "Assert the value", "body": "assert result == 90.0",
+     "say": "Assert the value, not the existence. Follow for one bug a day."}
+  ]
+}

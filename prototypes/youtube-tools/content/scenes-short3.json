@@ -1,0 +1,11 @@
+{
+  "id": "short3",
+  "title": "Myth: AI writes great tests",
+  "format": "1080x1920",
+  "scenes": [
+    {"kind": "title", "heading": "Myth:", "body": "AI writes great tests.", "say": "Myth: AI writes great tests. Let's check."},
+    {"kind": "terminal", "heading": "One-character mutation", "body": "1 - percent -> 1 + percent\n\nAI tests: 2 passed\nReal tests: 2 failed",
+     "say": "I flip one sign in the code. The AI's tests still pass. A tester's tests fail."},
+    {"kind": "title", "heading": "Verdict", "body": "Green is not tested.", "say": "Verdict: green is not tested. Break your code on purpose."}
+  ]
+}
