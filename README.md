@@ -31,6 +31,14 @@ uv run agentic/scripts/kb_index.py        # .kb/index.md from the wiki pages
 
 Start parallel work in its own worktree, set up the same way: `uv run agentic/scripts/new_worktree.py <branch>`.
 
+Content skills need system tools, installed once. Narration (`narrate-video`) needs `ffmpeg`, `whisper-cli` (whisper.cpp), and its `base.en` model at `.cache/whisper/ggml-base.en.bin` in the home folder, or the path in `WHISPER_MODEL`, plus `GEMINI_API_KEY` in `.env`:
+
+```sh
+brew install ffmpeg whisper.cpp
+(cd && mkdir -p .cache/whisper && curl -L -o .cache/whisper/ggml-base.en.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin)   # into the home folder
+```
+
 The Knowledge Base (`.kb`) is its own git repository with `inbox/`, `raw/`, `wiki/`, and `outputs/`; see `agentic/rules/knowledge.md`.
 
 ## Checks

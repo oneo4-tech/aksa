@@ -19,9 +19,10 @@ Reads videos/<N>/script.json in the channel workspace, written by write-video-sc
 It refuses (exit 3), naming each problem, a script that has a banned phrase (in the title, a
 heading, visual, or say), a title over title_max, and in say: a sentence of 20 words or more,
 three long sentences (LONG_WORDS or more) in a row, digits, more than one CAPS word per
-sentence other than acronyms, markup other than // and ..., or a word the channel's
-pronunciation list respells; a scene claim not in videos/<N>/citations.json or not found on
-its source page; or an estimated length outside the type's target.
+sentence other than acronyms, or markup other than // and ...; a scene claim not in
+videos/<N>/citations.json or not found on its source page; or an estimated length outside
+the type's target. say keeps the real words: narrate-video applies the channel's
+pronunciation list just before synthesis, so captions taken from the script show them.
 
 Length estimate: words in say at BASE_WPM words a minute times the channel's voice.pace (the
 narration's playback speed), plus PAUSE_SECONDS per // and HESITATION_SECONDS per .... BASE_WPM
@@ -127,7 +128,7 @@ def estimate(scenes: list[dict], pace: float) -> tuple[int, int]:
     return words, round(seconds)
 
 
-def say_problems(say: str, config: dict, acronyms: set[str]) -> list[str]:
+def say_problems(say: str, acronyms: set[str]) -> list[str]:
     """Writing rule problems of one scene's narration, beyond banned phrases."""
     problems = []
     for words in sentences(say):
@@ -140,9 +141,6 @@ def say_problems(say: str, config: dict, acronyms: set[str]) -> list[str]:
         problems.append(f"digits '{digits[0]}'; write numbers as spoken words, code values go in visual or code")
     if "<" in say or ">" in say:
         problems.append("markup '<'; only // pauses and ... hesitations are allowed")
-    for word, respelling in config["pronunciation"].items():
-        if re.search(rf"(?<!\w){re.escape(word)}(?!\w)", say, re.IGNORECASE):
-            problems.append(f"'{word}' must be respelled '{respelling}' (pronunciation list)")
     return problems
 
 
@@ -172,7 +170,7 @@ def problems(script: dict, config: dict, pace: float, citations: list[dict] | No
         for field in ["heading", "visual", "say"]:
             phrases = youtube_channel.banned_phrases(scene.get(field, ""), config)
             found += [f"{name}: {field}: banned phrase '{p}'" for p in phrases]
-        found += [f"{name}: say: {p}" for p in say_problems(scene["say"], config, acronyms)]
+        found += [f"{name}: say: {p}" for p in say_problems(scene["say"], acronyms)]
         for claim in scene["claims"] if citations is not None else []:
             if claim not in by_id:
                 found.append(f"{name}: claims: {claim} not in citations.json")

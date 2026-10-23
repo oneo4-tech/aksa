@@ -12,7 +12,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "agentic/skills/con
 import check_script
 
 NUMBER = 12
-# CONFIG: pace 0.92, banned_phrases ["in this video"], pronunciation {"pytest": "pie test"}, title_max 60.
+# CONFIG: pace 0.92, banned_phrases ["in this video"], title_max 60; its pronunciation list (pytest) is
+# applied at narration, so say keeps the real word.
 WPM = check_script.BASE_WPM * CONFIG["voice"]["pace"]
 
 # Twenty-five words in four sentences: short, medium, short, medium.
@@ -94,7 +95,6 @@ TWENTY = "One two three four five six seven eight nine ten eleven twelve thirtee
         ({"say": "It costs 90 dollars. " + SAY}, "scene 1: say: digits '90'"),
         ({"say": "This is NOT a REAL test. " + SAY}, "scene 1: say: 2 CAPS words in one sentence (NOT, REAL)"),
         ({"say": "Wait <short pause> now. " + SAY}, "scene 1: say: markup '<'"),
-        ({"say": "Run pytest now. " + SAY}, "scene 1: say: 'pytest' must be respelled 'pie test'"),
         ({"say": " ".join([LONG] * 3) + " " + SAY}, "scene 1: say: three long sentences in a row"),
         ({"claims": ["C9"]}, "scene 1: claims: C9 not in citations.json"),
         ({"claims": ["C2"]}, "scene 1: claims: C2 not found on its source page"),
@@ -113,9 +113,10 @@ def test_a_scene_breaking_a_writing_rule_is_refused_naming_it(tmp_path, capsys, 
         "This is NOT a test. " + SAY,
         "AI wrote this, and it is NOT a test. " + SAY,
         "Wait // and look... closely. " + SAY,
+        "Run pytest now. " + SAY,
     ],
 )
-def test_one_stressed_word_listed_acronyms_and_pause_markup_are_allowed(tmp_path, capsys, say):
+def test_one_stressed_word_listed_acronyms_pause_markup_and_real_words_are_allowed(tmp_path, capsys, say):
     files(tmp_path, script([scene(say=say, visual="assert result == 90", heading="Bug 1")] + [scene()] * 3))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")

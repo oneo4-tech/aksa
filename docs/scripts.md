@@ -17,6 +17,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `evidence.py` (skill `research-video`) | Check each claim's quote on its live page and add a text-fragment link | `CHANNEL N` |
 | `check_script.py` (skill `write-video-script`) | Check a video's script against the writing rules, length target, and citations | `CHANNEL N` |
 | `scaffold.py` (skill `build-video-demo`) | Create a video's demo folder in the demo repository clone and print its description link | `CHANNEL N --slug --proves` |
+| `narrate.py` (skill `narrate-video`) | Narrate a video's scenes with the channel voice and check each transcript for leaked markup | `CHANNEL N` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
@@ -181,7 +182,7 @@ Exit codes: 0 every quote found, 1 page/browser/file error, 2 bad input (invalid
 
 ### check_script.py (`write-video-script`)
 
-Reads a video's `videos/<n>/script.json`: `title`, `type` (`long-form` or `short`), `structure` (`challenge-first`, `incident-story`, `myth-buster`), `acronyms`, and `scenes`, each with `kind` (`title`, `points`, `code`, `terminal`), `heading`, `visual` or for a code scene `code`, `say` (the narration), and `claims` (citation ids). Refuses, naming each problem: a banned phrase from `channel.yaml` in the title, a heading, visual, or say; a title over `title_max`; in `say`, a sentence of twenty words or more, three sentences of sixteen or more in a row, digits, markup other than `//` and `...`, more than one CAPS word per sentence other than `acronyms`, or a word the `pronunciation` list respells; a claim id not in `citations.json` or not found; a length outside 300-600 s (long-form) or 30-60 s (Short). Length estimate: words at 160 words a minute times `voice.pace`, plus 1.25 s per `//` and 0.65 s per `...`.
+Reads a video's `videos/<n>/script.json`: `title`, `type` (`long-form` or `short`), `structure` (`challenge-first`, `incident-story`, `myth-buster`), `acronyms`, and `scenes`, each with `kind` (`title`, `points`, `code`, `terminal`), `heading`, `visual` or for a code scene `code`, `say` (the narration), and `claims` (citation ids). Refuses, naming each problem: a banned phrase from `channel.yaml` in the title, a heading, visual, or say; a title over `title_max`; in `say`, a sentence of twenty words or more, three sentences of sixteen or more in a row, digits, markup other than `//` and `...`, or more than one CAPS word per sentence other than `acronyms`; a claim id not in `citations.json` or not found; a length outside 300-600 s (long-form) or 30-60 s (Short). Length estimate: words at 160 words a minute times `voice.pace`, plus 1.25 s per `//` and 0.65 s per `...`. `say` keeps the real words; `narrate.py` applies the `pronunciation` list at synthesis.
 
 ```bash
 # Prints JSON (scenes, words, seconds, target_seconds, words_per_minute)
@@ -200,6 +201,17 @@ uv run agentic/skills/content/build-video-demo/scripts/scaffold.py testlab 14 --
 ```
 
 Exit codes: 0 created, 1 GitHub or file error, 2 bad input (invalid channel or slug, or an issue without the channel's label), 3 refused.
+
+### narrate.py (`narrate-video`)
+
+Reads a video's `videos/<n>/script.json` and `channel.yaml` `voice` (`id`, `style`, `pace`) and `pronunciation`. Per scene: respells the `pronunciation` words of `say` (whole words, any case; `//` and `...` kept), posts one Gemini Interactions API request (`gemini-3.8-flash-tts`, the voice id in `generation_config.speech_config`, the style only in the text's `speech_metadata` annotation, since style inside the text is spoken), decodes the base64 WAV, applies `voice.pace` with ffmpeg `atempo` (pitch kept) into `narration/NN.wav`, and transcribes it with `whisper-cli` and the `base.en` model (`WHISPER_MODEL`, else `.cache/whisper/ggml-base.en.bin` in the home folder). A scene is refused when its transcript has a markup word `say` lacks (`slash`, `pause`, `ellipsis`, `dot`), an angle-bracket tag or `//`, the voice style, or a word match (difflib ratio, both sides respelled) under 0.9. Writes `narration/report.json`. Needs `GEMINI_API_KEY`, never printed.
+
+```bash
+# Prints JSON (per scene file, transcript, match, problems; match_min; passed)
+uv run --env-file .env agentic/skills/content/narrate-video/scripts/narrate.py testlab 14
+```
+
+Exit codes: 0 every scene clean, 1 Gemini/tool/file error or key missing, 2 bad input (invalid script file or channel), 3 refused (a scene leaked markup or misses the script).
 
 ---
 

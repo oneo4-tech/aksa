@@ -9,7 +9,7 @@ description: Use at a video's script stage, from youtube-producer, or when the o
 
 - The channel and `#<n>`, a content issue at stage `script` (from `youtube-producer`), or at `demo` with gate 2 not in `approved` for a rewrite. No channel or issue: ask the owner which.
 - Written below: `C` for `uv run agentic/scripts/content_issue.py`, `K` for `uv run agentic/skills/content/write-video-script/scripts/check_script.py`, and `W` for the workspace `.projects/content/yt-<channel>/`.
-- The channel workspace, checked with `uv run agentic/scripts/youtube_channel.py check <channel>`; exit 2: show its message and stop. Read the style guide sections `Writing rules`, `Voice`, `Slides and animation`, `Shorts`, and `Gate 2 checklist`, and in `channel.yaml` the `banned_phrases`, `pronunciation`, `title_max`, and `voice.pace` that `K` applies.
+- The channel workspace, checked with `uv run agentic/scripts/youtube_channel.py check <channel>`; exit 2: show its message and stop. Read the style guide sections `Writing rules`, `Voice`, `Slides and animation`, `Shorts`, and `Gate 2 checklist`, and in `channel.yaml` the `banned_phrases`, `title_max`, and `voice.pace` that `K` applies, and the `pronunciation` list.
 - The research: `W/videos/<n>/research.md` and `W/videos/<n>/citations.json` from `research-video`, every claim found. Missing, or `uv run agentic/skills/content/research-video/scripts/evidence.py <channel> <n>` not exiting 0: stop and route the video back to `research-video`.
 - The idea: `W/videos/<n>/idea-card.json` when `scan-video-ideas` wrote one (its `title`, `pillar`, `claim`, `tester_question`, `proof`), else the Brief from `gh issue view <n> --json title,body`.
 
@@ -21,7 +21,7 @@ description: Use at a video's script stage, from youtube-producer, or when the o
 4. **Write `W/videos/<n>/script.json`** in the format in `scripts/check_script.py`: `title` (the idea card's title, within `title_max`), `type`, `structure`, `acronyms`, and `scenes` following the structure's beats.
    - The first scene states the problem within five seconds; the topic is clear by fifteen; the title's promise is answered on screen at the climax, in the middle to late scenes; the last scene bridges to the next video or challenge with one specific comment question, never a generic like or subscribe request.
    - Each scene is one picture: `kind`, `heading`, and `visual` (on-screen text, where code values and digits go) or, for a `code` scene, `code` (the demo file it shows). Change the picture at the pace `Slides and animation` sets.
-   - `say` follows `Writing rules` and `Voice`: plain words, sentences under twenty words, short and medium sentences mixed, numbers as spoken words, `//` for a pause and `...` for a hesitation, CAPS on at most one stressed word per sentence, each word of the `pronunciation` list in its respelling. Delivery and tone stay in the channel's voice style, never in `say`.
+   - `say` follows `Writing rules` and `Voice`: plain words, sentences under twenty words, short and medium sentences mixed, numbers as spoken words, `//` for a pause and `...` for a hesitation, CAPS on at most one stressed word per sentence, and the real spelling of every word: `narrate-video` respells the `pronunciation` words just before synthesis, so captions taken from the script show the real words. Delivery and tone stay in the channel's voice style, never in `say`.
    - `acronyms` lists the capitalised terms spoken as letters or names, such as `AI`, so they are not read as stress.
    - `claims` lists the `citations.json` id of every fact the scene states. A fact with no found claim is said as the video's own interpretation, shown by the demo (a `terminal` or `code` scene for a "The demo must prove" item of `research.md`), or dropped.
    - An incident story that is not real and cited says, in its first scene's `visual`, that it is a constructed scenario.
@@ -42,7 +42,7 @@ The `YouTube: script` comment's link, the structure, the estimated length from `
 
 ## Done when
 
-- `K <channel> <n>` exited 0 on the final `script.json`: no banned phrase, sentence, digit, CAPS, markup, pronunciation, citation, title, or length problem.
+- `K <channel> <n>` exited 0 on the final `script.json`: no banned phrase, sentence, digit, CAPS, markup, citation, title, or length problem.
 - The first scene states the problem, a middle-to-late scene answers the title's promise, and the last scene has the next-step bridge and one comment question.
 - A Short is `challenge-first` and points to its related long-form video; a long-form's structure follows the rotation of step 3.
 - The `YouTube: script` comment is on the issue, with no placeholder and no em dash.
