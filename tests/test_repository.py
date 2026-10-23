@@ -1,4 +1,4 @@
-"""Repository invariants: path policy, rule index, skill structure, and references."""
+"""Repository invariants: path policy, channel URLs, rule index, skill structure, and references."""
 
 import re
 import subprocess
@@ -14,6 +14,8 @@ SKILL_TEMPLATE = ROOT / "agentic" / "templates" / "skill-template.md"
 RESERVED = re.compile(r"(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?", re.IGNORECASE)
 # Absolute or home-relative paths (D-012). Split so this file does not match itself.
 ABSOLUTE_PATH = re.compile("|".join(["/" + "Users/", "/" + "home/", "~" + "/", r"\$" + "HOME", r"[A-Z]:\\"]))
+# A channel URL belongs in its runtime config, never in a tracked file. Split as above.
+CHANNEL_URL = "youtube.com" + "/@"
 # Backticked repo paths, such as `agentic/rules/x.md`, without placeholders.
 REPO_PATH = re.compile(r"`((?:agentic|config|tests|\.githooks|\.github)/[^`<>*\s]+)`")
 DECISION = re.compile(r"\bD-\d{3}\b")
@@ -65,6 +67,19 @@ def test_no_absolute_paths_outside_environment_yaml():
             f"{path.relative_to(ROOT)}:{n}" for n, line in enumerate(text.splitlines(), 1) if ABSOLUTE_PATH.search(line)
         ]
     assert offenders == [], f"absolute paths belong only in {PATHS_FILE}"
+
+
+def test_no_channel_url_in_tracked_files():
+    offenders = []
+    for path in repo_files():
+        try:
+            text = path.read_text()
+        except UnicodeDecodeError:
+            continue
+        offenders += [
+            f"{path.relative_to(ROOT)}:{n}" for n, line in enumerate(text.splitlines(), 1) if CHANNEL_URL in line
+        ]
+    assert offenders == [], "channel URLs belong in .projects/content/yt-<channel>/channel.yaml"
 
 
 def test_rule_index_matches_rule_files():

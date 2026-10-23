@@ -11,6 +11,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `kb_index.py` | Rebuild `.kb/index.md` from wiki frontmatter | `--check` |
 | `factory_issue.py` | **Only writer** of factory issue labels/body | `status`, `labels` |
 | `github_issues.py` | Thin `gh` layer for issues and labels, imported by `factory_issue.py` | none |
+| `youtube_channel.py` | Load and validate a channel's config and style guide; set up its workspace | `check`, `init` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
@@ -91,6 +92,26 @@ uv run python -m agentic.scripts.factory_issue labels
 ```
 
 **Only this script** writes factory issue labels and body. Skills use it via subprocess.
+
+---
+
+## youtube_channel.py
+
+Loads a YouTube channel from its workspace `.projects/content/yt-<channel>/` (never committed to aksa):
+- `channel.yaml`: machine values (name, url, voice, palette, loudness, music_db, cadence, labels, pronunciation, banned_phrases, title_max); schema in the script docstring
+- `style-guide.md`: human rules, one `##` section per required heading (Voice through Gate 3 checklist, listed in `SECTIONS`)
+
+A missing file, field, or section stops with a message naming each one.
+
+```bash
+# Validate (exit 0 ok, 2 invalid)
+uv run agentic/scripts/youtube_channel.py check testlab
+
+# Make the workspace a git repo that ignores media, with videos/ (idempotent)
+uv run agentic/scripts/youtube_channel.py init testlab
+```
+
+Content scripts import `load(channel)`; no tracked file holds a channel URL.
 
 ---
 
