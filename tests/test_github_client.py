@@ -141,6 +141,34 @@ class TestGitHubIssueClient:
                 ]
             )
 
+    def test_remove_label(self, client: GitHubIssueClient) -> None:
+        """Test that remove_label calls gh issue edit with --remove-label."""
+        with (
+            patch.object(client, "has_label", return_value=True),
+            patch.object(client, "_run_gh", return_value="") as mock_run,
+        ):
+            client.remove_label(42, "newsletter:approve")
+
+            mock_run.assert_called_once_with(
+                [
+                    "issue",
+                    "edit",
+                    "42",
+                    "--remove-label",
+                    "newsletter:approve",
+                ]
+            )
+
+    def test_remove_label_absent_is_a_no_op(self, client: GitHubIssueClient) -> None:
+        """No label means no edit call."""
+        with (
+            patch.object(client, "has_label", return_value=False),
+            patch.object(client, "_run_gh", return_value="") as mock_run,
+        ):
+            client.remove_label(42, "newsletter:approve")
+
+            mock_run.assert_not_called()
+
     def test_context_manager(self) -> None:
         """Test that GitHubIssueClient works as a context manager."""
         with GitHubIssueClient(repo="owner/repo", token="test-token") as client:

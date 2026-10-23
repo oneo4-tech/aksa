@@ -37,7 +37,11 @@ class TestKitClient:
     @pytest.fixture
     def client(self) -> KitClient:
         """Create a KitClient instance for testing."""
-        return KitClient(api_key="test-api-key", publication_id="test-pub-123")
+        return KitClient(
+            api_key="test-api-key",
+            publication_id="test-pub-123",
+            signup_url="https://test-pub-123.kit.com/subscribe",
+        )
 
     @pytest.fixture
     def mock_response(self) -> Mock:
@@ -76,6 +80,26 @@ class TestKitClient:
             assert isinstance(result, DraftResponse)
             assert result.draft_id == "draft-456"
             assert result.preview_url == "https://app.kit.com/publishers/test-pub-123/drafts/draft-456"
+
+    def test_kit_create_draft_requires_id(self, client: KitClient, mock_response: Mock) -> None:
+        """A response without a draft id is an error, not an empty draft."""
+        mock_response.json.return_value = {"preview_url": "https://app.kit.com/drafts/x"}
+
+        with (
+            patch.object(client._client, "post", return_value=mock_response),
+            pytest.raises(RuntimeError, match="missing the draft id"),
+        ):
+            client.create_draft(html="<html></html>", subject="Test")
+
+    def test_kit_create_draft_requires_preview_url(self, client: KitClient, mock_response: Mock) -> None:
+        """A response without a preview URL is an error, not a constructed link."""
+        mock_response.json.return_value = {"id": "draft-456"}
+
+        with (
+            patch.object(client._client, "post", return_value=mock_response),
+            pytest.raises(RuntimeError, match="missing the preview URL"),
+        ):
+            client.create_draft(html="<html></html>", subject="Test")
 
     def test_kit_send_draft_immediate(self, client: KitClient, mock_response: Mock) -> None:
         """
@@ -124,29 +148,24 @@ class TestKitClient:
 
     def test_signup_url_generation(self, client: KitClient) -> None:
         """
-        Test that get_signup_url produces a signup URL
-        from the publication ID.
+        Test that get_signup_url returns the configured signup URL.
         """
         # Act
         signup_url = client.get_signup_url()
 
         # Assert
         assert signup_url == "https://test-pub-123.kit.com/subscribe"
-        assert signup_url.startswith("https://")
-        assert ".kit.com/subscribe" in signup_url
 
-    def test_signup_url_from_different_publication(self) -> None:
+    def test_signup_url_requires_config(self) -> None:
         """
-        Test that signup URL changes with different publication_id.
+        Test that get_signup_url refuses to invent a URL when the config has none.
         """
         # Arrange
         client = KitClient(api_key="test-key", publication_id="my-newsletter")
 
-        # Act
-        signup_url = client.get_signup_url()
-
-        # Assert
-        assert signup_url == "https://my-newsletter.kit.com/subscribe"
+        # Act and assert
+        with pytest.raises(ValueError, match="signup_url is required"):
+            client.get_signup_url()
 
     def test_create_draft_raises_on_error(self, client: KitClient) -> None:
         """
@@ -219,7 +238,11 @@ class TestKitClient:
         }
         config_file.write_text(yaml.dump(initial_config, sort_keys=False))
 
-        client = KitClient(api_key="test-api-key", publication_id="test-pub-123")
+        client = KitClient(
+            api_key="test-api-key",
+            publication_id="test-pub-123",
+            signup_url="https://test-pub-123.kit.com/subscribe",
+        )
 
         # Change to tmp_path so relative path works
         old_cwd = os.getcwd()
@@ -259,8 +282,12 @@ class TestKitClient:
         }
         config_file.write_text(yaml.dump(initial_config, sort_keys=False))
 
-        # Client has a different publication_id than the config
-        client = KitClient(api_key="test-api-key", publication_id="my-newsletter")
+        # Client has a different signup URL than the config file
+        client = KitClient(
+            api_key="test-api-key",
+            publication_id="my-newsletter",
+            signup_url="https://my-newsletter.kit.com/subscribe",
+        )
 
         old_cwd = os.getcwd()
         os.chdir(tmp_path)

@@ -49,16 +49,18 @@ class KitClient:
 
     BASE_URL = "https://api.kit.com/v4"
 
-    def __init__(self, api_key: str, publication_id: str) -> None:
+    def __init__(self, api_key: str, publication_id: str, signup_url: str = "") -> None:
         """
         Initialize the Kit client.
 
         Args:
             api_key: The Kit API key.
             publication_id: The Kit publication ID.
+            signup_url: The signup URL from the newsletter config.
         """
         self.api_key = api_key
         self.publication_id = publication_id
+        self.signup_url = signup_url
         self._client = httpx.Client(
             base_url=self.BASE_URL,
             headers={
@@ -81,6 +83,7 @@ class KitClient:
 
         Raises:
             httpx.HTTPStatusError: If the API request fails.
+            RuntimeError: If Kit's response lacks the draft id or preview URL.
         """
         response = self._client.post(
             f"/publications/{self.publication_id}/drafts",
@@ -89,11 +92,14 @@ class KitClient:
         response.raise_for_status()
         data = response.json()
 
-        # Kit API returns draft object with id and preview_url
-        draft_id = str(data.get("id", data.get("draft_id", "")))
-        preview_url = data.get("preview_url", f"https://app.kit.com/publishers/{self.publication_id}/drafts/{draft_id}")
+        draft_id = data.get("id", data.get("draft_id"))
+        preview_url = data.get("preview_url")
+        if not draft_id:
+            raise RuntimeError("Kit response is missing the draft id")
+        if not preview_url:
+            raise RuntimeError("Kit response is missing the preview URL")
 
-        return DraftResponse(preview_url=preview_url, draft_id=draft_id)
+        return DraftResponse(preview_url=preview_url, draft_id=str(draft_id))
 
     def send_draft(self, draft_id: str, send_at: datetime | None = None) -> SendResponse:
         """
@@ -125,19 +131,21 @@ class KitClient:
 
     def get_signup_url(self) -> str:
         """
-        Get the signup form URL for the publication.
+        Return the signup URL from the newsletter config.
 
         Returns:
-            The signup URL for the publication.
+            The configured signup URL.
+
+        Raises:
+            ValueError: If the config has no signup URL.
         """
-        # Kit signup URLs follow the pattern: https://{subdomain}.kit.com/subscribe
-        # For now, construct from publication_id (common pattern)
-        # In practice, this could be fetched from publication config or API
-        return f"https://{self.publication_id}.kit.com/subscribe"
+        if not self.signup_url:
+            raise ValueError("signup_url is required in the newsletter config")
+        return self.signup_url
 
     def update_signup_url_in_config(self, project_slug: str) -> None:
         """
-        Generate the signup URL and write it to the project config.
+        Write the configured signup URL to the project config.
 
         Args:
             project_slug: The slug of the newsletter project (e.g., "oneo4-newsletter").

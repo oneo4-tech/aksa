@@ -120,6 +120,8 @@ class GitHubIssueClient:
             body = comment.get("body") or ""
             if marker not in body:
                 continue
+            if comment.get("authorAssociation") not in {"OWNER", "MEMBER"}:
+                continue
             if since is not None:
                 created_at = datetime.fromisoformat(comment.get("createdAt") or "")
                 if created_at <= since:
@@ -158,6 +160,17 @@ class GitHubIssueClient:
             label: The label to add.
         """
         self._run_gh(["issue", "edit", str(number), "--add-label", label])
+
+    def remove_label(self, number: int, label: str) -> None:
+        """
+        Remove a label from a GitHub issue when it is present.
+
+        Args:
+            number: The issue number.
+            label: The label to remove.
+        """
+        if self.has_label(number, label):
+            self._run_gh(["issue", "edit", str(number), "--remove-label", label])
 
     def add_comment(self, number: int, body: str) -> None:
         """

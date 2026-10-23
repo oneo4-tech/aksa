@@ -59,7 +59,7 @@ def workspace(tmp_path):
                 "publication_id": "test-pub-123",
                 "sender_name": "OneO4 Team",
                 "sender_email": "newsletter@example.com",
-                "signup_url": "https://old.example.com/subscribe",
+                "signup_url": "https://oneo4.com/newsletter/signup",
             },
             sort_keys=False,
         )
@@ -162,9 +162,9 @@ def test_end_to_end_approved(workspace):
     assert labels == ["newsletter:draft", "newsletter:approved", "newsletter:sent"]
     assert result["sent"] is True
 
-    # AC7: the Kit signup URL replaced the old value in the config file.
+    # AC7: the configured signup URL is written back to the config file.
     saved = yaml.safe_load(workspace["config"].read_text())
-    assert saved["signup_url"] == "https://test-pub-123.kit.com/subscribe"
+    assert saved["signup_url"] == "https://oneo4.com/newsletter/signup"
     assert saved["publication_id"] == "test-pub-123"
 
 

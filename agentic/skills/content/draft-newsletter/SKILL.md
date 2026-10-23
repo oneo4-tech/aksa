@@ -7,10 +7,12 @@ description: Draft a newsletter issue from a published video's script and citati
 
 ## Inputs and prerequisites
 
-- The GitHub issue number of the published long-form video in the video project.
+- The GitHub issue number of the published long-form video, in the aksa repository (`GITHUB_REPOSITORY`).
 - The per-video folder `.projects/youtube/<video-project>/videos/<issue-number>/` with `script.md` and `citations.md` (#28's output contract).
 - `.projects/content/oneo4-newsletter/config.yaml` with `platform: kit`, `publication_id`, `sender_name`, `sender_email`, `signup_url` (template: `references/config.yaml.example`).
 - `KIT_API_KEY`, `GH_TOKEN`, and `GITHUB_REPOSITORY` in the environment; `KIT_API_KEY` is listed in `.env.example`.
+
+Read `references/rule.md` when changing this skill or its scripts.
 
 If an input is missing, stop and report what is missing. Never invent script or citation content.
 
@@ -22,9 +24,9 @@ If an input is missing, stop and report what is missing. Never invent script or 
 4. Render the Markdown issue from `references/templates/newsletter.md.j2` and write it to `newsletter.md` in the video folder.
 5. Convert the Markdown to Kit-compatible HTML with `scripts/markdown_to_html.py` (`convert`), code blocks highlighted.
 6. Create the draft in Kit with `scripts/kit_client.py` (`create_draft`) and keep the preview URL.
-7. Write the Kit signup URL back to the newsletter config (`update_signup_url_in_config`), for #28's description template.
-8. Add the `newsletter:draft` label and a comment with the preview URL on the video's GitHub issue, using `scripts/github_client.py`.
-9. Wait for the owner's yes: the `newsletter:approve` label or a comment that contains `newsletter:approve`.
+7. Write the configured signup URL back to the newsletter config (`update_signup_url_in_config`), for #28's description template.
+8. Remove any `newsletter:approve` label left by an earlier attempt, add the `newsletter:draft` label, and comment the preview URL on the video's GitHub issue, using `scripts/github_client.py`.
+9. Wait for the owner's yes: the `newsletter:approve` label, or a comment that contains `newsletter:approve` from the owner or a repository member, added after the draft comment.
 10. On the yes: add `newsletter:approved`, send with `send_draft`, add `newsletter:sent`, and comment the result.
 11. With no yes before the timeout: add `newsletter:timeout`, comment why, do not send, and end with exit code 3.
 
@@ -43,12 +45,12 @@ Manual fallback: if the Kit send fails, leave the draft in Kit and tell the owne
 - A Kit draft with its preview URL, commented on the video issue.
 - The signup URL in the newsletter config.
 - On the owner's yes: the sent newsletter and the `newsletter:approved` and `newsletter:sent` labels.
-- On failure or no yes: what is blocked, the exit code (2 bad input, 3 waiting for the owner), and what the owner must do.
+- On failure or no yes: what is blocked, the exit code (1 other error, 2 bad input, 3 waiting for the owner), and what the owner must do.
 
 ## Constraints
 
-- Sends only after the owner's recorded yes on the video's GitHub issue (AC4); never sends on the agent's own judgement.
-- Use the agreed terms: the owner, factory issue, video project, newsletter project (`agentic/memory/vocabulary.md`).
+- Sends only after the owner's recorded yes on the video's GitHub issue (AC4); never sends on the agent's own judgement. The label path relies on repository write access; only the owner or a repository member can add it.
+- Use the agreed term the owner (`agentic/memory/vocabulary.md`); the video issue is the GitHub issue for the published video.
 - Secrets come from the environment; never print or commit them (`AGENTS.md`).
 - Writes to `.projects/` and `.kb/` only through the repo-root symlinks (D-012).
 - Kit sends at most one email a day to the list; one issue per long-form video stays under.

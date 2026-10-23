@@ -2,9 +2,9 @@
 
 Wires together: config → read script.md/citations.md → compose Markdown
 → write newsletter.md → convert to HTML → Kit create draft → wait for
-`newsletter:approve` label → Kit send → apply labels → generate signup URL.
+`newsletter:approve` label → Kit send → apply labels → write the configured signup URL.
 
-Exit codes: 0 done, 1 error, 2 bad input, 3 refused and the owner is needed.
+Exit codes: 0 done, 1 error, 2 bad input, 3 waiting for the owner.
 """
 
 import importlib.util
@@ -113,24 +113,28 @@ def extract_metadata(
     Args:
         script_content: The content of script.md.
         citations_content: The content of citations.md.
-        video_issue_number: The video issue number (fallback URL only).
-        signup_url: The Kit signup URL to include.
+        video_issue_number: The video issue number.
+        signup_url: The configured signup URL to include.
 
     Returns:
         Dictionary with template variables.
     """
-    video_title = "Untitled Video"
+    video_title = ""
     for line in script_content.splitlines():
         if line.startswith("# "):
             video_title = line[2:].strip()
             break
+    if not video_title:
+        raise ValueError(f"script.md for issue {video_issue_number} has no title heading")
 
-    video_url = f"https://youtube.com/watch?v=issue-{video_issue_number}"
+    video_url = ""
     for line in script_content.splitlines():
         stripped = line.strip()
         if stripped.lower().startswith("**video url:**"):
-            video_url = stripped.split("**Video URL:**", 1)[-1].strip()
+            video_url = stripped[len("**Video URL:**") :].strip()
             break
+    if not video_url:
+        raise ValueError(f"script.md for issue {video_issue_number} has no **Video URL:** line")
 
     summary_lines = [
         line.strip() for line in _section_lines(script_content, "Summary") if not line.strip().startswith("#")
@@ -256,7 +260,7 @@ def run(
 
     script_content, citations_content = read_script_and_citations(video_project_slug, video_issue_number)
 
-    with KitClient(kit_api_key, config.publication_id) as kit_client:
+    with KitClient(kit_api_key, config.publication_id, config.signup_url) as kit_client:
         signup_url = kit_client.get_signup_url()
         template_vars = extract_metadata(
             script_content,
@@ -279,6 +283,8 @@ def run(
         kit_client.update_signup_url_in_config(newsletter_project_slug)
 
         with GitHubIssueClient(repo, gh_token) as gh_client:
+            # A label left by an earlier attempt is not a yes for this draft.
+            gh_client.remove_label(video_issue_number, APPROVAL_LABEL)
             gh_client.add_label(video_issue_number, "newsletter:draft")
             gh_client.add_comment(
                 video_issue_number,

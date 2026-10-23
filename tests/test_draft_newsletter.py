@@ -125,6 +125,7 @@ def hello():
             client = GitHubIssueClient.__new__(GitHubIssueClient)
             client.repo = "owner/repo"
             client.token = "test-token"
+            client.remove_label = Mock()
             yield client
 
     def test_read_script_and_citations(self, temp_project):
@@ -166,6 +167,16 @@ def hello():
         assert metadata["script_summary"].startswith("This video demonstrates")
         assert "Use argparse for standard library CLI parsing" in metadata["key_points"]
         assert metadata["script_summary"] != "**Video URL:** https://youtube.com/watch?v=test123"
+
+    def test_extract_metadata_requires_title(self):
+        """A script without a title heading is an error, not an invented title."""
+        with pytest.raises(ValueError, match="has no title heading"):
+            extract_metadata("**Video URL:** https://example.com\n", "", 123)
+
+    def test_extract_metadata_requires_video_url(self):
+        """A script without a Video URL line is an error, not an invented URL."""
+        with pytest.raises(ValueError, match="Video URL"):
+            extract_metadata("# Title\n\n## Summary\nText\n", "", 123)
 
     def test_render_newsletter(self, temp_project):
         """Test newsletter rendering, including the Kit unsubscribe merge tag."""
@@ -352,6 +363,7 @@ def hello():
                         {
                             "body": "Add the `newsletter:approve` label or comment it to send.",
                             "createdAt": bot_time.isoformat().replace("+00:00", "Z"),
+                            "authorAssociation": "MEMBER",
                         }
                     ]
                 }
@@ -371,6 +383,7 @@ def hello():
                         {
                             "body": "newsletter:approve",
                             "createdAt": owner_time.isoformat().replace("+00:00", "Z"),
+                            "authorAssociation": "OWNER",
                         }
                     ]
                 }
@@ -379,6 +392,26 @@ def hello():
 
         since = datetime.now(UTC)
         assert mock_github_client.has_approval_comment(VIDEO_ISSUE, "newsletter:approve", since=since) is True
+
+    def test_non_member_comment_does_not_approve(self, mock_github_client):
+        """A comment from someone without write access is not the owner's yes."""
+        owner_time = datetime.now(UTC) + timedelta(minutes=1)
+        mock_github_client._run_gh = Mock(
+            return_value=json.dumps(
+                {
+                    "comments": [
+                        {
+                            "body": "newsletter:approve",
+                            "createdAt": owner_time.isoformat().replace("+00:00", "Z"),
+                            "authorAssociation": "NONE",
+                        }
+                    ]
+                }
+            )
+        )
+
+        since = datetime.now(UTC)
+        assert mock_github_client.has_approval_comment(VIDEO_ISSUE, "newsletter:approve", since=since) is False
 
     def test_wait_for_approval_label_timeout(self, mock_github_client):
         """No label and no comment means no approval."""
