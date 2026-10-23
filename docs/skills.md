@@ -59,6 +59,7 @@ Content production pipelines outside software delivery (D-041).
 | `design-thumbnail` | One video's thumbnail `thumbnail.png` or `.jpg` (3840x2160, under 2 MB): at most four words of exact text in the issue's rotating layout (split, code-circle, face-off) around Gemini 3.1 Flash Image art asked for without text in the channel's art style; the art is paid once (about USD 0.07, after the owner's yes) and cached |
 | `package-video` | One video's `packaging.json` and `description.md`: a challenge title within `title_max`, the hook, chapters from the rendered scenes (00:00 first, at least three, each at least 10 s), the demo link, the verified sources, the synthetic-voice and paid-promotion disclosure, up to three hashtags, and 5-8 tags, refused naming each problem; with the published link, fills the demo README's video line locally |
 | `plan-shorts` | A long-form video's two Shorts, each a standalone thirty to sixty second challenge with its hook in the first two seconds, filed on the owner's yes as content issues cut from it (`--parent`) or linking it (`--related`) |
+| `brand-channel` | The channel's avatar (800x800), banner (2048x1152, text inside the 1235x338 safe area), watermark (150x150), and wordmarks in `branding/`, as SVG sources and PNG renders built from the oneo4 logo spec geometry and the channel palette, checked against YouTube's limits and handed to the owner to upload |
 
 ### Auxiliary Skills (`agentic/skills/auxiliary/`)
 Specialized utilities.

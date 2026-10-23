@@ -21,6 +21,7 @@ Deterministic operations in `agentic/scripts/`. All have tests in `tests/`.
 | `render.py` (skill `render-video`) | Render a video's scenes into silent clips timed from the narration, with terminal scenes from the VHS recording | `CHANNEL N` |
 | `assemble.py` (skill `render-video`) | Assemble the clips, narration, and music bed into the final video with two-pass loudness and captions from the script | `CHANNEL N` |
 | `thumbnail.py` (skill `design-thumbnail`) | Compose a video's thumbnail from a layout template with the exact text and cached, text-free Gemini art | `CHANNEL N --text --subject [--layout] [--new-art]` |
+| `branding.py` (skill `brand-channel`) | Generate the channel's avatar, banner, watermark, and wordmarks from the logo spec geometry and palette, as SVG and PNG | `CHANNEL` |
 | `check_pr_review.py` | CI gate: verify `review-component` in PR body | — |
 | `new_worktree.py` | Create git worktree with links + vendor folders | `<branch>` |
 
@@ -107,7 +108,7 @@ uv run python -m agentic.scripts.factory_issue labels
 ## youtube_channel.py
 
 Loads a YouTube channel from its workspace `.projects/content/yt-<channel>/` (never committed to aksa):
-- `channel.yaml`: machine values (name, url, voice, palette, loudness, music_db, cadence with its weekly owner-hours budget, labels, pronunciation, banned_phrases, title_max, demos with the public demo repository and its local clone folder under `.projects/content/`, thumbnail with the art style every thumbnail's art is asked in); schema in the script docstring
+- `channel.yaml`: machine values (name, url, voice, palette, loudness, music_db, cadence with its weekly owner-hours budget, labels, pronunciation, banned_phrases, title_max, demos with the public demo repository and its local clone folder under `.projects/content/`, thumbnail with the art style every thumbnail's art is asked in, branding with the wordmark suffix words and the banner's two lines); schema in the script docstring
 - `style-guide.md`: human rules, one `##` section per required heading (Voice through Gate 3 checklist, listed in `SECTIONS`)
 
 A missing file, field, or section stops with a message naming each one.
@@ -247,6 +248,17 @@ uv run --env-file .env agentic/skills/content/design-thumbnail/scripts/thumbnail
 ```
 
 Exit codes: 0 written, 1 Gemini/Chrome/font/file error, key missing, or over 2 MB in every format, 2 bad input (invalid channel, text, or subject, no video folder), 3 refused (cached art from another prompt without `--new-art`). The media test (`tests/test_thumbnail_media.py`, marker `media`) composes each layout in the real Chrome from fake art and checks 3840x2160 and the size limit.
+
+### branding.py (`brand-channel`)
+
+Reads `channel.yaml` `palette` and `branding` (`wordmarks`: suffix words, the first on the banner; `tagline`; `subline`). Builds each asset's SVG from the oneo4 logo spec v0.4 geometry, unaltered (glyph paths, advance 68, suffix from x = 500 at 8.4 against the tag's 14, icon viewBox `2 -18 200 200`), with name strokes first, suffix next, and syntax strokes on top: `avatar` 800x800 (icon at stroke 16 inside YouTube's crop circle, one x-height clear), `banner` 2048x1152 (first wordmark, tagline in Space Grotesk 46 in the name colour, subline in Fira Code 30 in the suffix colour, stacked inside the centred 1235x338 safe area), `watermark` 150x150 (icon at stroke 20, transparent), and `wordmark-<word>` 2400 wide. A letter outside the spec's glyphs (a b c e h k l r s t) or a line too wide for the safe area is refused (exit 2) before anything is written. The system Chrome renders each SVG at its size with the fonts embedded (`RENDER_FONTS`); every render must be its size and under YouTube's limit (avatar 15 MB, banner 6 MB, watermark 1 MB) before `branding/<asset>.svg` and `.png` are written. Uploads nothing.
+
+```bash
+# Prints JSON (each asset's name, svg, png, width, height, bytes, limit)
+uv run agentic/skills/content/brand-channel/scripts/branding.py testlab
+```
+
+Exit codes: 0 written, 1 Chrome/font/file error or a render of the wrong size or over its limit, 2 bad input (invalid channel, letter without a glyph, line too wide). The media test (`tests/test_branding_media.py`, marker `media`) renders every asset in the real Chrome and checks sizes, limits, and the banner lines measured inside the safe area.
 
 ### package.py (`package-video`)
 

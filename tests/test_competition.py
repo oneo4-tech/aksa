@@ -32,6 +32,7 @@ CHANNEL = {
     "title_max": 60,
     "demos": {"repo": "example-org/example-demos", "path": "example-demos"},
     "thumbnail": {"art_style": "3D clay render"},
+    "branding": {"wordmarks": ["testlab"], "tagline": "How testers think", "subline": "weekly"},
 }
 
 SCORES = {"lens": 5, "proof": 5, "freshness": 5, "audience_pull": 5, "distinctness": 5, "effort": 5}

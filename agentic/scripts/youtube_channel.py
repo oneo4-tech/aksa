@@ -29,6 +29,9 @@ channel.yaml, the machine values every content script reads:
                                          # not a channel workspace (yt-*)
   thumbnail: {art_style: "3D clay render, soft studio lighting"}
                                          # the style every thumbnail's art is asked in
+  branding: {wordmarks: [examplelab], tagline: "One line on the banner", subline: "a smaller second line"}
+                                         # suffix words of the <oneo4/>word wordmarks made, the
+                                         # first on the banner, with the banner's two text lines
 
 style-guide.md, the human rules every specialist reads, with one "## " section per
 heading in SECTIONS, spelled exactly.
@@ -75,6 +78,7 @@ GITIGNORE = ["# Generated media stays out of git; only text artifacts are commit
 NAME = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 REPO = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
+SUFFIX = re.compile(r"[a-z]+")
 HEADING = re.compile(r"^## (.+?)\s*$", re.MULTILINE)
 
 
@@ -143,6 +147,11 @@ def _folder(value) -> str | None:
     return None if ok else "must be one lowercase hyphenated folder name of .projects/content/, not yt-*"
 
 
+def _suffixes(value) -> str | None:
+    ok = isinstance(value, list) and value and all(isinstance(w, str) and SUFFIX.fullmatch(w) for w in value)
+    return None if ok else "must be a non-empty list of lowercase words, such as [testlab]"
+
+
 def _phrases(value) -> str | None:
     return None if isinstance(value, list) and all(isinstance(p, str) for p in value) else "must be a list of strings"
 
@@ -162,6 +171,7 @@ SCHEMA: dict = {
     "title_max": _length,
     "demos": {"repo": _repo, "path": _folder},
     "thumbnail": {"art_style": _text},
+    "branding": {"wordmarks": _suffixes, "tagline": _text, "subline": _text},
 }
 
 
