@@ -32,6 +32,7 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
   - `productivity`: personal work organization.
   - `factory`: the Software Factory lifecycle and its supporting operations, from work request to release (D-036).
   - `auxiliary`: supporting operations that serve any work, such as research, retrospectives, handoffs, clarifications, and prototypes, and fit no domain above.
+  - `content`: content creation and publishing workflows (newsletters, videos, articles).
 - Adding or redefining a category needs a new decision row agreed with the owner through `add-memory` (D-022), before any skill uses it.
 - `name` matches the directory, is lowercase hyphenated verb-object (D-005), and is unique across categories, since vendors get a flat folder **[checked]**.
 - `description` states when to use the skill and the result it produces **[checked: present]**.
