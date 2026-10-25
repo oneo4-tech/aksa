@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block main %}
+<section class="hero">
+  <div class="core-wrap">
+    <div class="core">
+      <div class="ring ring-outer"></div>
+      <div class="ring ring-mid"></div>
+      <div class="ring ring-inner"></div>
+      <div class="sweep"></div>
+      <div class="core-center">
+        <span class="core-state">STANDBY</span>
+        <span class="core-sub">sources pending</span>
+      </div>
+    </div>
+    <div class="core-ticks">
+      <span>factory</span><span>kb</span><span>agents</span><span>projects</span>
+    </div>
+  </div>
+
+  <div class="hero-copy">
+    <p class="greeting">The cockpit is up.</p>
+    <h1>Everything aksa knows, in one picture.</h1>
+    <p class="hero-line">The shell is running on localhost. Each panel fills when its read-only source is connected.</p>
+    <div class="hero-actions">
+      <a class="button primary" href="https://github.com/oneo4-tech/aksa/issues" target="_blank" rel="noreferrer">Open factory</a>
+      <a class="button" href="#credits">Agent credits</a>
+    </div>
+  </div>
+</section>
+
+<section class="stats">
+  <article class="stat">
+    <span class="stat-label">Open runs</span>
+    <strong class="stat-value mono">--</strong>
+    <span class="stat-note">source pending</span>
+  </article>
+  <article class="stat">
+    <span class="stat-label">Projects</span>
+    <strong class="stat-value mono">--</strong>
+    <span class="stat-note">source pending</span>
+  </article>
+  <article class="stat">
+    <span class="stat-label">KB pages</span>
+    <strong class="stat-value mono">--</strong>
+    <span class="stat-note">source pending</span>
+  </article>
+  <article class="stat">
+    <span class="stat-label">Credit sources</span>
+    <strong class="stat-value mono">--<span class="stat-of">/4</span></strong>
+    <span class="stat-note">source pending</span>
+  </article>
+</section>
+
+<section class="panel" id="factory">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Factory</span>
+      <h2>Open runs</h2>
+    </div>
+    <span class="panel-meta mono">--</span>
+  </div>
+  <p class="empty">No factory source yet. Runs appear here when the reader is connected.</p>
+</section>
+{% endblock %}
+
+{% block right %}
+<section class="panel credits" id="credits">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Agents</span>
+      <h2>Credits</h2>
+    </div>
+    <span class="panel-meta">live + manual</span>
+  </div>
+
+  <article class="credit">
+    <div class="credit-head"><span class="credit-name">Claude Code</span></div>
+    <p class="credit-down">Unavailable &middot; source pending</p>
+  </article>
+  <article class="credit">
+    <div class="credit-head"><span class="credit-name">OpenRouter</span></div>
+    <p class="credit-down">Unavailable &middot; source pending</p>
+  </article>
+  <article class="credit">
+    <div class="credit-head"><span class="credit-name">OpenCode</span></div>
+    <p class="credit-down">Unavailable &middot; source pending</p>
+  </article>
+  <article class="credit">
+    <div class="credit-head"><span class="credit-name">Google AI Studio</span></div>
+    <p class="credit-down">Not set &middot; source pending</p>
+  </article>
+</section>
+
+<section class="panel" id="projects">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Workspace</span>
+      <h2>Projects</h2>
+    </div>
+    <span class="panel-meta mono">--</span>
+  </div>
+  <p class="empty">No project source yet.</p>
+</section>
+
+<section class="panel" id="knowledge">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Knowledge</span>
+      <h2>Recent pages</h2>
+    </div>
+    <span class="panel-meta mono">--</span>
+  </div>
+  <p class="empty">No knowledge source yet.</p>
+</section>
+{% endblock %}
