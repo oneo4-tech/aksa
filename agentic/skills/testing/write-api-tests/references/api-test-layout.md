@@ -85,10 +85,22 @@ def test_create_order_returns_201(client):
     """TC-004; AC2, R1"""
     response = client.post("/orders", json={"sku": "SKU-1", "quantity": 1})
     assert response.status_code == 201
+    assert response.json()["quantity"] == 1
     assert_valid_json(response.json(), "order")
+
+
+@pytest.mark.live
+def test_read_order_matches_the_created_order(client):
+    """TC-005; AC3, R2"""
+    created = client.post("/orders", json={"sku": "SKU-1", "quantity": 2})
+    assert created.status_code == 201
+    response = client.get(f"/orders/{created.json()['id']}")
+    assert response.status_code == 200
+    assert response.json()["items"] == created.json()["items"]
+    assert response.json()["total"] == created.json()["total"]
 ```
 
-- Success checks use the fixture client, assert the status, then the body or the schema.
+- Success checks use the fixture client, assert the status, then every body value and comparison the case states, such as a quantity or a total equal between two responses. A schema check is added beside them, never in their place.
 - Error checks use the same client with input the cases name, and assert the status and only the error fields the spec fixes. Never assert a message text the spec does not fix. Where the spec fixes the error body, validate it with `assert_valid_json(response.json(), "<resource>-error")`.
 - Authentication checks run once per endpoint through `pytest.mark.parametrize` over the module's paths: one without a token, one with an invalid token such as `Bearer invalid`, both asserting the status that `api_spec` or the cases give.
 - Response-schema checks call `assert_valid_json(response.json(), "<schema>")` after the status assertion.
@@ -113,6 +125,7 @@ def assert_valid_json(body: object, name: str) -> None:
 - Each schema file is a Draft 2020-12 JSON Schema: `$schema`, `type`, `required`, and `properties` taken from the response in `api_spec`.
 - Name a schema per response body, such as `order.json` and `order-list.json`, not per endpoint.
 - Without an `api_spec`, copy only the fields, types, and nesting that the case's expected result states, and name that basis in the reply.
+- Where a case requires a non-empty value, add `minLength: 1` to the string or `minItems: 1` to the array, with or without a spec, such as a product list whose case requires at least one product with a non-empty `name`.
 - Leave objects open with `additionalProperties` unset unless the spec closes them; a new field is not a defect unless the client says so.
 
 ## Live versus collect-only
