@@ -82,29 +82,17 @@ def page(context: BrowserContext) -> Page:
     return context.new_page()
 
 
-@pytest.fixture(scope="session")
-def auth_state(browser: Browser) -> dict:
+@pytest.fixture
+def signed_in_page(page: Page) -> Page:
     for name in (USER_ENV, PASSWORD_ENV):
         if not os.environ.get(name):
             pytest.fail(f"set {name} in the environment before running these tests")
-    context = browser.new_context(base_url=BASE_URL)
-    page = context.new_page()
     SignInPage(page).sign_in(os.environ[USER_ENV], os.environ[PASSWORD_ENV])
-    state = context.storage_state()
-    context.close()
-    return state
-
-
-@pytest.fixture
-def signed_in_page(browser: Browser, auth_state: dict) -> Page:
-    context = browser.new_context(base_url=BASE_URL, storage_state=auth_state)
-    page = context.new_page()
-    yield page
-    context.close()
+    return page
 ```
 
 - The default base URL is the brief's `ui_base_url`; `UI_BASE_URL` lets the owner point the same tests at another environment without editing a file.
-- Omit `auth_state`, `signed_in_page`, and their import when no case starts signed in, and then read no credential at all.
+- Omit `signed_in_page` and its import when no case starts signed in, and then read no credential at all.
 - The browser fixture starts one browser per session and gives each test its own context and page, so a test never sees another test's cookies or storage. Launch the browser the cases name, `chromium` when they name none.
 - `conftest.py` reads `os.environ` only. The owner's run command, `uv run --env-file .env pytest` from the engagement folder, loads the engagement `.env` into the test process at run time, so no value is copied into a file. A missing `.env` fails that command with `No environment file found at:` and the path.
 - A missing variable fails its fixture with its name. It never becomes a skip.
@@ -143,6 +131,7 @@ class CheckoutPage(BasePage):
         self.heading = page.get_by_role("heading", name="Checkout")
         self.pay_button = page.get_by_role("button", name="Pay")
         self.confirmation = page.get_by_role("heading", name="Order confirmed")
+        self.total = page.get_by_text("Total")
 
     def pay(self) -> None:
         self.pay_button.click()
@@ -181,18 +170,20 @@ def test_checkout_confirms_the_order(page: Page) -> None:
     checkout.open()
     checkout.pay()
     expect(checkout.confirmation).to_be_visible()
+    expect(checkout.total).to_have_text("Total 19.98")
 ```
 
 - A test with a signed-in precondition takes `signed_in_page` instead of `page`.
 - The docstring names the `TC-<nnn>` case and the `AC<n>` and `R<n>` ids from that case's `Covers`.
 - Name a test for the behaviour and its expected result, not for the case id.
+- Assert every value the expected result states, such as a price or a total, with `to_have_text` or `to_contain_text`; `to_be_visible` proves the element is there, not its value.
 - A journey whose cases cover several pages builds each page object it needs in the test; no shared page or context between tests.
 
 ## Authentication
 
 - The sign-in journey comes from the cases: the page path and steps that enter the credentials and reach the signed-in app, whether in a case of its own or at the start of a signed-in case. Its page path and steps build `SignInPage`, and its variable names come from `credentials_env`.
-- The session-scoped `auth_state` fixture drives that journey once, at the start of the first signed-in test, and calls `context.storage_state()`. In the Python binding that returns a dictionary, and `browser.new_context(storage_state=...)` accepts the dictionary, so the state stays in memory and no file is written. Where the sign-in needs a single token or cookie instead of a user and password, the fixture reads that one name and sets the session in the same way.
-- Each signed-in test gets a fresh context with that state through `signed_in_page`, so cookies never leak between tests and a test can still sign out or change session state without affecting another.
+- The function-scoped `signed_in_page` fixture drives that journey in each signed-in test's own fresh context, before the test's steps. No storage state is captured or reused, so no cookie, session, or cart tied to a session passes from one test to another, and a test can sign out or change session state without affecting another. Where the sign-in needs a single token or cookie instead of a user and password, the fixture reads that one name and sets it on the test's own context.
+- State the account keeps across sessions, such as a saved cart, is not cleared by a fresh context. A test reaches its case's starting state through steps the cases give; with none, stop and name the case and the missing precondition to `design-test-cases`.
 - The fixture fails with the missing variable's name when the owner runs without `.env` loaded; it never skips and never falls back to an unauthenticated page.
 - Never write a storage state file, a trace, or a screenshot that holds a credential to the engagement folder.
 
@@ -211,6 +202,6 @@ def test_checkout_confirms_the_order(page: Page) -> None:
 
 ## Independence
 
-- Each test gets its own context and page from its fixture; no module-level browser, page, credential read, or navigation.
+- Each test gets its own context and page from its fixture, and a signed-in test signs in inside that context; no storage state, cookie, or session is shared, and no module-level browser, page, credential read, or navigation.
 - A test creates the data it needs in the same test through the page objects, with a unique value such as one built from the case id and `uuid4()`, and never relies on another test's order or state.
 - A test may not depend on a journey a previous test completed. When the material makes a journey impossible to start from a clean state, stop and name the case and the missing precondition.
