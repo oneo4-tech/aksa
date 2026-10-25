@@ -23,6 +23,8 @@ description: Use when a testing engagement needs defect reports, as `run-testing
    - `## Acceptance criteria` missing or empty: the owner adds the engagement's acceptance criteria.
    - `evidence/` absent, empty, or holding only `README.md`: the owner runs the suite and adds its output, with `evidence/README.md` naming what each file shows. Never count the README as evidence of a defect.
    - An evidence file that cannot be read: the owner supplies a readable copy or names what it shows in `evidence/README.md`.
+
+   Evidence is fixture evidence when `evidence/README.md` or the owner says it is fixture, sample, or hand-made data, or that no suite ran against the environment, even when a file also names a run command, date, or environment.
 3. **Inventory the defects the evidence shows.** List one defect per failing test, error, or mismatch between an expected and an actual result in the evidence. Group failures the evidence gives the same cause, and name every failure in that file's Evidence section. A passing result is not a defect. Never infer a defect the evidence does not show; a suspicion goes in the reply to the owner, not in a file.
    - For each defect, confirm the evidence shows what it takes to reproduce it, what was expected, and what happened. A defect missing one of these is a stop: name the evidence file and the missing part, with the owner action that supplies it.
 4. **Trace each defect.** Take the failing test's module and function from the evidence, and read that function's docstring in the engagement's `.projects/testing/<engagement>/tests/api/` or `.projects/testing/<engagement>/tests/ui/` for its `TC-<nnn>` case and its `AC<n>` and `R<n>` ids. When the evidence names a case id, take the case from `docs/test-cases.md`. Confirm the case and its `Covers` ids in `docs/test-cases.md`; a case id that file does not contain is not cited.
@@ -35,6 +37,7 @@ description: Use when a testing engagement needs defect reports, as `run-testing
    - Give one line of rationale after each value, naming the user, flow, data, or acceptance criterion the impact falls on. Assign them independently: a low-severity defect on the only path to an exit criterion can be `P1`. Never raise either on an opinion the evidence states without a fact.
 6. **Write one file per defect** at `docs/bugs/BUG-<nnn>.md`, using `references/bug-report-template.md` and creating `docs/bugs/` when absent. Read every existing bug file first: keep its id and update it with the new evidence when the same defect is already reported, and continue the numbering after the highest id otherwise. Never reuse or delete an id.
    - Take every step, value, status, and message from the evidence and the case; never invent one.
+   - With fixture evidence, the Environment and Evidence sections say `fixture evidence, not a run against <environment>`, and no part says the defect was found or reproduced on that environment.
    - Replace a credential or token value the evidence shows with its `credentials_env` variable name or `[redacted]`, and report the redaction. Never read the engagement's `.env`.
 7. **Check the result.** Run through **Done when**, fix every miss, and rerun the check.
 
@@ -62,5 +65,6 @@ description: Use when a testing engagement needs defect reports, as `run-testing
 - Every file names at least one file in `evidence/` other than `README.md`, and at least one `TC-<nnn>` or `R<n>` id from `docs/test-cases.md`, `docs/test-strategy.md`, or the brief's `## Known risks`, with the file it comes from.
 - Every Severity is one of `critical`, `high`, `medium`, or `low`, every Priority one of `P1`, `P2`, `P3`, or `P4`, and each has a one-line rationale naming the user, flow, data, or acceptance criterion.
 - Every step, expected result, and actual result comes from the evidence and the case or brief, with no invented value, and every Environment names the brief's `environment` value and the surface's base URL.
+- Where `evidence/README.md` or the owner says the evidence is fixture data, every file's Environment and Evidence label it `fixture evidence, not a run against <environment>`, and no part presents it as a run against the brief's environment.
 - No credential or token value is in any file or in the reply; each credential appears only as a variable name from `credentials_env` or as `[redacted]`, and every value the evidence showed was redacted and reported.
 - No suite ran; nothing outside the engagement folder changed; the reply names `docs/bugs/`, each file's id and trace, any update, and any stop.

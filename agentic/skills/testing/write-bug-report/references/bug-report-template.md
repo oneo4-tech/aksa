@@ -12,7 +12,7 @@
 
 ## Environment
 
-{{the environment value from the brief's frontmatter}}, {{the surface, api or ui}}, {{the base URL the defect was found on, from the brief or evidence/README.md}}
+{{the environment value from the brief's frontmatter}}, {{the surface, api or ui}}, {{the base URL the defect was found on, from the brief or evidence/README.md}}{{with fixture evidence: ; fixture evidence, not a run against <environment>}}
 
 ## Steps to reproduce
 
@@ -29,7 +29,7 @@
 
 ## Evidence
 
-One line per evidence file, as `evidence/{{file name}}` relative to the engagement folder: {{what the file shows for this defect, such as the failing test, its line, and the run it came from}}
+One line per evidence file, as `evidence/{{file name}}` relative to the engagement folder: {{what the file shows for this defect, such as the failing test, its line, and the run it came from, or `fixture evidence, not a run against <environment>` when evidence/README.md or the owner says it is fixture data}}
 
 ## Impact
 

@@ -29,6 +29,8 @@ description: Use when a testing engagement's execution evidence needs a summary,
    - A strategy whose `## Risks` has no ids: `write-test-strategy` completes the risks.
    - A defect the evidence shows, meaning a failing test, an error, or a mismatch between an expected and an actual result, with no file for it in `docs/bugs/`: `write-bug-report` writes the defect report. A summary never reports a defect without its bug file.
    - A bug file that cannot be read, or one without a severity, a priority, or a trace: the owner supplies a readable copy or `write-bug-report` completes the file.
+
+   Evidence is fixture evidence when `evidence/README.md` or the owner says it is fixture, sample, or hand-made data, or that no suite ran against the environment, even when a file also names a run command, date, or environment.
 3. **Record the results by suite.** Take each suite from the brief's `surfaces`, `api` and `ui`, from any suite name the evidence gives, such as a JUnit XML `testsuite` name or a results table heading, and from the test folder a result's module path names. For each, take the evidence file, the total, passed, failed, error, and skipped counts, and the command and date exactly as the evidence states them.
    - Take no count, status, or message from anywhere else. A count the evidence does not state is `not stated`, never zero and never a guess.
    - A surface with no result file is `not run`, with the evidence gap named. Never infer a pass from the tests' existence.
@@ -49,6 +51,7 @@ description: Use when a testing engagement's execution evidence needs a summary,
    - `No-go` on any other result. Name the table rows that decide it, and one line of what would change it.
    Never soften the verdict to a condition, and never state a reason the tables do not show.
 8. **Write the summary** at `docs/execution-summary.md` with the five sections of `references/execution-summary-template.md` in order, and every row, count, id, and verdict from steps 3 to 7. When the file exists, read it first, keep the facts that still hold, and report what changed.
+   - With fixture evidence, the opening sentence, the Environment line, and every Command and date cell say `fixture evidence, not a run against <environment>`, and no line says a suite ran on that environment.
 9. **Check the result.** Run through **Done when**, fix every miss, and rerun the check.
 10. **Offer lessons, never write them.** As the last step, offer reusable lessons from the engagement to the Knowledge Base through `add-kb`, such as a technique worth repeating, a defect pattern, or a client constraint that generalizes. Ask the owner which, if any, to record; record only those they name, through `add-kb`, and report the inbox item it returns. With nothing to offer, say so. This is the run's one offer: in a `run-testing` run, `run-testing` step 6 reports it instead of offering again.
 
@@ -79,6 +82,7 @@ description: Use when a testing engagement's execution evidence needs a summary,
 - Every suite row names an evidence file other than `README.md` with counts that match it, or is `not run` with the gap named; the brief, `docs/test-cases.md`, and at least one real evidence file were read.
 - The defect table has one row per file in `docs/bugs/`, each linking `bugs/<id>.md` relative to `docs/` so it resolves to `docs/bugs/<id>.md`, with the severity, priority, and status that file and the evidence support, or `None`; every defect the evidence shows has a file.
 - Every `AC<n>` from the brief and every `R<n>` from the strategy or the brief has one coverage row with a verdict of `covered`, `partial`, `not run`, or `not covered`, naming the evidence, and every id not `covered` is a residual risk.
+- Where `evidence/README.md` or the owner says the evidence is fixture data, the opening sentence, the Environment line, and every Command and date cell label it `fixture evidence, not a run against <environment>`, and no line presents it as a run against the brief's environment.
 - The recommendation is exactly `Go` or `No-go`, cites the table rows that decide it, follows step 7's rule, and names what would change it.
 - No credential or token value is in the file or the reply; each value the evidence showed was redacted and reported; no suite ran.
 - Nothing outside the engagement folder changed except the `.kb` files `add-kb` wrote for lessons the owner asked to record; with none asked for, nothing outside the folder changed.
