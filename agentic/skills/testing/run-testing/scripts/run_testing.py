@@ -145,11 +145,16 @@ def is_done(engagement: Path, step: Step) -> bool:
 
 
 def missing_inputs(engagement: Path, step: Step, surfaces: set[str]) -> list[str]:
-    """Inputs a named workflow needs before it can run, including its surface."""
+    """Inputs a named workflow needs before it can run, including its surface.
+
+    Evidence needs a file other than the top-level `evidence/README.md`, as the evidence skills do.
+    """
     missing = []
     for required in step.requires:
         if required == EVIDENCE:
-            if not any(path.is_file() for path in (engagement / EVIDENCE).rglob("*")):
+            evidence = engagement / EVIDENCE
+            readme = evidence / "README.md"
+            if not any(path.is_file() and path != readme for path in evidence.rglob("*")):
                 missing.append(EVIDENCE)
         elif not (engagement / required).exists():
             missing.append(required)
