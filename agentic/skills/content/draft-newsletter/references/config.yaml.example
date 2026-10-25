@@ -1,0 +1,8 @@
+# Newsletter project configuration
+# Copy this to .projects/content/<project-slug>/config.yaml and fill in the values
+
+platform: kit
+publication_id: "your-publication-id"
+sender_name: "Your Name"
+sender_email: "you@example.com"
+signup_url: "https://example.com/newsletter/signup"
