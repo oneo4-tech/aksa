@@ -118,6 +118,9 @@ def extract_metadata(
 
     Returns:
         Dictionary with template variables.
+
+    Raises:
+        ValueError: If the script has no title heading or no `**Video URL:**` line.
     """
     video_title = ""
     for line in script_content.splitlines():
@@ -251,6 +254,7 @@ def run(
         FileNotFoundError: If config or video files are missing.
         KeyError: If KIT_API_KEY, GH_TOKEN, or GITHUB_REPOSITORY is not set.
         httpx.HTTPStatusError: If Kit API calls fail.
+        ValueError: If the script has no title heading or no `**Video URL:**` line.
     """
     config = load_newsletter_config(newsletter_project_slug)
 
@@ -284,7 +288,10 @@ def run(
 
         with GitHubIssueClient(repo, gh_token) as gh_client:
             # A label left by an earlier attempt is not a yes for this draft.
+            # Clear every stage label so a re-draft cannot show contradictory ones.
             gh_client.remove_label(video_issue_number, APPROVAL_LABEL)
+            for label in ("newsletter:approved", "newsletter:sent", "newsletter:timeout"):
+                gh_client.remove_label(video_issue_number, label)
             gh_client.add_label(video_issue_number, "newsletter:draft")
             gh_client.add_comment(
                 video_issue_number,
