@@ -15,8 +15,8 @@
 
       <p class="rail-label">Command</p>
       <nav class="nav" aria-label="Screens">
-        <a class="nav-item active" href="/" aria-current="page"><span class="nav-dot"></span>Overview</a>
-        <span class="nav-item pending" aria-disabled="true"><span class="nav-dot"></span>Factory<span class="nav-count">--</span></span>
+        <a class="nav-item{% if page == 'overview' %} active{% endif %}" href="/"{% if page == 'overview' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Overview</a>
+        <a class="nav-item{% if page == 'factory' %} active{% endif %}" href="/factory"{% if page == 'factory' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Factory<span class="nav-count">{% if factory is defined and factory.ok %}{{ factory.value.runs|length }}{% else %}--{% endif %}</span></a>
         <span class="nav-item pending" aria-disabled="true"><span class="nav-dot"></span>Projects<span class="nav-count">--</span></span>
         <span class="nav-item pending" aria-disabled="true"><span class="nav-dot"></span>Knowledge<span class="nav-count">--</span></span>
         <span class="nav-item pending" aria-disabled="true"><span class="nav-dot"></span>Agents<span class="nav-count">--</span></span>
@@ -42,7 +42,7 @@
         <div class="topbar-right">
           <span class="status-pill standby"><span class="pulse"></span>standby</span>
           <span class="clock mono" id="clock">--:--:--</span>
-          <a class="refresh" href="/">Refresh</a>
+          <a class="refresh" href="{{ request.url.path }}">Refresh</a>
         </div>
       </header>
 
