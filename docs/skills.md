@@ -26,7 +26,11 @@ Foundational operations that fit no more specific domain.
 
 ### `productivity`
 
-Personal work organization. No skills yet.
+Personal work organization.
+
+| Skill | Purpose |
+|-------|---------|
+| `teach-topic` | Teach a topic over sessions with one lesson per session |
 
 ### `factory`
 
