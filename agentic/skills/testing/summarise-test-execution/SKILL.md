@@ -50,7 +50,7 @@ description: Use when a testing engagement's execution evidence needs a summary,
    Never soften the verdict to a condition, and never state a reason the tables do not show.
 8. **Write the summary** at `docs/execution-summary.md` with the five sections of `references/execution-summary-template.md` in order, and every row, count, id, and verdict from steps 3 to 7. When the file exists, read it first, keep the facts that still hold, and report what changed.
 9. **Check the result.** Run through **Done when**, fix every miss, and rerun the check.
-10. **Offer lessons, never write them.** As the last step, offer reusable lessons from the engagement to the Knowledge Base through `add-kb`, as `run-testing` step 6 does when a whole run ends: a technique worth repeating, a defect pattern, or a client constraint that generalizes. Ask the owner which, if any, to record; record only those they name, through `add-kb`, and report the inbox item it returns. With nothing to offer, say so.
+10. **Offer lessons, never write them.** As the last step, offer reusable lessons from the engagement to the Knowledge Base through `add-kb`, such as a technique worth repeating, a defect pattern, or a client constraint that generalizes. Ask the owner which, if any, to record; record only those they name, through `add-kb`, and report the inbox item it returns. With nothing to offer, say so. This is the run's one offer: in a `run-testing` run, `run-testing` step 6 reports it instead of offering again.
 
 ## Output
 
