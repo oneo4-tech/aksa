@@ -37,4 +37,4 @@ One line per evidence file, as `evidence/{{file name}}` relative to the engageme
 
 ## Traceability
 
-{{TC-001 in docs/test-cases.md, with its AC<n> and R<n> ids; or R1 in docs/test-strategy.md or the brief's ## Known risks section, naming the file the id comes from}}
+{{TC-001 in docs/test-cases.md, with the AC<n> or R<n> ids in its Covers; or R1 in docs/test-strategy.md or the brief's ## Known risks section, naming the file the id comes from}}
