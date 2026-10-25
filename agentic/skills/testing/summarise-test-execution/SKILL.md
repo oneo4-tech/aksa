@@ -15,14 +15,14 @@ description: Use when a testing engagement's execution evidence needs a summary,
 - `docs/bugs/` in the same folder, read when it exists: one `<id>.md` per defect, with its severity, priority, and trace. Its shape is `agentic/skills/testing/write-bug-report/references/bug-report-template.md`.
 - The engagement's `.projects/testing/<engagement>/tests/` folder when it exists, read only for each test's docstring, which names its `TC-<nnn>` case and its `AC<n>` and `R<n>` ids. The docstrings map a result to the case it proves.
 - The document shape: `references/execution-summary-template.md` in this skill's folder, read before writing.
-- Missing inputs stop the work, and nothing is written: the engagement folder or `brief.md`; `## Acceptance criteria` missing or empty; `evidence/` absent, empty, or holding only `README.md`; an evidence file that cannot be read; `docs/test-cases.md` missing or holding no case with a `Covers` id; a strategy whose `## Risks` has no ids; a defect the evidence shows with no bug file; a bug file that cannot be read or has no severity, priority, or trace. Name each missing item and the owner action or workflow that supplies it, as Procedure step 2 lists.
+- Missing inputs stop the work, and nothing is written: the engagement folder or `brief.md`; `## Scope`, `## Out of scope`, `## Known risks`, or `## Acceptance criteria` missing or empty; `evidence/` absent, empty, or holding only `README.md`; an evidence file that cannot be read; `docs/test-cases.md` missing or holding no case with a `Covers` id; a strategy whose `## Risks` has no ids; a defect the evidence shows with no bug file; a bug file that cannot be read or has no severity, priority, or trace. Name each missing item and the owner action or workflow that supplies it, as Procedure step 2 lists.
 - The artifact: `docs/execution-summary.md` inside the engagement folder. When it already exists, read it first and update it instead of starting over.
 
 ## Procedure
 
 1. **Resolve the folder.** `<engagement>` is one folder name under `.projects/testing/`. If the folder or its `brief.md` is missing, stop and report the path, with `agentic/skills/testing/run-testing/references/brief-template.md` as the starting point. Never create or edit an engagement folder or its brief; work only inside the one given.
-2. **Check the inputs before writing.** Read the brief in full and confirm `## Acceptance criteria` with content. Read `evidence/README.md` when it exists, then every evidence file. Read `docs/test-cases.md`, the strategy when it exists, every file in `docs/bugs/` when it exists, and the test docstrings when the test folders exist. Stop on each of these and name the item with the action that supplies it, writing nothing:
-   - A missing `brief.md` or empty `## Acceptance criteria`: the owner completes the brief, from `agentic/skills/testing/run-testing/references/brief-template.md`.
+2. **Check the inputs before writing.** Read the brief in full and confirm `## Scope`, `## Out of scope`, `## Known risks`, and `## Acceptance criteria`, each with content. Read `evidence/README.md` when it exists, then every evidence file. Read `docs/test-cases.md`, the strategy when it exists, every file in `docs/bugs/` when it exists, and the test docstrings when the test folders exist. Stop on each of these and name the item with the action that supplies it, writing nothing:
+   - A missing `brief.md`, or `## Scope`, `## Out of scope`, `## Known risks`, or `## Acceptance criteria` missing or empty: the owner completes the brief, adding each section named in the reply, from `agentic/skills/testing/run-testing/references/brief-template.md`.
    - `evidence/` absent, empty, or holding only `README.md`: the owner runs the suite and adds its output, with `evidence/README.md` naming what each file shows. Never count the README as a result.
    - An evidence file that cannot be read: the owner supplies a readable copy or names what it shows in `evidence/README.md`.
    - A missing `docs/test-cases.md`, or no case with a `Covers` id: `design-test-cases` writes or completes the cases.
@@ -42,6 +42,7 @@ description: Use when a testing engagement's execution evidence needs a summary,
 5. **Map the coverage.** Take the `AC<n>` ids from the brief's `## Acceptance criteria` in order and the `R<n>` ids from the strategy's `## Risks`, or the brief's `## Known risks` when no strategy exists. For each id, take the cases from `docs/test-cases.md` `## Coverage` and their `Covers`, join each case to its result in step 3, and give one verdict:
    - `covered`: every case for the id ran and passed.
    - `partial`: some cases for the id ran and passed, and at least one failed, was skipped, or did not run.
+   - `failed`: at least one case for the id ran and failed, and none passed.
    - `not run`: the id has cases, and none of them ran.
    - `not covered`: the id has no case.
    Name the evidence file behind each verdict, and never call an id covered on a test that did not run and pass.
@@ -81,7 +82,7 @@ description: Use when a testing engagement's execution evidence needs a summary,
 - `docs/execution-summary.md` exists inside `.projects/testing/<engagement>/` with the five headings of `references/execution-summary-template.md` in order: Results by suite, Defects, Coverage, Residual risks, Recommendation.
 - Every suite row names an evidence file other than `README.md` with counts that match it, or is `not run` with the gap named; the brief, `docs/test-cases.md`, and at least one real evidence file were read.
 - The defect table has one row per file in `docs/bugs/`, each linking `bugs/<id>.md` relative to `docs/` so it resolves to `docs/bugs/<id>.md`, with the severity, priority, and status that file and the evidence support, or `None`; every defect the evidence shows has a file.
-- Every `AC<n>` from the brief and every `R<n>` from the strategy or the brief has one coverage row with a verdict of `covered`, `partial`, `not run`, or `not covered`, naming the evidence, and every id not `covered` is a residual risk.
+- Every `AC<n>` from the brief and every `R<n>` from the strategy or the brief has one coverage row with a verdict of `covered`, `partial`, `failed`, `not run`, or `not covered`, naming the evidence, and every id not `covered` is a residual risk.
 - Where `evidence/README.md` or the owner says the evidence is fixture data, the opening sentence, the Environment line, and every Command and date cell label it `fixture evidence, not a run against <environment>`, and no line presents it as a run against the brief's environment.
 - The recommendation is exactly `Go` or `No-go`, cites the table rows that decide it, follows step 7's rule, and names what would change it.
 - No credential or token value is in the file or the reply; each value the evidence showed was redacted and reported; no suite ran.

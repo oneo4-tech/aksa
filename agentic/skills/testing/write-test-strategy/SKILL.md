@@ -9,7 +9,7 @@ description: Use when a testing engagement needs its test strategy, as `run-test
 
 - The engagement name, resolved to `.projects/testing/<engagement>/`, the `Engagement` folder defined in `agentic/memory/vocabulary.md`, reached through the repo-root `.projects` symlink (D-012).
 - `brief.md` in that folder, read in full. Its shape is `agentic/skills/testing/run-testing/references/brief-template.md`.
-- These prose sections of the brief, each with content: `## Background`, `## Scope`, `## Out of scope`, `## Known risks`, and `## Acceptance criteria`. When `## Scope`, `## Known risks`, or any other one of them is missing or empty, stop and name every section the brief must add; write nothing.
+- These prose sections of the brief, each with content: `## Background`, `## Scope`, `## Out of scope`, `## Known risks`, and `## Acceptance criteria`. Procedure step 2 stops on a missing or empty one.
 - The document shape: `references/test-strategy-template.md` in this skill's folder, read before writing.
 - Missing engagement folder or brief: stop and report the path. Never create, complete, or edit a brief.
 - The artifact: `docs/test-strategy.md` inside the engagement folder. When it already exists, read it first and update it instead of starting over.
@@ -47,6 +47,7 @@ description: Use when a testing engagement needs its test strategy, as `run-test
 ## Done when
 
 - `docs/test-strategy.md` exists inside `.projects/testing/<engagement>/` with the six headings of `references/test-strategy-template.md` in order: Scope, Risks, Approach, Environments, Entry and exit criteria, Open questions.
+- `## Scope` names every in-scope endpoint, page, and flow from the brief's `## Scope` and every item from its `## Out of scope`, with nothing the brief does not name.
 - Every risk is ranked by impact and has an approach naming its test level, technique, and the artifact that will show it covered.
 - Every environment is named with the brief's base URLs and only `credentials_env` variable names; no value from `.env` is in the file.
 - Every acceptance criterion in the brief maps to an exit criterion, and the entry criteria name what must be ready before testing starts.

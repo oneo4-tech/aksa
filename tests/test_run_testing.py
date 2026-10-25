@@ -188,7 +188,7 @@ def test_api_spec_must_exist_inside_the_engagement(tmp_path, capsys):
 
 
 @pytest.mark.parametrize("names", [["API_TOKEN", "client_secret"], ["API-TOKEN"], ["1TOKEN"]])
-def test_credentials_env_lists_valid_variable_names(tmp_path, capsys, names):
+def test_credentials_env_rejects_invalid_variable_names(tmp_path, capsys, names):
     folder = write_brief(tmp_path / "acme-checkout", credentials_env=names)
     code, output = run(capsys, "check", str(folder))
     assert code == 2

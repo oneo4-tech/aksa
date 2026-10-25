@@ -12,8 +12,8 @@
 Name where the cases come from: the strategy's scope and the ids every case must trace to. A case that cites none of these ids is deleted.
 
 - Scope: {{the in-scope endpoints, pages, and flows from docs/test-strategy.md}}
-- Requirements: {{AC1, AC2, ... in brief.md order}}
-- Risks: {{R1, R2, ... in docs/test-strategy.md order}}
+- Requirements: {{every AC1, AC2, ... in brief.md order}}
+- Risks: {{every R1, R2, ... in docs/test-strategy.md order, with or without a case}}
 
 ## Design techniques
 
@@ -28,18 +28,19 @@ Give one row per technique, naming what it was applied to and the cases it produ
 
 ## Test cases
 
-Write one `###` section per case in id order. Each section carries the technique, the ids it covers, preconditions, numbered steps, and one observable expected result.
+Write one `###` section per case in id order. Each section carries the technique, the ids it covers, the endpoint for a case that sends an API request, preconditions, numbered steps, and one observable expected result.
 
 ### TC-001: {{short title}}
 
 - Technique: {{equivalence partitioning, boundary values, decision table, or state transition}}
 - Covers: {{AC1, R2}}
+- Endpoint: {{for a case that sends an API request, its method and path, such as POST /orders; omit the line otherwise}}
 - Preconditions: {{starting state, data, and account, or `none`}}
 
-1. {{one action, naming the data or input it uses}}
+1. {{one action, naming the data or input it uses, such as the request body}}
 2. {{next action}}
 
-**Expected result:** {{the observable outcome, with the exact value or state where the material gives one}}
+**Expected result:** {{the observable outcome, with the exact status, value, or state where the material gives one}}
 
 ## Coverage
 

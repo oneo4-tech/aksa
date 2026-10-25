@@ -11,7 +11,7 @@ description: Use when the owner asks to run, resume, or plan a freelance testing
 - `brief.md` in that folder. The owner starts from `references/brief-template.md`; do not invent client details or fill in a brief for them.
 - The check and plan script, `scripts/run_testing.py`, run from the repository root with `uv run`. It reads the brief and writes nothing.
 - The workflow skills of the `testing` category: `write-test-strategy`, `design-test-cases`, `write-api-tests`, `write-ui-tests`, `write-bug-report`, and `summarise-test-execution`. Run each step by its own skill; this skill only checks, plans, and hands over.
-- `evidence/` in the engagement folder, holding what the owner supplies after running a suite. A step that needs evidence stops until the owner adds it.
+- `evidence/` in the engagement folder, holding what the owner supplies after running a suite. A step that needs evidence stops until the owner adds it; a folder that is empty or holds only `README.md` counts as missing.
 - The engagement's `.env`, holding the values for the variable names in `credentials_env`. Read values at run time only.
 - Missing engagement folder: stop and report the path, with `references/brief-template.md` as the starting point. Missing or invalid brief: the check names every field, then stop.
 
@@ -30,7 +30,7 @@ description: Use when the owner asks to run, resume, or plan a freelance testing
    - Workflows named: run exactly those, in the plan's order, even when their artifacts exist; the owner asked for a rerun.
    - Hand each step to that workflow's skill with the engagement folder and the inputs the plan showed. Keep the chain's order: strategy, test cases, API tests and UI tests, bug reports, execution summary. Do not do the workflow's work in this skill.
 5. **Collect each result.** Record the artifact the workflow reports and whether it succeeded. A workflow that stops leaves its step `pending`; report it, and do not run a later step whose input it produces.
-6. **Offer lessons once, never write them.** When the run ended with `summarise-test-execution` completing, that step made the run's one offer: report the lessons it offered, what the owner asked to record, and the inbox item `add-kb` returned, and do not offer again. Otherwise, as when the run stopped earlier or did not include that step, offer reusable lessons from the engagement to the Knowledge Base through `add-kb`, such as a technique worth repeating or a client constraint that generalizes. Write only the lessons the owner asks to record, and report the inbox item `add-kb` returns; with nothing to offer, say so.
+6. **Offer lessons once, never write them.** When `summarise-test-execution` ran and completed in this run, that step made the run's one offer: report the lessons it offered, what the owner asked to record, and the inbox item `add-kb` returned, and do not offer again. Otherwise, as when the run stopped earlier, did not include that step, or found its artifact `done`, offer reusable lessons from the engagement to the Knowledge Base through `add-kb`, such as a technique worth repeating or a client constraint that generalizes. Write only the lessons the owner asks to record, and report the inbox item `add-kb` returns; with nothing to offer, say so.
 
 ## Output
 
@@ -45,7 +45,7 @@ description: Use when the owner asks to run, resume, or plan a freelance testing
 - Never copy a value from the engagement's `.env` into a brief, document, test, commit, or reply. The brief names variables; the values stay in `.env` and are read at run time.
 - Never run a workflow out of dependency order, with a missing input, or run one whose earlier step is still pending.
 - When workflows are named, run only those and rerun them as asked; in a whole-chain run, never rerun a step whose artifact exists.
-- Offer Knowledge Base lessons once per run, through `add-kb` only; never write to `.kb` unasked, and never to its `wiki/` or `index.md` (D-015).
+- Offer Knowledge Base lessons once per run, through `add-kb` only; never write to `.kb` unasked, and never to its `wiki/` or `index.md` (D-017).
 - Use `Engagement` as `agentic/memory/vocabulary.md` defines it. The `testing` category and its workflows are agreed in D-042.
 
 ## Done when
@@ -54,5 +54,5 @@ description: Use when the owner asks to run, resume, or plan a freelance testing
 - Every line of the plan is reported as already done, run, or still pending with its reason; no step was skipped silently.
 - Every step reported as run went through its own workflow skill and its artifact exists inside `.projects/testing/<engagement>/`.
 - Lessons were offered once in the run, by this skill or by `summarise-test-execution`, never both.
-- The reply names the artifacts, any refusal or failure, and the lessons offered.
+- The reply names the artifacts, any refusal or failure, the lessons offered, and the owner's answer: which lessons to record and the inbox item `add-kb` returned, or that none was recorded.
 - Nothing outside the engagement folder changed except the `.kb` files `add-kb` wrote for lessons the owner asked to record; with none asked for, nothing outside the folder changed.

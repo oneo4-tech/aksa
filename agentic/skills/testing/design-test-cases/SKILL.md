@@ -10,7 +10,7 @@ description: Use when a testing engagement needs test cases, as `run-testing`'s 
 - The engagement name, resolved to `.projects/testing/<engagement>/`, the `Engagement` folder defined in `agentic/memory/vocabulary.md`, reached through the repo-root `.projects` symlink (D-012).
 - `brief.md` in that folder, read in full. Its shape is `agentic/skills/testing/run-testing/references/brief-template.md`, and its `## Scope` and `## Acceptance criteria` are the requirement material.
 - `docs/test-strategy.md` in the same folder, read in full. It supplies `## Scope`, `## Risks` with ids `R1` to `Rn`, and `## Approach` with one entry per risk. Its shape is `agentic/skills/testing/write-test-strategy/references/test-strategy-template.md`.
-- Missing brief, missing `docs/test-strategy.md`, or a strategy without scope content, risk ids, or an approach for each risk: stop and name every missing item and the workflow or owner action that supplies it. Write nothing.
+- Missing brief, a brief `## Scope` or `## Acceptance criteria` missing or empty, missing `docs/test-strategy.md`, or a strategy without scope content, risk ids, or an approach for each risk: stop and name every missing item and the workflow or owner action that supplies it. Write nothing.
 - The document shape: `references/test-cases-template.md` in this skill's folder, read before writing.
 - The artifact: `docs/test-cases.md` inside the engagement folder. When it already exists, read it first and update it instead of starting over.
 
@@ -21,12 +21,12 @@ description: Use when a testing engagement needs test cases, as `run-testing`'s 
 3. **List the trace ids.** Take the acceptance criteria from the brief in order as `AC1` to `ACn`, and the risks from the strategy's `## Risks` as the ids it already gives, `R1` to `Rn`. These ids are the only valid `Covers` values; never invent a requirement or a risk.
 4. **Derive cases, one technique at a time**, using only the brief, the strategy, and any input file they name inside the engagement folder:
    - **Equivalence partitioning:** for each input, field, or behaviour in scope, split it into valid and invalid classes that behave the same, and give each class that changes the outcome one case, error classes included.
-   - **Boundary values:** for each input with a range, a length, a count, or an order, take each edge, one below it, and one above it, such as minimum minus one, minimum, maximum, and maximum plus one.
+   - **Boundary values:** for each input with a range, a length, a count, or an order, take each edge and the value just outside it: minimum minus one, minimum, maximum, and maximum plus one.
    - **Decision table:** where two or more conditions combine into different outcomes, build a table of the condition combinations and their outcomes, and give each rule that changes the outcome one case.
    - **State transition:** where the material names an object with states and allowed events, give each allowed transition one case and each event the object must reject one case.
    - When the material gives a technique no input, do not invent material; record the technique as `Not applicable` with the reason in `## Design techniques`.
-5. **Write each case** as its own `###` section in `docs/test-cases.md`, following `references/test-cases-template.md`: a unique id in ascending `TC-001`, `TC-002` order, the one technique that derived it, at least one `AC<n>` or `R<n>` in `Covers`, preconditions, numbered steps with one action each naming the data or input it uses, and an expected result a person can observe and compare, with the exact value or state where the material gives one.
-6. **Fill the summary sections.** In `## Sources`, name the scope, the acceptance criteria ids, and the risk ids the cases draw from. In `## Design techniques`, give one row per technique with what it was applied to and its case ids, or `Not applicable` and the reason. In `## Coverage`, give one row per acceptance criterion and risk with the case ids that cover it, or `none` and the gap or out-of-scope reason. Replacing an earlier file is allowed only after reading it; report what changed.
+5. **Write each case** as its own `###` section in `docs/test-cases.md`, following `references/test-cases-template.md`: a unique id in ascending `TC-001`, `TC-002` order, the one technique that derived it, at least one `AC<n>` or `R<n>` in `Covers`, for a case that sends an API request an `Endpoint` with its method and path, preconditions, numbered steps with one action each naming the data or input it uses, and an expected result a person can observe and compare, with the exact status, value, or state where the material gives one.
+6. **Fill the summary sections.** In `## Sources`, name the scope, every acceptance criterion id, and every risk id in the strategy's `## Risks`, whether or not a case covers it, so a risk with no case shows as a gap in `## Coverage`. In `## Design techniques`, give one row per technique with what it was applied to and its case ids, or `Not applicable` and the reason. In `## Coverage`, give one row per acceptance criterion and risk with the case ids that cover it, or `none` and the gap or out-of-scope reason. Replacing an earlier file is allowed only after reading it; report what changed.
 7. **Check the result.** Run through **Done when** and fix every miss before reporting.
 
 ## Output
@@ -48,7 +48,7 @@ description: Use when a testing engagement needs test cases, as `run-testing`'s 
 ## Done when
 
 - `docs/test-cases.md` exists inside `.projects/testing/<engagement>/` with the four headings of `references/test-cases-template.md` in order: Sources, Design techniques, Test cases, Coverage.
-- Every case has a unique id in `TC-<nnn>` form, one named technique, at least one `AC<n>` or `R<n>` from Sources in `Covers`, numbered steps, and an expected result that can be observed.
+- Every case has a unique id in `TC-<nnn>` form, one named technique, at least one `AC<n>` or `R<n>` from Sources in `Covers`, an `Endpoint` when it sends an API request, numbered steps, and an expected result that can be observed.
 - Each of the four techniques is either used with its case ids in `## Design techniques`, or marked `Not applicable` with the material's reason.
-- Every `AC<n>` and `R<n>` in `## Sources` has a row in `## Coverage` with at least one case id or a stated gap or out-of-scope reason, and no case cites an id that is not in Sources.
+- `## Sources` lists every `AC<n>` from the brief and every `R<n>` from the strategy, and every one has a row in `## Coverage` with at least one case id or a stated gap or out-of-scope reason, and no case cites an id that is not in Sources.
 - No value from `.env` is in the file; no test suite ran; nothing outside the engagement folder changed; the reply names the artifact and any earlier version it replaced.
