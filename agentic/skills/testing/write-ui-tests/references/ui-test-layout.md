@@ -34,7 +34,7 @@ dependencies = ["playwright>=1.46", "pytest>=8.2", "ruff>=0.6"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["live: drives a browser against the UI under test"]
+markers = ["live: runs against the client's application under test"]
 
 [tool.ruff]
 line-length = 120
@@ -43,7 +43,7 @@ line-length = 120
 known-first-party = ["pages"]
 ```
 
-- Add only the dependencies that are missing. An existing `live` marker keeps its description; do not add a second one.
+- Add only the dependencies that are missing. One `live` marker serves the API and UI suites, so its description names neither; an existing one worded for one suite only, such as `live: sends a request to the API under test`, is reworded to this one, and no second one is added.
 - `known-first-party` keeps the page-object imports in their own group; without it `ruff check` sorts them in with `playwright` and fails.
 - Run `uv sync` in the engagement folder after writing it. `uv sync` installs the Python packages only, never the browser binaries.
 
@@ -94,7 +94,7 @@ def signed_in_page(page: Page) -> Page:
 - The default base URL is the brief's `ui_base_url`; `UI_BASE_URL` lets the owner point the same tests at another environment without editing a file.
 - Omit `signed_in_page` and its import when no case starts signed in, and then read no credential at all.
 - The browser fixture starts one browser per session and gives each test its own context and page, so a test never sees another test's cookies or storage. Launch the browser the cases name, `chromium` when they name none.
-- `conftest.py` reads `os.environ` only. The owner's run command, `uv run --env-file .env pytest` from the engagement folder, loads the engagement `.env` into the test process at run time, so no value is copied into a file. A missing `.env` fails that command with `No environment file found at:` and the path.
+- `conftest.py` reads `os.environ` only. The owner's run command, `uv run --env-file .env pytest` from the engagement folder, loads the engagement `.env` into the test process at run time, so no value is copied into a file. A missing `.env` fails that command with uv's `error: No environment file found at:` followed by the `.env` path.
 - A missing variable fails its fixture with its name. It never becomes a skip.
 
 ## Page objects
@@ -131,7 +131,7 @@ class CheckoutPage(BasePage):
         self.heading = page.get_by_role("heading", name="Checkout")
         self.pay_button = page.get_by_role("button", name="Pay")
         self.confirmation = page.get_by_role("heading", name="Order confirmed")
-        self.total = page.get_by_text("Total")
+        self.total = page.get_by_label("Total", exact=True)
 
     def pay(self) -> None:
         self.pay_button.click()
@@ -150,7 +150,7 @@ class CheckoutPage(BasePage):
 4. **CSS or XPath last:** only when the case names none of the above. Leave a comment on the locator giving the reason, and report the exception in the reply.
 - Never invent an accessible name, label, text, or element, and never use a selector copied from a similar page.
 - Prefer `to_be_visible`, `to_have_text`, and `to_be_enabled` from `expect`; they wait for the condition. Never use a fixed sleep.
-- A locator that matches more than one element is fixed with a more precise role or label from the case, not with `.first` or an index.
+- A locator that matches more than one element is fixed with a more precise role or label from the case, not with `.first` or an index. Pass `exact=True` when the case's name is part of another, such as `Total` inside `Subtotal`.
 
 ## Test modules
 
@@ -170,7 +170,7 @@ def test_checkout_confirms_the_order(page: Page) -> None:
     checkout.open()
     checkout.pay()
     expect(checkout.confirmation).to_be_visible()
-    expect(checkout.total).to_have_text("Total 19.98")
+    expect(checkout.total).to_have_text("19.98")
 ```
 
 - A test with a signed-in precondition takes `signed_in_page` instead of `page`.
