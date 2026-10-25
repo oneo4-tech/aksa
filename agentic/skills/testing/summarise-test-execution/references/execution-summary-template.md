@@ -1,10 +1,10 @@
 # Execution summary: {{client}} {{engagement}}
 
-{{one sentence: what ran in this execution and what this summary recommends, taken from the evidence}}
+{{one sentence: what ran in this execution and what this summary recommends, taken from the evidence; with fixture evidence, say it is fixture evidence, not a run against the environment}}
 
 - Client: {{client}}
 - Engagement: {{engagement}}
-- Environment: {{environment}}
+- Environment: {{environment}}{{with fixture evidence: ; fixture evidence, not a run against <environment>}}
 - Evidence read: {{each evidence file, `README.md` first when it exists, then the real result files}}
 - Prepared: {{date the summary was written}}
 
@@ -14,7 +14,7 @@ One row per suite the evidence reports and one `not run` row per surface with no
 
 | Suite | Evidence | Total | Passed | Failed | Errors | Skipped | Command and date |
 |---|---|---|---|---|---|---|---|
-| {{api, ui, or the suite name the evidence gives}} | {{evidence/<file>, never README.md alone}} | {{n or not stated}} | {{n or not stated}} | {{n or not stated}} | {{n or not stated}} | {{n or not stated}} | {{the command and date the evidence states, or not stated}} |
+| {{api, ui, or the suite name the evidence gives}} | {{evidence/<file>, never README.md alone}} | {{n or not stated}} | {{n or not stated}} | {{n or not stated}} | {{n or not stated}} | {{n or not stated}} | {{the command and date the evidence states, or not stated; with fixture evidence, prefixed fixture evidence, not a run against <environment>}} |
 
 ## Defects
 
