@@ -108,8 +108,9 @@ class GitHubIssueClient:
         Args:
             number: The issue number.
             marker: The text the owner writes to approve, such as `newsletter:approve`.
-            since: Only comments created after this time count, so the
-                skill's own draft comment never approves the send.
+            since: Only comments created after this time count. Only comments by
+                the owner or a repository member (`authorAssociation` `OWNER` or
+                `MEMBER`) can approve; the skill's own draft comment never counts.
 
         Returns:
             True if a comment contains the marker, False otherwise.

@@ -33,5 +33,6 @@ The added or changed rows with their file paths, and the test result. Report fai
 ## Done when
 
 - Each new or changed row is in the right file, with an unused id and areas from the header list.
+- A new `decisions.md` row is the last line of the table, with no blank line above it.
 - A superseded row is in `decisions-history.md` with its Status set, and no rule or skill still restates it.
 - `uv run pytest` passes.

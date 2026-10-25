@@ -256,6 +256,78 @@ def hello():
         os.environ,
         {"KIT_API_KEY": "test-api-key", "GH_TOKEN": "test-token", "GITHUB_REPOSITORY": "owner/repo"},
     )
+    def test_run_clears_stale_approval_label(self, temp_project, mock_kit_client, mock_github_client):
+        """run() removes a stale newsletter:approve label before the new draft (AC2)."""
+        draft = DraftResponse(
+            preview_url="https://app.kit.com/publishers/test-pub-123/drafts/draft-456",
+            draft_id="draft-456",
+        )
+        mock_kit_client.create_draft = Mock(return_value=draft)
+        mock_kit_client.send_draft = Mock()
+        mock_kit_client.get_signup_url = Mock(return_value="https://test-pub-123.kit.com/subscribe")
+        mock_kit_client.update_signup_url_in_config = Mock()
+
+        mock_github_client.has_label = Mock(return_value=True)
+        mock_github_client.add_label = Mock()
+        mock_github_client.add_comment = Mock()
+        mock_github_client.remove_label = Mock()
+        mock_github_client.latest_comment_time = Mock(return_value=None)
+
+        with (
+            patch.object(_draft_newsletter_module, "wait_for_approval_label", return_value=False),
+            patch.object(_draft_newsletter_module, "KitClient", return_value=mock_kit_client),
+            patch.object(_draft_newsletter_module, "GitHubIssueClient", return_value=mock_github_client),
+            patch.object(_draft_newsletter_module, "get_kit_api_key", return_value="test-api-key"),
+        ):
+            run(VIDEO_ISSUE, VIDEO_PROJECT, NEWSLETTER_PROJECT)
+
+        # remove_label runs before add_label posts newsletter:draft.
+        assert mock_github_client.remove_label.call_args_list[0].args == (
+            VIDEO_ISSUE,
+            "newsletter:approve",
+        )
+        assert mock_github_client.add_label.call_args_list[0].args == (
+            VIDEO_ISSUE,
+            "newsletter:draft",
+        )
+
+    @patch.dict(
+        os.environ,
+        {"KIT_API_KEY": "test-api-key", "GH_TOKEN": "test-token", "GITHUB_REPOSITORY": "owner/repo"},
+    )
+    def test_run_clears_all_prior_stage_labels(self, temp_project, mock_kit_client, mock_github_client):
+        """run() clears every prior stage label before posting newsletter:draft (AC3)."""
+        draft = DraftResponse(
+            preview_url="https://app.kit.com/publishers/test-pub-123/drafts/draft-456",
+            draft_id="draft-456",
+        )
+        mock_kit_client.create_draft = Mock(return_value=draft)
+        mock_kit_client.send_draft = Mock()
+        mock_kit_client.get_signup_url = Mock(return_value="https://test-pub-123.kit.com/subscribe")
+        mock_kit_client.update_signup_url_in_config = Mock()
+
+        mock_github_client.has_label = Mock(return_value=True)
+        mock_github_client.add_label = Mock()
+        mock_github_client.add_comment = Mock()
+        mock_github_client.remove_label = Mock()
+        mock_github_client.latest_comment_time = Mock(return_value=None)
+
+        with (
+            patch.object(_draft_newsletter_module, "wait_for_approval_label", return_value=False),
+            patch.object(_draft_newsletter_module, "KitClient", return_value=mock_kit_client),
+            patch.object(_draft_newsletter_module, "GitHubIssueClient", return_value=mock_github_client),
+            patch.object(_draft_newsletter_module, "get_kit_api_key", return_value="test-api-key"),
+        ):
+            run(VIDEO_ISSUE, VIDEO_PROJECT, NEWSLETTER_PROJECT)
+
+        removed = [call.args[1] for call in mock_github_client.remove_label.call_args_list]
+        assert removed == ["newsletter:approve", "newsletter:approved", "newsletter:sent", "newsletter:timeout"]
+        assert mock_github_client.add_label.call_args_list[0].args == (VIDEO_ISSUE, "newsletter:draft")
+
+    @patch.dict(
+        os.environ,
+        {"KIT_API_KEY": "test-api-key", "GH_TOKEN": "test-token", "GITHUB_REPOSITORY": "owner/repo"},
+    )
     def test_main_flow_timeout(self, temp_project, mock_kit_client, mock_github_client):
         """Test that nothing is sent when the owner has not approved."""
         draft = DraftResponse(
