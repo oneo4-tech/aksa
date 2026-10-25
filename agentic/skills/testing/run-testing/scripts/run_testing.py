@@ -5,9 +5,11 @@ Usage:
     run_testing.py plan <engagement-dir> [workflow ...]
 
 `check` exits 0 when the brief is valid, 2 with one line per missing or invalid
-field. `plan` exits 0 with one line per step in dependency order, 3 when a named
-workflow cannot run yet naming its missing inputs, and 2 on bad input. Neither
-command writes.
+field. `plan` exits 0 with one line per step of the chain in dependency order,
+then one `out: <name>: <reason>` line per step it leaves out, 3 when a named
+workflow cannot run yet naming its missing inputs, and 2 on bad input. A whole
+chain is the core steps plus the optional steps the brief selects; workflows
+named on the command line run alone. Neither command writes.
 """
 
 import argparse
@@ -27,21 +29,51 @@ CREDENTIAL_NAME = re.compile(r"[A-Z][A-Z0-9_]*")
 
 @dataclass(frozen=True)
 class Step:
-    """One workflow in the chain, its artifact, and what must exist before it runs."""
+    """One workflow in the chain, its artifact, what must exist before it runs, and its tier."""
 
     name: str
     artifact: str
     requires: tuple[str, ...] = ()
     surface: str | None = None
+    optional: bool = False
 
 
 STEPS = (
+    Step("review-requirements", "docs/requirements-review.md"),
     Step("write-test-strategy", "docs/test-strategy.md"),
+    Step("write-test-plan", "docs/test-plan.md", ("docs/test-strategy.md",)),
+    Step("estimate-test-effort", "docs/effort-estimate.md", ("docs/test-plan.md",)),
     Step("design-test-cases", "docs/test-cases.md", ("docs/test-strategy.md",)),
-    Step("write-api-tests", "tests/api/", ("docs/test-cases.md",), "api"),
-    Step("write-ui-tests", "tests/ui/", ("docs/test-cases.md",), "ui"),
+    Step("design-test-data", "docs/test-data.md", ("docs/test-cases.md",)),
+    Step("scaffold-test-framework", "tests/conftest.py"),
+    Step("write-api-tests", "tests/api/", ("docs/test-cases.md",), surface="api"),
+    Step("write-ui-tests", "tests/ui/", ("docs/test-cases.md",), surface="ui"),
+    Step("write-contract-tests", "tests/contract/", surface="api", optional=True),
+    Step("write-performance-tests", "tests/performance/", ("docs/test-cases.md",), optional=True),
+    Step(
+        "audit-accessibility",
+        "docs/accessibility-audit.md",
+        ("docs/test-strategy.md",),
+        surface="ui",
+        optional=True,
+    ),
+    Step(
+        "test-api-security-basics",
+        "docs/security-review.md",
+        ("docs/test-strategy.md",),
+        surface="api",
+        optional=True,
+    ),
+    Step("test-mobile-app", "tests/mobile/", ("docs/test-cases.md",), surface="ui", optional=True),
+    Step("wire-ci-pipeline", "ci/github-actions.yml", ("docs/test-cases.md",), optional=True),
+    Step("audit-test-coverage", "docs/coverage-audit.md", ("docs/test-cases.md",)),
+    Step("triage-failing-tests", "docs/failure-triage.md", (EVIDENCE,)),
+    Step("plan-exploratory-session", "docs/exploratory/", ("docs/test-strategy.md",), optional=True),
     Step("write-bug-report", "docs/bugs/<id>.md", (EVIDENCE,)),
     Step("summarise-test-execution", "docs/execution-summary.md", (EVIDENCE, "docs/test-cases.md")),
+    Step("map-traceability", "docs/traceability.md", ("docs/test-cases.md",)),
+    Step("verify-acceptance-criteria", "docs/acceptance-criteria.md", ("docs/traceability.md",)),
+    Step("write-qa-report", "docs/qa-report.md", ("docs/traceability.md", "docs/acceptance-criteria.md")),
 )
 WORKFLOWS = {step.name: step for step in STEPS}
 
@@ -137,11 +169,23 @@ def load_brief(engagement: Path) -> tuple[dict, list[str]]:
     return brief, validate_brief(brief, engagement.name, lambda spec: (engagement / spec).is_file())
 
 
-def is_done(engagement: Path, step: Step) -> bool:
-    """A step is done when its artifact exists; bug reports need at least one id file."""
-    if step.artifact == "docs/bugs/<id>.md":
+def artifact_exists(engagement: Path, artifact: str) -> bool:
+    """An artifact exists when its file does, or a folder artifact holds a file.
+
+    Bug reports are one file per defect in `docs/bugs/`; a folder artifact is a
+    directory of files, so an empty folder is not done.
+    """
+    if artifact == "docs/bugs/<id>.md":
         return any((engagement / "docs" / "bugs").glob("*.md"))
-    return (engagement / step.artifact).exists()
+    path = engagement / artifact
+    if artifact.endswith("/"):
+        return any(child.is_file() for child in path.rglob("*"))
+    return path.exists()
+
+
+def is_done(engagement: Path, step: Step) -> bool:
+    """A step is done when its artifact exists."""
+    return artifact_exists(engagement, step.artifact)
 
 
 def missing_inputs(engagement: Path, step: Step, surfaces: set[str]) -> list[str]:
@@ -156,11 +200,36 @@ def missing_inputs(engagement: Path, step: Step, surfaces: set[str]) -> list[str
             readme = evidence / "README.md"
             if not any(path.is_file() and path != readme for path in evidence.rglob("*")):
                 missing.append(EVIDENCE)
-        elif not (engagement / required).exists():
+        elif not artifact_exists(engagement, required):
             missing.append(required)
     if step.surface is not None and step.surface not in surfaces:
         missing.append(f"surface '{step.surface}' in surfaces")
     return missing
+
+
+def selected_workflows(brief: dict) -> set[str]:
+    """The optional workflows the brief selects; a missing or non-list field selects none."""
+    workflows = brief.get("workflows")
+    if not isinstance(workflows, list):
+        return set()
+    return {name for name in workflows if isinstance(name, str)}
+
+
+def select_steps(brief: dict, surfaces: set[str], requested: set[str]) -> tuple[list[Step], list[tuple[Step, str]]]:
+    """The steps to plan, and the steps left out with their reasons, both in table order."""
+    selected = selected_workflows(brief)
+    steps: list[Step] = []
+    left_out: list[tuple[Step, str]] = []
+    for step in STEPS:
+        if step.surface is not None and step.surface not in surfaces:
+            left_out.append((step, f"surface {step.surface} is not in the brief's surfaces"))
+        elif requested and step.name not in requested:
+            left_out.append((step, "not named in the request"))
+        elif not requested and step.optional and step.name not in selected:
+            left_out.append((step, "not selected in the brief's workflows"))
+        else:
+            steps.append(step)
+    return steps, left_out
 
 
 def command_check(engagement: Path) -> int:
@@ -184,18 +253,22 @@ def command_plan(engagement: Path, requested: list[str]) -> int:
         return 2
 
     surfaces = {surface for surface in brief["surfaces"] if surface in SURFACES}
+    requested_names = set(requested)
     if requested:
-        steps = [step for step in STEPS if step.name in set(requested)]
-        for step in steps:
+        for step in STEPS:
+            if step.name not in requested_names:
+                continue
             missing = missing_inputs(engagement, step, surfaces)
             if missing:
                 print(f"refused: {step.name} cannot run yet; missing {', '.join(missing)}", file=sys.stderr)
                 return 3
-    else:
-        steps = [step for step in STEPS if step.surface is None or step.surface in surfaces]
+
+    steps, left_out = select_steps(brief, surfaces, requested_names)
 
     for step in steps:
         print(f"{step.name} {step.artifact} {'done' if is_done(engagement, step) else 'pending'}")
+    for step, reason in left_out:
+        print(f"out: {step.name}: {reason}")
     return 0
 
 
