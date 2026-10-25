@@ -125,7 +125,13 @@ def load_brief(engagement: Path) -> tuple[dict, list[str]]:
     if not path.is_file():
         return {}, [f"brief: missing: {path}"]
     try:
-        brief = parse_brief(path.read_text())
+        text = path.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError as error:
+        return {}, [f"brief: not valid UTF-8: {path}: {error.reason} at byte {error.start}"]
+    except OSError as error:
+        return {}, [f"brief: cannot read {path}: {error.strerror or error}"]
+    try:
+        brief = parse_brief(text)
     except BriefError as error:
         return {}, [f"brief: {error}"]
     return brief, validate_brief(brief, engagement.name, lambda spec: (engagement / spec).is_file())

@@ -95,6 +95,34 @@ def test_missing_brief_is_bad_input(tmp_path, capsys):
     assert "brief" in output
 
 
+def test_brief_with_invalid_utf8_is_reported(tmp_path, capsys):
+    folder = tmp_path / "acme-checkout"
+    folder.mkdir()
+    (folder / "brief.md").write_bytes(b"---\nclient: \xff\n---\n")
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output.startswith("brief:") and len(output.splitlines()) == 1
+
+
+def test_brief_that_cannot_be_read_is_reported(tmp_path, capsys, monkeypatch):
+    folder = write_brief(tmp_path / "acme-checkout")
+
+    def refuse(*args, **kwargs):
+        raise PermissionError("Permission denied")
+
+    monkeypatch.setattr(run_testing.Path, "read_text", refuse)
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output.startswith("brief:") and len(output.splitlines()) == 1
+
+
+def test_brief_with_byte_order_mark_passes(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout")
+    brief = folder / "brief.md"
+    brief.write_bytes(b"\xef\xbb\xbf" + brief.read_bytes())
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
 @pytest.mark.parametrize("field", ["client", "engagement", "surfaces", "environment"])
 def test_missing_required_field_is_named(tmp_path, capsys, field):
     folder = write_brief(tmp_path / "acme-checkout", drop=(field,))
