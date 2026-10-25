@@ -16,7 +16,7 @@ tests/api/
 ```
 
 - Keep fixtures in `conftest.py` under the API test folder, never in a root conftest, so the UI suite keeps its own.
-- One module per resource: the first path segment of its endpoints, such as `orders` for `GET /orders` and `POST /orders/{id}`.
+- One module per resource: the first path segment of its endpoints after any version prefix such as `/v1`, such as `orders` for `GET /v1/orders` and `POST /v1/orders/{id}`.
 - Shared HTTP and schema code lives in `conftest.py` and `schemas.py` only; a test module holds tests, not helpers.
 
 ## pyproject.toml
@@ -32,13 +32,14 @@ dependencies = ["httpx>=0.27", "jsonschema>=4.22", "pytest>=8.2", "ruff>=0.6"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["live: sends a request to the API under test"]
+markers = ["live: runs against the client's application under test"]
 
 [tool.ruff]
 line-length = 120
 ```
 
-Run `uv sync` in the engagement folder after writing it.
+- One `live` marker serves the API and UI suites, so its description names neither; an existing one worded for one suite only is reworded to this one.
+- Run `uv sync` in the engagement folder after writing it.
 
 ## conftest.py
 
@@ -68,11 +69,19 @@ def auth_headers() -> dict[str, str]:
 def client(api_base_url: str, auth_headers: dict[str, str]):
     with httpx.Client(base_url=api_base_url, headers=auth_headers, timeout=15.0) as http:
         yield http
+
+
+@pytest.fixture(scope="session")
+def unauthenticated_client(api_base_url: str):
+    with httpx.Client(base_url=api_base_url, timeout=15.0) as http:
+        yield http
 ```
 
 - The default base URL is the brief's `api_base_url`; `API_BASE_URL` lets the owner point the same tests at another environment without editing a file.
+- `unauthenticated_client` sends no credential; the authentication checks use it.
+- A public API, one that needs no authentication by the skill's Inputs, gets no `CREDENTIAL_ENV`, `auth_headers`, or `unauthenticated_client`, and `client` is built without `headers`, so the suite reads no credential.
 - Map each `credentials_env` name to the header the authentication scheme in `api_spec` names. With no spec, use the bearer `Authorization` header and name that assumption in the reply.
-- `conftest.py` reads `os.environ` only. The owner's run command, `uv run --env-file .env pytest` from the engagement folder, loads the engagement `.env` into the test process at run time, so no value is copied into a file. A missing `.env` fails the command with `No environment file found at: .env`.
+- `conftest.py` reads `os.environ` only. The owner's run command, `uv run --env-file .env pytest` from the engagement folder, loads the engagement `.env` into the test process at run time, so no value is copied into a file. A missing `.env` fails the command with uv's `error: No environment file found at:` followed by the `.env` path.
 - A missing variable fails the fixture with its name. It never becomes a skip.
 
 ## Test modules
@@ -102,7 +111,7 @@ def test_read_order_matches_the_created_order(client):
 
 - Success checks use the fixture client, assert the status, then every body value and comparison the case states, such as a quantity or a total equal between two responses. A schema check is added beside them, never in their place.
 - Error checks use the same client with input the cases name, and assert the status and only the error fields the spec fixes. Never assert a message text the spec does not fix. Where the spec fixes the error body, validate it with `assert_valid_json(response.json(), "<resource>-error")`.
-- Authentication checks run once per endpoint through `pytest.mark.parametrize` over the module's paths: one without a token, one with an invalid token such as `Bearer invalid`, both asserting the status that `api_spec` or the cases give.
+- Authentication checks, only when the API needs authentication, run once per endpoint through `pytest.mark.parametrize` over the module's paths, both with `unauthenticated_client`: one sending no token, one sending an invalid token such as `headers={"Authorization": "Bearer invalid"}`, both asserting the status that `api_spec` or the cases give.
 - Response-schema checks call `assert_valid_json(response.json(), "<schema>")` after the status assertion.
 
 ## schemas.py
