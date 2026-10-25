@@ -34,7 +34,7 @@ One row per `AC<n>` in the brief's `## Acceptance criteria`, in order, with the 
 
 | ID | Acceptance criterion | Cases | Result | Verdict |
 |---|---|---|---|---|
-| {{AC1}} | {{the criterion in the brief's words}} | {{TC-001, TC-003, or none}} | {{the evidence file and what it shows, or not run}} | {{covered, partial, not run, or not covered}} |
+| {{AC1}} | {{the criterion in the brief's words}} | {{TC-001, TC-003, or none}} | {{the evidence file and what it shows, or not run}} | {{covered, partial, failed, not run, or not covered}} |
 
 ### Risks
 
@@ -42,7 +42,7 @@ One row per `R<n>` in `docs/test-strategy.md` `## Risks`, or the brief's `## Kno
 
 | ID | Risk | Cases | Result | Verdict |
 |---|---|---|---|---|
-| {{R1}} | {{the risk in the strategy's words}} | {{TC-002, or none}} | {{the evidence file and what it shows, or not run}} | {{covered, partial, not run, or not covered}} |
+| {{R1}} | {{the risk in the strategy's words}} | {{TC-002, or none}} | {{the evidence file and what it shows, or not run}} | {{covered, partial, failed, not run, or not covered}} |
 
 ## Residual risks
 
