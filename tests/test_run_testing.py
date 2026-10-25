@@ -258,6 +258,34 @@ def test_named_workflow_with_its_input_present_runs(tmp_path, capsys):
     assert plan_lines(output) == [["design-test-cases", "docs/test-cases.md", "pending"]]
 
 
+EVIDENCE_WORKFLOWS = ("write-bug-report", "summarise-test-execution")
+
+
+@pytest.mark.parametrize("workflow", EVIDENCE_WORKFLOWS)
+@pytest.mark.parametrize("evidence", [(), ("evidence/README.md",)], ids=["empty", "readme-only"])
+def test_evidence_workflow_without_evidence_files_is_refused(tmp_path, capsys, workflow, evidence):
+    folder = write_brief(tmp_path / "acme-checkout")
+    put(folder, "docs/test-cases.md")
+    put(folder, "evidence/")
+    for artifact in evidence:
+        put(folder, artifact)
+    code, output = run(capsys, "plan", str(folder), workflow)
+    assert code == 3
+    assert f"refused: {workflow} cannot run yet; missing evidence/" in output
+
+
+@pytest.mark.parametrize("workflow", EVIDENCE_WORKFLOWS)
+@pytest.mark.parametrize("other", ["evidence/junit.xml", "evidence/run-1/junit.xml", "evidence/run-1/README.md"])
+def test_evidence_workflow_with_a_file_beside_the_readme_runs(tmp_path, capsys, workflow, other):
+    folder = write_brief(tmp_path / "acme-checkout")
+    put(folder, "docs/test-cases.md")
+    put(folder, "evidence/README.md")
+    put(folder, other)
+    code, output = run(capsys, "plan", str(folder), workflow)
+    assert code == 0
+    assert plan_lines(output)[0][0] == workflow
+
+
 def test_named_workflow_is_planned_even_when_its_artifact_exists(tmp_path, capsys):
     folder = write_brief(tmp_path / "acme-checkout")
     put(folder, "docs/test-strategy.md")
