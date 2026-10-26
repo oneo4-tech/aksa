@@ -17,6 +17,7 @@ import re
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path, PurePosixPath
 
 import yaml
@@ -25,6 +26,16 @@ BRIEF = "brief.md"
 EVIDENCE = "evidence/"
 SURFACES = ("api", "ui")
 CREDENTIAL_NAME = re.compile(r"[A-Z][A-Z0-9_]*")
+EFFORT_UNITS = ("hours", "days")
+CI_PLATFORM = "github-actions"
+ACCESSIBILITY_STANDARDS = (
+    "WCAG 2.1 A",
+    "WCAG 2.1 AA",
+    "WCAG 2.1 AAA",
+    "WCAG 2.2 A",
+    "WCAG 2.2 AA",
+    "WCAG 2.2 AAA",
+)
 
 
 @dataclass(frozen=True)
@@ -101,6 +112,63 @@ def present(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def mapping_of_strings(value: object) -> bool:
+    """A non-empty mapping of non-empty strings to non-empty strings."""
+    return (
+        isinstance(value, dict) and bool(value) and all(present(key) and present(item) for key, item in value.items())
+    )
+
+
+def device_names(value: object) -> bool:
+    """A non-empty list of non-empty device names."""
+    return isinstance(value, list) and bool(value) and all(present(device) for device in value)
+
+
+def iso_dates(value: object) -> bool:
+    """A non-empty mapping of non-empty names to ISO dates.
+
+    YAML reads a bare `YYYY-MM-DD` as a `date`, so accept that as well as its text form.
+    """
+    if not isinstance(value, dict) or not value:
+        return False
+    for name, day in value.items():
+        if not present(name) or isinstance(day, datetime):
+            return False
+        if not isinstance(day, date):
+            if not isinstance(day, str):
+                return False
+            try:
+                date.fromisoformat(day)
+            except ValueError:
+                return False
+    return True
+
+
+def validate_workflows(brief: dict, problems: list[str]) -> set[str]:
+    """The optional workflow names the brief selects, appending one line per invalid name."""
+    if "workflows" not in brief:
+        return set()
+    names = brief["workflows"]
+    if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+        problems.append("workflows: must be a list of strings")
+        return set()
+    selected: set[str] = set()
+    seen: set[str] = set()
+    for name in names:
+        if name in seen:
+            problems.append(f"workflows: duplicate workflow '{name}'")
+            continue
+        seen.add(name)
+        step = WORKFLOWS.get(name)
+        if step is None:
+            problems.append(f"workflows: unknown workflow '{name}'")
+        elif not step.optional:
+            problems.append(f"workflows: {name} is core and always runs")
+        else:
+            selected.add(name)
+    return selected
+
+
 def validate_brief(brief: dict, folder_name: str, file_exists: Callable[[str], bool]) -> list[str]:
     """One line per field that is missing or invalid, in the order a brief reads."""
     problems: list[str] = []
@@ -146,6 +214,37 @@ def validate_brief(brief: dict, folder_name: str, file_exists: Callable[[str], b
             invalid = [name for name in names if not isinstance(name, str) or not CREDENTIAL_NAME.fullmatch(name)]
             if invalid:
                 problems.append("credentials_env: invalid variable name " + ", ".join(f"'{name}'" for name in invalid))
+
+    selected = validate_workflows(brief, problems)
+    if "effort_unit" in brief and brief["effort_unit"] not in EFFORT_UNITS:
+        problems.append("effort_unit: must be one of hours, days")
+    if "ci_platform" in brief and brief["ci_platform"] != CI_PLATFORM:
+        problems.append(f"ci_platform: must be {CI_PLATFORM}, the only supported platform")
+    if "accessibility_standard" in brief and brief["accessibility_standard"] not in ACCESSIBILITY_STANDARDS:
+        problems.append("accessibility_standard: must be one of " + ", ".join(ACCESSIBILITY_STANDARDS))
+    if "performance_targets" in brief and not mapping_of_strings(brief["performance_targets"]):
+        problems.append("performance_targets: must map non-empty names to non-empty targets")
+    if "mobile_devices" in brief and not device_names(brief["mobile_devices"]):
+        problems.append("mobile_devices: must be a non-empty list of device names")
+    if "key_dates" in brief and not iso_dates(brief["key_dates"]):
+        problems.append("key_dates: must map non-empty names to YYYY-MM-DD dates")
+
+    if "write-contract-tests" in selected:
+        if not present(brief.get("api_spec")):
+            problems.append("workflows: write-contract-tests needs api_spec")
+        if "api" not in usable:
+            problems.append("workflows: write-contract-tests needs api in surfaces")
+    if "write-performance-tests" in selected and not mapping_of_strings(brief.get("performance_targets")):
+        problems.append("workflows: write-performance-tests needs performance_targets")
+    if "audit-accessibility" in selected and "ui" not in usable:
+        problems.append("workflows: audit-accessibility needs ui in surfaces")
+    if "test-api-security-basics" in selected and "api" not in usable:
+        problems.append("workflows: test-api-security-basics needs api in surfaces")
+    if "test-mobile-app" in selected:
+        if "ui" not in usable:
+            problems.append("workflows: test-mobile-app needs ui in surfaces")
+        if not device_names(brief.get("mobile_devices")):
+            problems.append("workflows: test-mobile-app needs mobile_devices")
     return problems
 
 
@@ -208,7 +307,7 @@ def missing_inputs(engagement: Path, step: Step, surfaces: set[str]) -> list[str
 
 
 def selected_workflows(brief: dict) -> set[str]:
-    """The optional workflows the brief selects; a missing or non-list field selects none."""
+    """The optional workflows the brief selects; a malformed field selects none, which `check` refuses."""
     workflows = brief.get("workflows")
     if not isinstance(workflows, list):
         return set()

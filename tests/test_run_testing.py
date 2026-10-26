@@ -56,6 +56,23 @@ def write_brief(folder: Path, drop: tuple[str, ...] = (), **overrides) -> Path:
     return folder
 
 
+def write_raw_brief(folder: Path, frontmatter: str) -> Path:
+    """Write a brief from raw YAML, so YAML's own typing decides each value, as a hand-written brief does."""
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "brief.md").write_text("---\n" + frontmatter + "---\n" + PROSE)
+    return folder
+
+
+RAW_FIELDS = (
+    "client: Acme Analytics\n"
+    "engagement: acme-checkout\n"
+    "surfaces: [api, ui]\n"
+    "ui_base_url: https://app.acme.test\n"
+    "api_base_url: https://api.acme.test\n"
+    "environment: staging\n"
+)
+
+
 def put(folder: Path, artifact: str) -> None:
     """Create an artifact, as a file or as a folder holding one file when its name ends with '/'."""
     path = folder / artifact
@@ -209,6 +226,286 @@ def test_credentials_env_accepts_upper_case_names(tmp_path, capsys):
     assert run(capsys, "check", str(folder)) == (0, "")
 
 
+PILOT = SCRIPT.parents[5] / ".projects" / "testing" / "demo-ecommerce"
+TEMPLATE = SCRIPT.parents[1] / "references" / "brief-template.md"
+
+
+def test_brief_template_copy_passes_check(tmp_path, capsys):
+    folder = tmp_path / "acme-checkout"
+    folder.mkdir()
+    (folder / "brief.md").write_text(TEMPLATE.read_text(encoding="utf-8"), encoding="utf-8")
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+def test_pilot_brief_passes_check(capsys):
+    if not PILOT.is_dir():
+        pytest.skip("the pilot engagement lives outside the repository")
+    assert run(capsys, "check", str(PILOT)) == (0, "")
+
+
+@pytest.mark.parametrize("value", ["hours", "days"])
+def test_effort_unit_accepts_its_units(tmp_path, capsys, value):
+    folder = write_brief(tmp_path / "acme-checkout", effort_unit=value)
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+@pytest.mark.parametrize("value", ["weeks", None])
+def test_effort_unit_rejects_other_units(tmp_path, capsys, value):
+    folder = write_brief(tmp_path / "acme-checkout", effort_unit=value)
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output.startswith("effort_unit:")
+
+
+def test_ci_platform_accepts_github_actions(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", ci_platform="github-actions")
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+@pytest.mark.parametrize("value", ["gitlab-ci", None])
+def test_ci_platform_rejects_other_platforms(tmp_path, capsys, value):
+    folder = write_brief(tmp_path / "acme-checkout", ci_platform=value)
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output.startswith("ci_platform:")
+    assert "github-actions" in output
+
+
+@pytest.mark.parametrize(
+    "value", ["WCAG 2.1 A", "WCAG 2.1 AA", "WCAG 2.1 AAA", "WCAG 2.2 A", "WCAG 2.2 AA", "WCAG 2.2 AAA"]
+)
+def test_accessibility_standard_accepts_its_values(tmp_path, capsys, value):
+    folder = write_brief(tmp_path / "acme-checkout", accessibility_standard=value)
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+@pytest.mark.parametrize("value", ["WCAG 3.0 AA", "WCAG 2.2"])
+def test_accessibility_standard_rejects_other_values(tmp_path, capsys, value):
+    folder = write_brief(tmp_path / "acme-checkout", accessibility_standard=value)
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output.startswith("accessibility_standard:")
+
+
+def test_performance_targets_accept_a_mapping(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", performance_targets={"product-list": "p95 under 500 ms"})
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+@pytest.mark.parametrize(
+    "value",
+    [["p95 under 500 ms"], {}, {"product-list": ""}, {"": "p95 under 500 ms"}],
+    ids=["list", "empty", "empty-target", "empty-name"],
+)
+def test_performance_targets_reject_other_values(tmp_path, capsys, value):
+    folder = write_brief(tmp_path / "acme-checkout", performance_targets=value)
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output.startswith("performance_targets:")
+
+
+def test_mobile_devices_accept_a_list(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", mobile_devices=["Pixel 7", "iPhone 14"])
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+@pytest.mark.parametrize("value", [[], "Pixel 7", [""]], ids=["empty", "string", "empty-device"])
+def test_mobile_devices_reject_other_values(tmp_path, capsys, value):
+    folder = write_brief(tmp_path / "acme-checkout", mobile_devices=value)
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output.startswith("mobile_devices:")
+
+
+def test_key_dates_accept_iso_dates(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", key_dates={"code-freeze": "2026-11-01"})
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+def test_key_dates_accept_an_unquoted_date(tmp_path, capsys):
+    folder = write_raw_brief(tmp_path / "acme-checkout", RAW_FIELDS + "key_dates:\n  code-freeze: 2026-11-01\n")
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+@pytest.mark.parametrize(
+    "day", ["20261101", "true", "2026-11-01T00:00:00", "null"], ids=["number", "boolean", "datetime", "null"]
+)
+def test_key_dates_reject_unquoted_non_dates(tmp_path, capsys, day):
+    folder = write_raw_brief(tmp_path / "acme-checkout", RAW_FIELDS + f"key_dates:\n  code-freeze: {day}\n")
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output == "key_dates: must map non-empty names to YYYY-MM-DD dates\n"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [{"code-freeze": "01/11/2026"}, {"code-freeze": "2026-13-01"}, {}, {"": "2026-11-01"}],
+    ids=["not-iso", "bad-month", "empty", "empty-name"],
+)
+def test_key_dates_reject_other_values(tmp_path, capsys, value):
+    folder = write_brief(tmp_path / "acme-checkout", key_dates=value)
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output.startswith("key_dates:")
+
+
+def test_workflows_accept_an_optional_selection(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", workflows=["wire-ci-pipeline", "plan-exploratory-session"])
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+def test_workflows_reject_a_non_list(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", workflows="wire-ci-pipeline")
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output.startswith("workflows:")
+
+
+def test_workflows_refuse_an_unknown_name(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", workflows=["write-accessibility-tests"])
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert "workflows: unknown workflow 'write-accessibility-tests'" in output
+
+
+def test_workflows_refuse_a_core_name(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", workflows=["write-api-tests"])
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert "workflows: write-api-tests is core and always runs" in output
+
+
+def test_workflows_refuse_a_duplicate_name(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", workflows=["wire-ci-pipeline", "wire-ci-pipeline"])
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert "workflows: duplicate workflow 'wire-ci-pipeline'" in output
+
+
+def test_write_contract_tests_needs_api_spec(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", workflows=["write-contract-tests"])
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert "workflows: write-contract-tests needs api_spec" in output
+
+    folder = write_brief(tmp_path / "acme-checkout", api_spec="specs/openapi.yaml", workflows=["write-contract-tests"])
+    put(folder, "specs/openapi.yaml")
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+def test_write_contract_tests_needs_api_in_surfaces(tmp_path, capsys):
+    folder = write_brief(
+        tmp_path / "acme-checkout",
+        surfaces=["ui"],
+        drop=("api_base_url",),
+        api_spec="specs/openapi.yaml",
+        workflows=["write-contract-tests"],
+    )
+    put(folder, "specs/openapi.yaml")
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert "workflows: write-contract-tests needs api in surfaces" in output
+
+
+def test_test_api_security_basics_needs_api_in_surfaces(tmp_path, capsys):
+    folder = write_brief(
+        tmp_path / "acme-checkout",
+        surfaces=["ui"],
+        drop=("api_base_url",),
+        workflows=["test-api-security-basics"],
+    )
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert "workflows: test-api-security-basics needs api in surfaces" in output
+
+
+def test_audit_accessibility_needs_ui_in_surfaces(tmp_path, capsys):
+    folder = write_brief(
+        tmp_path / "acme-checkout",
+        surfaces=["api"],
+        drop=("ui_base_url",),
+        workflows=["audit-accessibility"],
+    )
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert "workflows: audit-accessibility needs ui in surfaces" in output
+
+
+def test_test_mobile_app_needs_ui_in_surfaces(tmp_path, capsys):
+    folder = write_brief(
+        tmp_path / "acme-checkout",
+        surfaces=["api"],
+        drop=("ui_base_url",),
+        workflows=["test-mobile-app"],
+        mobile_devices=["Pixel 7"],
+    )
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert "workflows: test-mobile-app needs ui in surfaces" in output
+
+
+def test_write_performance_tests_needs_performance_targets(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", workflows=["write-performance-tests"])
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert "workflows: write-performance-tests needs performance_targets" in output
+
+
+def test_test_mobile_app_needs_mobile_devices(tmp_path, capsys):
+    folder = write_brief(tmp_path / "acme-checkout", workflows=["test-mobile-app"])
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert "workflows: test-mobile-app needs mobile_devices" in output
+
+
+def test_every_optional_workflow_can_be_selected_with_its_inputs(tmp_path, capsys):
+    folder = write_brief(
+        tmp_path / "acme-checkout",
+        api_spec="specs/openapi.yaml",
+        workflows=list(OPTIONAL),
+        performance_targets={"product-list": "p95 under 500 ms"},
+        mobile_devices=["Pixel 7"],
+    )
+    put(folder, "specs/openapi.yaml")
+    assert run(capsys, "check", str(folder)) == (0, "")
+
+
+def test_each_invalid_new_field_is_one_line(tmp_path, capsys):
+    folder = write_brief(
+        tmp_path / "acme-checkout",
+        effort_unit="weeks",
+        ci_platform="gitlab-ci",
+        accessibility_standard="WCAG 3.0 AA",
+        performance_targets=[],
+        mobile_devices=[],
+        key_dates={"code-freeze": "soon"},
+    )
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert [line.split(":")[0] for line in output.splitlines()] == [
+        "effort_unit",
+        "ci_platform",
+        "accessibility_standard",
+        "performance_targets",
+        "mobile_devices",
+        "key_dates",
+    ]
+
+
+def test_selection_problems_follow_the_field_problems(tmp_path, capsys):
+    folder = write_brief(
+        tmp_path / "acme-checkout",
+        performance_targets=[],
+        workflows=["write-performance-tests"],
+    )
+    code, output = run(capsys, "check", str(folder))
+    assert code == 2
+    assert output.splitlines() == [
+        "performance_targets: must map non-empty names to non-empty targets",
+        "workflows: write-performance-tests needs performance_targets",
+    ]
+
+
 TABLE = [
     ("review-requirements", "docs/requirements-review.md"),
     ("write-test-strategy", "docs/test-strategy.md"),
@@ -330,7 +627,12 @@ def test_ui_only_engagement_omits_api_tests(tmp_path, capsys):
 
 
 def test_brief_selection_adds_its_optional_steps(tmp_path, capsys):
-    folder = write_brief(tmp_path / "acme-checkout", workflows=["write-contract-tests", "audit-accessibility"])
+    folder = write_brief(
+        tmp_path / "acme-checkout",
+        api_spec="specs/openapi.yaml",
+        workflows=["write-contract-tests", "audit-accessibility"],
+    )
+    put(folder, "specs/openapi.yaml")
     code, output = run(capsys, "plan", str(folder))
     assert code == 0
     expected = [name for name, _ in CORE]
@@ -345,17 +647,19 @@ def test_unselected_optional_step_is_out_with_its_reason(tmp_path, capsys):
     assert dict(out_lines(output))["write-performance-tests"] == "not selected in the brief's workflows"
 
 
-def test_selected_optional_step_without_its_surface_is_out(tmp_path, capsys):
+def test_selected_optional_step_without_its_surface_is_refused(tmp_path, capsys):
     folder = write_brief(
         tmp_path / "acme-checkout",
         surfaces=["ui"],
         drop=("api_base_url",),
+        api_spec="specs/openapi.yaml",
         workflows=["write-contract-tests"],
     )
+    put(folder, "specs/openapi.yaml")
     code, output = run(capsys, "plan", str(folder))
-    assert code == 0
-    assert "write-contract-tests" not in [line[0] for line in plan_lines(output)]
-    assert dict(out_lines(output))["write-contract-tests"] == "surface api is not in the brief's surfaces"
+    assert code == 2
+    assert "write-contract-tests" in output
+    assert "api" in output
 
 
 def test_named_optional_workflow_runs_alone(tmp_path, capsys):
