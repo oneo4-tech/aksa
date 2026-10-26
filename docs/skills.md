@@ -74,7 +74,10 @@ Software-testing workflows for a freelance engagement's deliverables.
 | Skill | Purpose |
 |-------|---------|
 | `run-testing` | Validate the brief and run the workflows in order |
+| `review-requirements` | Ambiguities, missing criteria, and untestable statements with questions |
 | `write-test-strategy` | Scope, risks, approach |
+| `write-test-plan` | Schedule, roles, environments, deliverables, criteria, plan risks |
+| `estimate-test-effort` | Per-workflow effort range, assumptions, and confidence |
 | `design-test-cases` | Test cases from the strategy |
 | `write-api-tests` | Python `pytest` API tests |
 | `write-ui-tests` | Playwright for Python UI tests |
