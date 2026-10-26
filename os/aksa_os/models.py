@@ -49,3 +49,23 @@ class FactoryView:
     def waiting(self) -> int:
         """How many runs wait on the owner."""
         return sum(run.needs_owner for run in self.runs)
+
+
+@dataclass(frozen=True)
+class Project:
+    """One project under .projects as the projects screen shows it."""
+
+    name: str
+    path: str
+    file_count: int
+    last_change: datetime | None
+    is_repo: bool
+    branch: str | None = None
+    dirty: int | None = None
+
+
+@dataclass(frozen=True)
+class ProjectsView:
+    """Every project under .projects, most recently changed first."""
+
+    projects: list[Project]

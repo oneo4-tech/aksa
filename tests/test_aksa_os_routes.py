@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 from aksa_os.app import Sources, create_app
-from aksa_os.models import FactoryRun, FactoryView, Source
+from aksa_os.models import FactoryRun, FactoryView, Project, ProjectsView, Source
 from fastapi.testclient import TestClient
 
 READ_AT = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)
@@ -34,9 +34,35 @@ def factory_runs() -> FactoryView:
     )
 
 
-def fake_sources(factory: Source[FactoryView] | None = None) -> Sources:
+def projects() -> ProjectsView:
+    return ProjectsView(
+        [
+            Project(
+                name="oneo4-newsletter",
+                path="content/oneo4-newsletter",
+                file_count=42,
+                last_change=READ_AT,
+                is_repo=True,
+                branch="main",
+                dirty=2,
+            ),
+            Project(
+                name="demo-ecommerce",
+                path="testing/demo-ecommerce",
+                file_count=7,
+                last_change=None,
+                is_repo=False,
+            ),
+        ]
+    )
+
+
+def fake_sources(
+    factory: Source[FactoryView] | None = None, projects_source: Source[ProjectsView] | None = None
+) -> Sources:
     view = factory or Source.success(factory_runs(), source="GitHub", read_at=READ_AT)
-    return Sources(factory=lambda: view)
+    projects_view = projects_source or Source.success(projects(), source="Projects", read_at=READ_AT)
+    return Sources(factory=lambda: view, projects=lambda: projects_view)
 
 
 def test_overview_answers_with_the_shell():
@@ -89,3 +115,46 @@ def test_overview_shows_the_factory_runs():
     response = client.get("/")
     assert "feat(os): add AKSA OS read-only cockpit" in response.text
     assert 'class="stage stage-build">build<' in response.text
+
+
+def test_projects_screen_lists_every_project():
+    client = TestClient(create_app(fake_sources()))
+    response = client.get("/projects")
+    assert response.status_code == 200
+    assert "oneo4-newsletter" in response.text
+    assert "content/oneo4-newsletter" in response.text
+    assert "demo-ecommerce" in response.text
+    assert "testing/demo-ecommerce" in response.text
+    assert ">42<" in response.text
+    assert ">7<" in response.text
+    assert "25 Oct 09:00" in response.text
+    assert "main" in response.text
+    assert ">2<" in response.text
+    assert "not a repository" in response.text
+    assert 'href="/projects"' in response.text
+
+
+def test_projects_screen_shows_a_source_error():
+    failed = Source.failure("projects could not be read", source="Projects", read_at=READ_AT)
+    client = TestClient(create_app(fake_sources(projects_source=failed)))
+    response = client.get("/projects")
+    assert response.status_code == 200
+    assert "Projects unavailable" in response.text
+    assert "projects could not be read" in response.text
+
+
+def test_projects_failure_leaves_the_overview_usable():
+    failed = Source.failure("projects could not be read", source="Projects", read_at=READ_AT)
+    client = TestClient(create_app(fake_sources(projects_source=failed)))
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "AKSA OS" in response.text
+    assert "Projects unavailable" in response.text
+
+
+def test_overview_shows_the_projects_panel():
+    client = TestClient(create_app(fake_sources()))
+    response = client.get("/")
+    assert "oneo4-newsletter" in response.text
+    assert "demo-ecommerce" in response.text
+    assert 'href="/projects"' in response.text

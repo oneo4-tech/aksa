@@ -17,7 +17,7 @@
       <nav class="nav" aria-label="Screens">
         <a class="nav-item{% if page == 'overview' %} active{% endif %}" href="/"{% if page == 'overview' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Overview</a>
         <a class="nav-item{% if page == 'factory' %} active{% endif %}" href="/factory"{% if page == 'factory' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Factory<span class="nav-count">{% if factory is defined and factory.ok %}{{ factory.value.runs|length }}{% else %}--{% endif %}</span></a>
-        <span class="nav-item pending" aria-disabled="true"><span class="nav-dot"></span>Projects<span class="nav-count">--</span></span>
+        <a class="nav-item{% if page == 'projects' %} active{% endif %}" href="/projects"{% if page == 'projects' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Projects<span class="nav-count">{% if projects is defined and projects.ok %}{{ projects.value.projects|length }}{% else %}--{% endif %}</span></a>
         <span class="nav-item pending" aria-disabled="true"><span class="nav-dot"></span>Knowledge<span class="nav-count">--</span></span>
         <span class="nav-item pending" aria-disabled="true"><span class="nav-dot"></span>Agents<span class="nav-count">--</span></span>
       </nav>
