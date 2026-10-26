@@ -79,6 +79,8 @@ Software-testing workflows for a freelance engagement's deliverables.
 | `write-test-plan` | Schedule, roles, environments, deliverables, criteria, plan risks |
 | `estimate-test-effort` | Per-workflow effort range, assumptions, and confidence |
 | `design-test-cases` | Test cases from the strategy |
+| `design-test-data` | Synthetic data sets and fixtures keyed to cases |
+| `scaffold-test-framework` | Per-engagement environment, conftest, and page folder |
 | `write-api-tests` | Python `pytest` API tests |
 | `write-ui-tests` | Playwright for Python UI tests |
 | `write-bug-report` | One report per defect from evidence |
