@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block subtitle %}agent credits{% endblock %}
+
+{% block main %}
+{% include "_credits_panel.html" %}
+{% endblock %}
+
+{% block right %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Sources</span>
+      <h2>Read times</h2>
+    </div>
+    <span class="panel-meta mono">{{ credits.read_at.strftime('%H:%M:%S') if credits.read_at else '--' }}</span>
+  </div>
+  {% if credits.ok %}
+  <dl class="vitals">
+    {% for provider in credits.value.providers %}
+    <div><dt>{{ provider.name }}</dt><dd class="mono">{{ provider.read_at.strftime('%H:%M:%S') }}</dd></div>
+    {% endfor %}
+  </dl>
+  <p class="panel-note">Live reads happen when this screen opens. Google AI Studio is a manual value from <span class="mono">.local/aksa_os.json</span>; the OpenCode Zen balance has no API and links to its console.</p>
+  {% else %}
+  <p class="empty error">{{ credits.error }}</p>
+  {% endif %}
+</section>
+{% endblock %}

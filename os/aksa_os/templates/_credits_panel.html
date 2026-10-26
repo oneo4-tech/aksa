@@ -1,0 +1,37 @@
+<section class="panel credits" id="credits">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Agents</span>
+      <h2>Credits</h2>
+    </div>
+    <span class="panel-meta mono">
+      {% if credits.ok %}{{ credits.value.available }}/{{ credits.value.providers|length }} available{% else %}unavailable{% endif %}
+    </span>
+  </div>
+  {% if not credits.ok %}
+  <p class="empty error">Credits unavailable: {{ credits.error }}</p>
+  {% else %}
+  {% for provider in credits.value.providers %}
+  <article class="credit">
+    <div class="credit-head">
+      <span class="credit-name">{{ provider.name }}</span>
+      {% if provider.manual %}<span class="credit-flag">manual</span>{% elif not provider.ok %}<span class="credit-flag error">unavailable</span>{% endif %}
+    </div>
+    {% if provider.ok and not provider.unset %}
+    <dl class="credit-values">
+      {% for value in provider.values %}
+      <div><dt>{{ value.label }}</dt><dd class="mono">{{ value.value }}</dd></div>
+      {% endfor %}
+    </dl>
+    {% if provider.note %}<p class="credit-note">{{ provider.note }}</p>{% endif %}
+    {% elif provider.unset %}
+    <p class="credit-note">Not set{% if provider.note %} &middot; {{ provider.note }}{% endif %}</p>
+    {% else %}
+    <p class="credit-note error">{{ provider.error }}</p>
+    {% endif %}
+    <p class="credit-meta mono">{{ provider.source }}{% if provider.read_at %} &middot; read {{ provider.read_at.strftime('%H:%M:%S') }}{% endif %}</p>
+    {% if provider.link %}<a class="credit-link" href="{{ provider.link }}" target="_blank" rel="noreferrer">{{ provider.link_label or provider.link }}</a>{% endif %}
+  </article>
+  {% endfor %}
+  {% endif %}
+</section>

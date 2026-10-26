@@ -35,3 +35,7 @@ class Settings:
     @property
     def local_settings(self) -> Path:
         return self.repo_root / ".local" / "aksa_os.json"
+
+    @property
+    def opencode_db(self) -> Path:
+        return Path.home() / ".local" / "share" / "opencode" / "opencode.db"

@@ -9,9 +9,19 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from aksa_os.models import FactoryView, KnowledgeView, ProjectsView, Source
+from aksa_os.env import read_env
+from aksa_os.models import CreditView, FactoryView, KnowledgeView, ProjectsView, Source
 from aksa_os.runner import run_command
 from aksa_os.settings import Settings
+from aksa_os.sources.credits import (
+    http_get,
+    read_claude,
+    read_credits,
+    read_google,
+    read_keychain,
+    read_opencode,
+    read_openrouter,
+)
 from aksa_os.sources.factory import read_factory
 from aksa_os.sources.knowledge import read_knowledge
 from aksa_os.sources.projects import read_projects
@@ -27,6 +37,7 @@ class Sources:
     factory: Callable[[], Source[FactoryView]]
     projects: Callable[[], Source[ProjectsView]]
     knowledge: Callable[[], Source[KnowledgeView]]
+    credits: Callable[[], Source[CreditView]]
 
 
 def default_sources(settings: Settings | None = None) -> Sources:
@@ -36,6 +47,12 @@ def default_sources(settings: Settings | None = None) -> Sources:
         factory=lambda: read_factory(run_command, settings.repo_root, settings.timeout),
         projects=lambda: read_projects(settings.projects, run_command, settings.timeout),
         knowledge=lambda: read_knowledge(settings.kb),
+        credits=lambda: read_credits(
+            lambda: read_claude(lambda: read_keychain(settings.timeout), http_get, settings.timeout),
+            lambda: read_openrouter(read_env(settings.env_file), http_get, settings.timeout),
+            lambda: read_opencode(settings.opencode_db),
+            lambda: read_google(settings.local_settings),
+        ),
     )
 
 
@@ -55,6 +72,7 @@ def create_app(sources: Sources | None = None) -> FastAPI:
                 "factory": sources.factory(),
                 "projects": sources.projects(),
                 "knowledge": sources.knowledge(),
+                "credits": sources.credits(),
             },
         )
 
@@ -73,5 +91,9 @@ def create_app(sources: Sources | None = None) -> FastAPI:
         return TEMPLATES.TemplateResponse(
             request, "knowledge.html", {"page": "knowledge", "knowledge": sources.knowledge()}
         )
+
+    @app.get("/agents", response_class=HTMLResponse)
+    def agents_screen(request: Request) -> HTMLResponse:
+        return TEMPLATES.TemplateResponse(request, "agents.html", {"page": "agents", "credits": sources.credits()})
 
     return app

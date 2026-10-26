@@ -89,3 +89,73 @@ class KnowledgeView:
     pages: list[KnowledgePage]
     inbox_count: int
     skipped: int = 0
+
+
+@dataclass(frozen=True)
+class CreditValue:
+    """One labelled number on a credit card."""
+
+    label: str
+    value: str
+
+
+@dataclass(frozen=True)
+class CreditProvider:
+    """One provider's credit read: its values and link, or a safe error, with its own read time."""
+
+    name: str
+    ok: bool
+    source: str
+    read_at: datetime
+    values: tuple[CreditValue, ...] = ()
+    link: str = ""
+    link_label: str = ""
+    error: str | None = None
+    manual: bool = False
+    unset: bool = False
+    note: str = ""
+
+    @classmethod
+    def success(
+        cls,
+        name: str,
+        *,
+        source: str,
+        read_at: datetime,
+        values: tuple[CreditValue, ...] = (),
+        link: str = "",
+        link_label: str = "",
+        manual: bool = False,
+        unset: bool = False,
+        note: str = "",
+    ) -> Self:
+        """A provider that answered, or a manual value that is not set."""
+        return cls(
+            name=name,
+            ok=True,
+            source=source,
+            read_at=read_at,
+            values=values,
+            link=link,
+            link_label=link_label,
+            manual=manual,
+            unset=unset,
+            note=note,
+        )
+
+    @classmethod
+    def failure(cls, name: str, error: str, *, source: str, read_at: datetime) -> Self:
+        """A provider that could not answer, with a message safe to show."""
+        return cls(name=name, ok=False, source=source, read_at=read_at, error=error)
+
+
+@dataclass(frozen=True)
+class CreditView:
+    """The four agent credit sources as the agents screen shows them."""
+
+    providers: list[CreditProvider]
+
+    @property
+    def available(self) -> int:
+        """How many providers returned a value; a manual balance left unset does not count."""
+        return sum(provider.ok and not provider.unset for provider in self.providers)

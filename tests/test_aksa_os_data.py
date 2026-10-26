@@ -1,16 +1,24 @@
-"""Tests for the AKSA OS sources: reads of .projects and .kb mapped into page data."""
+"""Tests for the AKSA OS sources: reads of .projects, .kb, .env, and agent credits mapped into page data."""
 
+import json
 import os
+import sqlite3
 import subprocess
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from aksa_os.env import read_env
+from aksa_os.models import CreditProvider
 from aksa_os.runner import run_command
+from aksa_os.sources.credits import read_claude, read_credits, read_google, read_opencode, read_openrouter
 from aksa_os.sources.knowledge import read_knowledge
 from aksa_os.sources.projects import read_projects
 
 TIMEOUT = 5.0
+NOW = datetime(2026, 10, 25, 12, 0, tzinfo=UTC)
+CLAUDE_TOKEN = "sentinel-claude-token"
+OPENROUTER_KEY = "sentinel-openrouter-key"
 REPOSITORY_ENV = (
     "GIT_DIR",
     "GIT_WORK_TREE",
@@ -434,3 +442,367 @@ def test_read_knowledge_leaves_the_kb_tree_unchanged(tmp_path):
 
     assert [page.title for page in source.value.pages] == ["Agentic design"]
     assert snapshot(tmp_path) == before
+
+
+def test_read_env_parses_keys_and_skips_comments_and_blanks(tmp_path):
+    path = tmp_path / ".env"
+    path.write_text(
+        "# agent keys, never committed\n"
+        "\n"
+        f"OPENROUTER_API_KEY={OPENROUTER_KEY}\n"
+        "export GEMINI_API_KEY='quoted value'\n"
+        'DOUBLE="double quoted"\n'
+        "EMPTY=\n"
+    )
+
+    assert read_env(path) == {
+        "OPENROUTER_API_KEY": OPENROUTER_KEY,
+        "GEMINI_API_KEY": "quoted value",
+        "DOUBLE": "double quoted",
+        "EMPTY": "",
+    }
+
+
+def test_read_env_keeps_a_hash_inside_quotes_and_drops_an_inline_comment(tmp_path):
+    path = tmp_path / ".env"
+    path.write_text('QUOTED="value # kept"\nPLAIN=value # dropped\n')
+
+    assert read_env(path) == {"QUOTED": "value # kept", "PLAIN": "value"}
+
+
+def test_read_env_skips_malformed_lines_without_raising(tmp_path):
+    path = tmp_path / ".env"
+    path.write_text("NO_EQUALS_HERE\n1BAD=value\nGOOD=value\n")
+
+    assert read_env(path) == {"GOOD": "value"}
+
+
+def test_read_env_reads_a_missing_file_as_empty(tmp_path):
+    assert read_env(tmp_path / "absent.env") == {}
+
+
+class FakeResponse:
+    """One HTTP response for the injected transport, carrying only what an adapter reads."""
+
+    def __init__(self, status_code: int = 200, payload=None):
+        self.status_code = status_code
+        self.payload = payload
+
+    def json(self):
+        return self.payload
+
+
+class FakeHttp:
+    """Stands in for the HTTP transport and records every request."""
+
+    def __init__(self, responses: FakeResponse | dict[str, FakeResponse]):
+        self.responses = responses
+        self.calls: list[tuple[str, dict[str, str], float]] = []
+
+    def __call__(self, url, *, headers, timeout):
+        self.calls.append((url, dict(headers), timeout))
+        if isinstance(self.responses, dict):
+            return self.responses[url]
+        return self.responses
+
+
+def claude_credentials(token: str = CLAUDE_TOKEN, plan: str | None = "pro") -> str:
+    oauth = {"accessToken": token}
+    if plan is not None:
+        oauth["subscriptionType"] = plan
+    return json.dumps({"claudeAiOauth": oauth})
+
+
+def claude_usage() -> dict:
+    return {
+        "five_hour": {"utilization": 72.5, "resets_at": "2026-10-25T14:00:00+00:00"},
+        "seven_day": {"utilization": 41.0, "resets_at": "2026-10-31T09:00:00+00:00"},
+        "spend": {"used": {"amount_minor": 123}},
+    }
+
+
+def values_of(card: CreditProvider) -> dict[str, str]:
+    return {value.label: value.value for value in card.values}
+
+
+def test_read_claude_reads_the_usage_endpoint_with_the_keychain_token():
+    http = FakeHttp(FakeResponse(payload=claude_usage()))
+
+    card = read_claude(lambda: claude_credentials(), http, TIMEOUT, system=lambda: "Darwin")
+
+    assert card.ok is True
+    assert card.name == "Claude Code"
+    assert card.source == "macOS Keychain + Anthropic usage API"
+    assert card.read_at.tzinfo is UTC
+    assert values_of(card) == {
+        "Plan": "pro",
+        "5-hour": "72.5%",
+        "5-hour resets": "25 Oct 14:00",
+        "7-day": "41.0%",
+        "7-day resets": "31 Oct 09:00",
+        "Spend used": "$1.23",
+    }
+    assert card.link == "https://claude.ai/settings/usage"
+    assert http.calls == [
+        (
+            "https://api.anthropic.com/api/oauth/usage",
+            {"Authorization": f"Bearer {CLAUDE_TOKEN}", "anthropic-beta": "oauth-2025-04-20"},
+            TIMEOUT,
+        )
+    ]
+    assert CLAUDE_TOKEN not in repr(card)
+
+
+def test_read_claude_omits_the_plan_when_the_credential_has_none():
+    http = FakeHttp(FakeResponse(payload=claude_usage()))
+
+    card = read_claude(lambda: claude_credentials(plan=None), http, TIMEOUT, system=lambda: "Darwin")
+
+    assert card.ok is True
+    assert "Plan" not in values_of(card)
+
+
+def test_read_claude_reports_an_http_failure_without_the_token():
+    http = FakeHttp(FakeResponse(status_code=500, payload={}))
+
+    card = read_claude(lambda: claude_credentials(), http, TIMEOUT, system=lambda: "Darwin")
+
+    assert card.ok is False
+    assert card.error == "Claude usage endpoint answered 500."
+    assert card.values == ()
+    assert CLAUDE_TOKEN not in repr(card)
+
+
+def test_read_claude_reports_a_missing_keychain_item():
+    http = FakeHttp(FakeResponse(payload=claude_usage()))
+
+    card = read_claude(lambda: None, http, TIMEOUT, system=lambda: "Darwin")
+
+    assert card.ok is False
+    assert card.error == "Claude Code Keychain item not found."
+    assert http.calls == []
+
+
+def test_read_claude_reports_an_invalid_keychain_item():
+    http = FakeHttp(FakeResponse(payload=claude_usage()))
+
+    card = read_claude(lambda: "not json", http, TIMEOUT, system=lambda: "Darwin")
+
+    assert card.ok is False
+    assert card.error == "Claude Code Keychain item is not valid JSON."
+    assert http.calls == []
+
+
+def test_read_claude_is_unavailable_off_macos_without_reading_the_keychain():
+    def keychain():
+        raise AssertionError("the keychain was read off macOS")
+
+    card = read_claude(keychain, FakeHttp(FakeResponse(payload=claude_usage())), TIMEOUT, system=lambda: "Linux")
+
+    assert card.ok is False
+    assert card.error == "Claude Code credentials are only available in the macOS Keychain."
+
+
+def test_read_openrouter_shows_total_used_remaining_and_percent():
+    http = FakeHttp(FakeResponse(payload={"data": {"total_credits": 10.0, "total_usage": 3.5}}))
+
+    card = read_openrouter({"OPENROUTER_API_KEY": OPENROUTER_KEY}, http, TIMEOUT)
+
+    assert card.ok is True
+    assert card.name == "OpenRouter"
+    assert card.source == "OpenRouter credits API"
+    assert values_of(card) == {
+        "Total": "$10.00",
+        "Used": "$3.50",
+        "Remaining": "$6.50",
+        "Usage": "35.0%",
+    }
+    assert card.link == "https://openrouter.ai/credits"
+    assert http.calls == [
+        ("https://openrouter.ai/api/v1/credits", {"Authorization": f"Bearer {OPENROUTER_KEY}"}, TIMEOUT)
+    ]
+    assert OPENROUTER_KEY not in repr(card)
+
+
+def test_read_openrouter_reports_a_missing_key_without_a_request():
+    http = FakeHttp(FakeResponse(payload={"data": {"total_credits": 10.0, "total_usage": 3.5}}))
+
+    card = read_openrouter({}, http, TIMEOUT)
+
+    assert card.ok is False
+    assert card.error == "OPENROUTER_API_KEY is not set in .env."
+    assert http.calls == []
+
+
+def test_read_openrouter_reports_an_http_failure_without_the_key():
+    http = FakeHttp(FakeResponse(status_code=401, payload={}))
+
+    card = read_openrouter({"OPENROUTER_API_KEY": OPENROUTER_KEY}, http, TIMEOUT)
+
+    assert card.ok is False
+    assert card.error == "OpenRouter credits endpoint answered 401."
+    assert OPENROUTER_KEY not in repr(card)
+
+
+def opencode_database(path: Path, rows: list[tuple[float, int, int, int, int]]) -> Path:
+    """A database with the session_v2 columns the OpenCode card sums."""
+    connection = sqlite3.connect(path)
+    connection.execute(
+        "CREATE TABLE session_v2 (cost real NOT NULL, tokens_input integer NOT NULL, "
+        "tokens_output integer NOT NULL, tokens_reasoning integer NOT NULL, time_created integer NOT NULL)"
+    )
+    connection.executemany("INSERT INTO session_v2 VALUES (?, ?, ?, ?, ?)", rows)
+    connection.commit()
+    connection.close()
+    return path
+
+
+def millis_before(days: int) -> int:
+    return int((NOW - timedelta(days=days)).timestamp() * 1000)
+
+
+def test_read_opencode_sums_the_last_thirty_days_of_local_sessions(tmp_path):
+    database = opencode_database(
+        tmp_path / "opencode.db",
+        [
+            (0.25, 1_000, 200, 50, millis_before(1)),
+            (0.5, 2_000, 400, 100, millis_before(29)),
+            (9.0, 9_999, 9_999, 9_999, millis_before(31)),
+        ],
+    )
+
+    card = read_opencode(database, now=NOW)
+
+    assert card.ok is True
+    assert card.name == "OpenCode"
+    assert card.source == "OpenCode local database"
+    assert values_of(card) == {
+        "Cost": "$0.75",
+        "Input tokens": "3.0k",
+        "Output tokens": "600",
+        "Reasoning tokens": "150",
+        "Sessions": "2",
+    }
+    assert card.link == "https://opencode.ai/zen"
+    assert "30 days" in card.note
+    assert "local" in card.note.lower()
+
+
+def test_read_opencode_opens_the_database_read_only_and_writes_nothing(tmp_path):
+    database = opencode_database(tmp_path / "opencode.db", [(0.5, 100, 20, 5, millis_before(1))])
+    before = (database.read_bytes(), database.stat().st_mtime_ns)
+
+    card = read_opencode(database, now=NOW)
+
+    assert card.ok is True
+    assert (database.read_bytes(), database.stat().st_mtime_ns) == before
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["opencode.db"]
+
+
+def test_read_opencode_reports_a_missing_database(tmp_path):
+    card = read_opencode(tmp_path / "absent.db", now=NOW)
+
+    assert card.ok is False
+    assert card.error == f"OpenCode database not found at {tmp_path / 'absent.db'}."
+
+
+def test_read_opencode_reports_an_unrecognised_schema(tmp_path):
+    database = tmp_path / "opencode.db"
+    connection = sqlite3.connect(database)
+    connection.execute("CREATE TABLE session (cost real NOT NULL)")
+    connection.commit()
+    connection.close()
+
+    card = read_opencode(database, now=NOW)
+
+    assert card.ok is False
+    assert card.error == "OpenCode database schema not recognised."
+
+
+def write_manual(path: Path, payload: dict | str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(payload if isinstance(payload, str) else json.dumps(payload))
+    return path
+
+
+def test_read_google_shows_the_manual_balance(tmp_path):
+    path = write_manual(
+        tmp_path / ".local" / "aksa_os.json",
+        {"google_ai_studio": {"balance": 12.34, "currency": "USD", "updated": "2026-10-25"}},
+    )
+
+    card = read_google(path)
+
+    assert card.ok is True
+    assert card.manual is True
+    assert card.unset is False
+    assert card.name == "Google AI Studio"
+    assert card.source == "Manual file .local/aksa_os.json"
+    assert values_of(card) == {"Balance": "$12.34", "Updated": "2026-10-25"}
+    assert card.link == "https://aistudio.google.com/app/billing"
+
+
+def test_read_google_marks_a_missing_manual_file_as_not_set(tmp_path):
+    card = read_google(tmp_path / "aksa_os.json")
+
+    assert card.ok is True
+    assert card.manual is True
+    assert card.unset is True
+    assert card.values == ()
+    assert "google_ai_studio.balance" in card.note
+
+
+def test_read_google_marks_a_missing_balance_as_not_set(tmp_path):
+    path = write_manual(tmp_path / "aksa_os.json", {"google_ai_studio": {"currency": "USD"}})
+
+    card = read_google(path)
+
+    assert card.ok is True
+    assert card.unset is True
+
+
+def test_read_google_reports_an_invalid_file(tmp_path):
+    path = write_manual(tmp_path / "aksa_os.json", "not json")
+
+    card = read_google(path)
+
+    assert card.ok is False
+    assert card.error == "Local settings file is not valid JSON."
+
+
+def test_read_google_reports_a_balance_that_is_not_a_number(tmp_path):
+    path = write_manual(tmp_path / "aksa_os.json", {"google_ai_studio": {"balance": "twelve"}})
+
+    card = read_google(path)
+
+    assert card.ok is False
+    assert card.error == "Manual Google AI Studio balance is not a number."
+
+
+def test_read_credits_keeps_a_failed_provider_beside_the_others():
+    def card(name: str, *, ok: bool = True, hour: int = 9) -> CreditProvider:
+        return CreditProvider(
+            name=name,
+            ok=ok,
+            source="Fake",
+            read_at=datetime(2026, 10, 25, hour, tzinfo=UTC),
+            error=None if ok else "unavailable",
+        )
+
+    source = read_credits(
+        lambda: card("Claude Code", hour=9),
+        lambda: card("OpenRouter", ok=False, hour=10),
+        lambda: card("OpenCode", hour=11),
+        lambda: card("Google AI Studio", hour=12),
+    )
+
+    assert source.ok is True
+    assert source.source == "Credits"
+    assert source.read_at == datetime(2026, 10, 25, 12, tzinfo=UTC)
+    assert [provider.name for provider in source.value.providers] == [
+        "Claude Code",
+        "OpenRouter",
+        "OpenCode",
+        "Google AI Studio",
+    ]
+    assert source.value.available == 3

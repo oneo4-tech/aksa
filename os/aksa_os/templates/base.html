@@ -19,7 +19,7 @@
         <a class="nav-item{% if page == 'factory' %} active{% endif %}" href="/factory"{% if page == 'factory' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Factory<span class="nav-count">{% if factory is defined and factory.ok %}{{ factory.value.runs|length }}{% else %}--{% endif %}</span></a>
         <a class="nav-item{% if page == 'projects' %} active{% endif %}" href="/projects"{% if page == 'projects' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Projects<span class="nav-count">{% if projects is defined and projects.ok %}{{ projects.value.projects|length }}{% else %}--{% endif %}</span></a>
         <a class="nav-item{% if page == 'knowledge' %} active{% endif %}" href="/knowledge"{% if page == 'knowledge' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Knowledge<span class="nav-count">{% if knowledge is defined and knowledge.ok %}{{ knowledge.value.pages|length }}{% else %}--{% endif %}</span></a>
-        <span class="nav-item pending" aria-disabled="true"><span class="nav-dot"></span>Agents<span class="nav-count">--</span></span>
+        <a class="nav-item{% if page == 'agents' %} active{% endif %}" href="/agents"{% if page == 'agents' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Agents<span class="nav-count">{% if credits is defined and credits.ok %}{{ credits.value.available }}{% else %}--{% endif %}</span></a>
       </nav>
 
       <p class="rail-label">Vitals</p>

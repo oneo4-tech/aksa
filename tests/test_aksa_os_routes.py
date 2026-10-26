@@ -1,10 +1,24 @@
 """Tests for the AKSA OS HTTP routes."""
 
+import json
 from datetime import UTC, date, datetime
 
 import pytest
 from aksa_os.app import Sources, create_app
-from aksa_os.models import FactoryRun, FactoryView, KnowledgePage, KnowledgeView, Project, ProjectsView, Source
+from aksa_os.env import read_env
+from aksa_os.models import (
+    CreditProvider,
+    CreditValue,
+    CreditView,
+    FactoryRun,
+    FactoryView,
+    KnowledgePage,
+    KnowledgeView,
+    Project,
+    ProjectsView,
+    Source,
+)
+from aksa_os.sources.credits import read_claude, read_credits, read_google, read_opencode, read_openrouter
 from fastapi.testclient import TestClient
 
 READ_AT = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)
@@ -80,15 +94,74 @@ def knowledge_pages() -> KnowledgeView:
     )
 
 
+def credit_providers() -> CreditView:
+    return CreditView(
+        providers=[
+            CreditProvider.success(
+                "Claude Code",
+                source="macOS Keychain + Anthropic usage API",
+                read_at=READ_AT,
+                values=(CreditValue("Plan", "pro"), CreditValue("5-hour", "72.5%")),
+                link="https://claude.ai/settings/usage",
+                link_label="Claude usage",
+            ),
+            CreditProvider.success(
+                "OpenRouter",
+                source="OpenRouter credits API",
+                read_at=READ_AT,
+                values=(CreditValue("Total", "$10.00"), CreditValue("Remaining", "$6.50")),
+                link="https://openrouter.ai/credits",
+                link_label="OpenRouter credits",
+            ),
+            CreditProvider.success(
+                "OpenCode",
+                source="OpenCode local database",
+                read_at=READ_AT,
+                values=(CreditValue("Cost", "$0.75"), CreditValue("Sessions", "2")),
+                link="https://opencode.ai/zen",
+                link_label="OpenCode Zen",
+                note="Local cost and tokens for the last 30 days.",
+            ),
+            CreditProvider.success(
+                "Google AI Studio",
+                source="Manual file .local/aksa_os.json",
+                read_at=READ_AT,
+                values=(CreditValue("Balance", "$12.34"),),
+                link="https://aistudio.google.com/app/billing",
+                link_label="AI Studio billing",
+                manual=True,
+            ),
+        ]
+    )
+
+
+def credits(overrides: dict[str, CreditProvider] | None = None) -> CreditView:
+    """The four fake providers, with any named provider replaced by the test's own."""
+    replacements = overrides or {}
+    view = credit_providers()
+    return CreditView(providers=[replacements.get(provider.name, provider) for provider in view.providers])
+
+
+def failed_credit(name: str, error: str = "source failed") -> CreditProvider:
+    return CreditProvider.failure(name, error, source="Fake", read_at=READ_AT)
+
+
 def fake_sources(
     factory: Source[FactoryView] | None = None,
     projects_source: Source[ProjectsView] | None = None,
     knowledge_source: Source[KnowledgeView] | None = None,
+    credits_source: Source[CreditView] | None = None,
 ) -> Sources:
     view = factory or Source.success(factory_runs(), source="GitHub", read_at=READ_AT)
     projects_view = projects_source or Source.success(projects(), source="Projects", read_at=READ_AT)
     knowledge_view = knowledge_source or Source.success(knowledge_pages(), source="Knowledge", read_at=READ_AT)
-    return Sources(factory=lambda: view, projects=lambda: projects_view, knowledge=lambda: knowledge_view)
+    credits_view = credits_source or Source.success(credit_providers(), source="Credits", read_at=READ_AT)
+    return Sources(
+        factory=lambda: view,
+        projects=lambda: projects_view,
+        knowledge=lambda: knowledge_view,
+        credits=lambda: credits_view,
+    )
 
 
 def test_overview_answers_with_the_shell():
@@ -274,8 +347,189 @@ def test_screens_that_do_not_show_knowledge_do_not_read_it(path):
         factory=lambda: Source.success(factory_runs(), source="GitHub", read_at=READ_AT),
         projects=lambda: Source.success(projects(), source="Projects", read_at=READ_AT),
         knowledge=unread,
+        credits=lambda: Source.success(credit_providers(), source="Credits", read_at=READ_AT),
     )
 
     response = TestClient(create_app(sources)).get(path)
 
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize("path", ["/factory", "/projects", "/knowledge"])
+def test_screens_that_do_not_show_credits_do_not_read_them(path):
+    def unread() -> Source[CreditView]:
+        raise AssertionError(f"{path} read the credits source")
+
+    sources = Sources(
+        factory=lambda: Source.success(factory_runs(), source="GitHub", read_at=READ_AT),
+        projects=lambda: Source.success(projects(), source="Projects", read_at=READ_AT),
+        knowledge=lambda: Source.success(knowledge_pages(), source="Knowledge", read_at=READ_AT),
+        credits=unread,
+    )
+
+    response = TestClient(create_app(sources)).get(path)
+
+    assert response.status_code == 200
+
+
+def test_agents_screen_shows_all_four_providers():
+    response = TestClient(create_app(fake_sources())).get("/agents")
+
+    assert response.status_code == 200
+    for name in ("Claude Code", "OpenRouter", "OpenCode", "Google AI Studio"):
+        assert name in response.text
+    assert "72.5%" in response.text
+    assert "$6.50" in response.text
+    assert "macOS Keychain + Anthropic usage API" in response.text
+    assert "read 09:00:00" in response.text
+    assert 'href="https://openrouter.ai/credits"' in response.text
+    assert 'href="https://aistudio.google.com/app/billing"' in response.text
+    assert "4/4 available" in response.text
+    assert 'Agents<span class="nav-count">4</span>' in response.text
+
+
+def test_agents_screen_shows_a_failed_provider_without_hiding_the_others():
+    view = credits({"Claude Code": failed_credit("Claude Code", "Claude usage endpoint answered 500.")})
+    client = TestClient(
+        create_app(fake_sources(credits_source=Source.success(view, source="Credits", read_at=READ_AT)))
+    )
+
+    response = client.get("/agents")
+
+    assert response.status_code == 200
+    assert "Claude usage endpoint answered 500." in response.text
+    assert ">unavailable<" in response.text
+    assert "OpenRouter" in response.text
+    assert "$6.50" in response.text
+    assert "3/4 available" in response.text
+
+
+def test_agents_screen_stays_up_when_every_provider_fails():
+    view = CreditView(
+        providers=[
+            failed_credit(name, f"{name} source failed.")
+            for name in ("Claude Code", "OpenRouter", "OpenCode", "Google AI Studio")
+        ]
+    )
+    client = TestClient(
+        create_app(fake_sources(credits_source=Source.success(view, source="Credits", read_at=READ_AT)))
+    )
+
+    response = client.get("/agents")
+
+    assert response.status_code == 200
+    for name in ("Claude Code", "OpenRouter", "OpenCode", "Google AI Studio"):
+        assert name in response.text
+        assert f"{name} source failed." in response.text
+    assert "0/4 available" in response.text
+
+
+def test_agents_screen_marks_the_manual_balance_unset():
+    unset = CreditProvider.success(
+        "Google AI Studio",
+        source="Manual file .local/aksa_os.json",
+        read_at=READ_AT,
+        link="https://aistudio.google.com/app/billing",
+        link_label="AI Studio billing",
+        manual=True,
+        unset=True,
+        note="No balance in .local/aksa_os.json.",
+    )
+    client = TestClient(
+        create_app(
+            fake_sources(
+                credits_source=Source.success(credits({"Google AI Studio": unset}), source="Credits", read_at=READ_AT)
+            )
+        )
+    )
+
+    response = client.get("/agents")
+
+    assert response.status_code == 200
+    assert "Not set" in response.text
+    assert "No balance in .local/aksa_os.json." in response.text
+    assert ">manual<" in response.text
+    assert "3/4 available" in response.text
+
+
+def test_agents_screen_keeps_env_and_keychain_values_out_of_the_page(tmp_path, monkeypatch):
+    claude_token = "sentinel-claude-token-6c1f"
+    openrouter_key = "sentinel-openrouter-key-9a2d"
+    monkeypatch.setenv("OPENROUTER_API_KEY", openrouter_key)
+    env_file = tmp_path / ".env"
+    env_file.write_text(f"OPENROUTER_API_KEY={openrouter_key}\n")
+    manual = tmp_path / "aksa_os.json"
+    manual.write_text(json.dumps({"google_ai_studio": {"balance": 12.34, "currency": "USD"}}))
+    http = StubHttp(
+        {
+            "https://api.anthropic.com/api/oauth/usage": StubResponse(
+                {
+                    "five_hour": {"utilization": 72.5, "resets_at": "2026-10-25T14:00:00+00:00"},
+                    "seven_day": {"utilization": 41.0, "resets_at": "2026-10-31T09:00:00+00:00"},
+                }
+            ),
+            "https://openrouter.ai/api/v1/credits": StubResponse({"data": {"total_credits": 10.0, "total_usage": 3.5}}),
+        }
+    )
+    source = read_credits(
+        lambda: read_claude(
+            lambda: json.dumps({"claudeAiOauth": {"accessToken": claude_token, "subscriptionType": "pro"}}),
+            http,
+            5.0,
+            system=lambda: "Darwin",
+        ),
+        lambda: read_openrouter(read_env(env_file), http, 5.0),
+        lambda: read_opencode(tmp_path / "absent.db"),
+        lambda: read_google(manual),
+    )
+    client = TestClient(create_app(fake_sources(credits_source=source)))
+
+    for path in ("/", "/agents"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert claude_token not in response.text
+        assert openrouter_key not in response.text
+    assert "Claude Code" in response.text
+    assert "$6.50" in response.text
+
+
+def test_overview_shows_the_credits_panel():
+    response = TestClient(create_app(fake_sources())).get("/")
+
+    assert response.status_code == 200
+    assert 'id="credits"' in response.text
+    assert "OpenRouter" in response.text
+    assert "$6.50" in response.text
+    assert 'href="/agents"' in response.text
+
+
+def test_credits_source_failure_leaves_the_page_usable():
+    failed = Source.failure("credits could not be read", source="Credits", read_at=READ_AT)
+    client = TestClient(create_app(fake_sources(credits_source=failed)))
+
+    for path in ("/", "/agents"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert "Credits unavailable" in response.text
+        assert "credits could not be read" in response.text
+
+
+class StubResponse:
+    """One HTTP response for the injected transport."""
+
+    def __init__(self, payload):
+        self.status_code = 200
+        self.payload = payload
+
+    def json(self):
+        return self.payload
+
+
+class StubHttp:
+    """The injected transport, answering by URL."""
+
+    def __init__(self, responses):
+        self.responses = responses
+
+    def __call__(self, url, *, headers, timeout):
+        return self.responses[url]
