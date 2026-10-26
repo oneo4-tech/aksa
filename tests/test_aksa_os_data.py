@@ -1,12 +1,13 @@
-"""Tests for the projects source: one walk of .projects mapped into the page's data."""
+"""Tests for the AKSA OS sources: reads of .projects and .kb mapped into page data."""
 
 import os
 import subprocess
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
 from aksa_os.runner import run_command
+from aksa_os.sources.knowledge import read_knowledge
 from aksa_os.sources.projects import read_projects
 
 TIMEOUT = 5.0
@@ -55,6 +56,33 @@ def write_file(directory: Path, name: str, mtime: float | None = None) -> Path:
     if mtime is not None:
         os.utime(path, (mtime, mtime))
     return path
+
+
+def write_page(
+    kb: Path,
+    area: str,
+    name: str,
+    *,
+    summary: str = "One sentence.",
+    tags: str = "[agents]",
+    updated: str = "2026-10-19",
+    extra: str = "",
+    body: str = "",
+) -> Path:
+    """Write one wiki page with the frontmatter contract and the body given."""
+    path = kb / "wiki" / area / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"---\nsummary: {summary}\ntags: {tags}\nupdated: {updated}\n{extra}---\n{body}")
+    return path
+
+
+def snapshot(root: Path) -> dict[str, tuple[bytes, int]]:
+    """Every file under a tree with its content and change time, to prove a reader wrote nothing."""
+    return {
+        path.relative_to(root).as_posix(): (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
 
 
 def test_read_projects_lists_a_git_project_and_a_pyproject_project(tmp_path):
@@ -264,3 +292,145 @@ def test_read_projects_sorts_by_newest_change_then_name(tmp_path):
     source = read_projects(tmp_path, runner, TIMEOUT)
 
     assert [project.name for project in source.value.projects] == ["b", "c", "a"]
+
+
+def test_read_knowledge_lists_pages_from_two_areas(tmp_path):
+    write_page(
+        tmp_path,
+        "ai",
+        "agentic-design.md",
+        summary="Rule, skill, and agent compared.",
+        updated="2026-10-19",
+        body="# Agentic design\n\n**TL;DR** A rule shapes behaviour.\n",
+    )
+    write_page(
+        tmp_path,
+        "brand",
+        "oneo4-spec.md",
+        summary="oneo4 brand specification.",
+        updated="2026-10-23",
+        body="# OneO4 spec\n",
+    )
+
+    source = read_knowledge(tmp_path)
+
+    assert source.ok is True
+    assert source.source == "Knowledge"
+    assert source.read_at.tzinfo is UTC
+    assert [page.path for page in source.value.pages] == [
+        "wiki/brand/oneo4-spec.md",
+        "wiki/ai/agentic-design.md",
+    ]
+    assert [page.area for page in source.value.pages] == ["brand", "ai"]
+    assert [page.title for page in source.value.pages] == ["OneO4 spec", "Agentic design"]
+    assert [page.summary for page in source.value.pages] == [
+        "oneo4 brand specification.",
+        "Rule, skill, and agent compared.",
+    ]
+    assert [page.updated for page in source.value.pages] == [date(2026, 10, 23), date(2026, 10, 19)]
+
+
+@pytest.mark.parametrize("body", ["**TL;DR** No heading here.\n", "# \n\nNo heading text.\n"])
+def test_read_knowledge_takes_the_title_from_the_file_stem_without_a_heading(tmp_path, body):
+    write_page(tmp_path, "ai", "agentic-design.md", body=body)
+
+    source = read_knowledge(tmp_path)
+
+    [page] = source.value.pages
+    assert page.title == "agentic-design"
+
+
+def test_read_knowledge_ignores_a_heading_inside_a_code_fence(tmp_path):
+    write_page(tmp_path, "ai", "commands.md", body="```sh\n# install\n```\n\n# Real title\n")
+
+    source = read_knowledge(tmp_path)
+
+    [page] = source.value.pages
+    assert page.title == "Real title"
+
+
+def test_read_knowledge_sorts_by_newest_update_then_path(tmp_path):
+    write_page(tmp_path, "zeta", "older.md", updated="2026-10-01")
+    write_page(tmp_path, "beta", "same.md", updated="2026-10-05")
+    write_page(tmp_path, "alpha", "same.md", updated="2026-10-05")
+
+    source = read_knowledge(tmp_path)
+
+    assert [page.path for page in source.value.pages] == [
+        "wiki/alpha/same.md",
+        "wiki/beta/same.md",
+        "wiki/zeta/older.md",
+    ]
+
+
+def test_read_knowledge_counts_inbox_items_excluding_gitkeep(tmp_path):
+    write_page(tmp_path, "ai", "page.md")
+    inbox = tmp_path / "inbox"
+    write_file(inbox, "2026-10-20-one.md")
+    write_file(inbox, "2026-10-21-two.md")
+    write_file(inbox, ".gitkeep")
+    write_file(inbox, "notes.txt")
+
+    source = read_knowledge(tmp_path)
+
+    assert source.value.inbox_count == 2
+
+
+def test_read_knowledge_counts_no_inbox_items_when_the_inbox_is_absent(tmp_path):
+    write_page(tmp_path, "ai", "page.md")
+
+    source = read_knowledge(tmp_path)
+
+    assert source.value.inbox_count == 0
+
+
+def test_read_knowledge_fails_when_the_kb_root_is_missing(tmp_path):
+    source = read_knowledge(tmp_path / "absent")
+
+    assert source.ok is False
+    assert source.value is None
+    assert str(tmp_path / "absent") in source.error
+    assert "link_external.py" in source.error
+
+
+def test_read_knowledge_fails_when_the_wiki_directory_is_missing(tmp_path):
+    source = read_knowledge(tmp_path)
+
+    assert source.ok is False
+    assert str(tmp_path / "wiki") in source.error
+    assert "link_external.py" in source.error
+
+
+def test_read_knowledge_skips_malformed_pages_and_keeps_the_rest(tmp_path):
+    write_page(tmp_path, "ai", "good.md", summary="Good page.")
+    write_page(tmp_path, "ai", "no-summary.md", summary="")
+    write_page(tmp_path, "ai", "bad-yaml.md", tags="[unclosed")
+    (tmp_path / "wiki" / "orphan.md").write_text("---\nsummary: No area.\ntags: [x]\nupdated: 2026-10-19\n---\n")
+
+    source = read_knowledge(tmp_path)
+
+    assert source.ok is True
+    assert [page.path for page in source.value.pages] == ["wiki/ai/good.md"]
+    assert source.value.skipped == 3
+
+
+def test_read_knowledge_skips_a_page_it_cannot_read(tmp_path):
+    write_page(tmp_path, "ai", "good.md")
+    (tmp_path / "wiki" / "ai" / "broken.md").mkdir(parents=True)
+
+    source = read_knowledge(tmp_path)
+
+    assert source.ok is True
+    assert [page.path for page in source.value.pages] == ["wiki/ai/good.md"]
+    assert source.value.skipped == 1
+
+
+def test_read_knowledge_leaves_the_kb_tree_unchanged(tmp_path):
+    write_page(tmp_path, "ai", "agentic-design.md", body="# Agentic design\n")
+    write_file(tmp_path / "inbox", "2026-10-20-one.md")
+    before = snapshot(tmp_path)
+
+    source = read_knowledge(tmp_path)
+
+    assert [page.title for page in source.value.pages] == ["Agentic design"]
+    assert snapshot(tmp_path) == before

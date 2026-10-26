@@ -746,6 +746,107 @@ a {
   border-color: var(--cyan);
 }
 
+/* Knowledge */
+
+.knowledge-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.knowledge-table-head,
+.knowledge-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 110px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 8px;
+  border-bottom: 1px dashed rgba(242, 239, 230, 0.07);
+}
+
+.knowledge-table-head {
+  padding-top: 0;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.knowledge-table-row:hover {
+  background: rgba(0, 229, 255, 0.04);
+}
+
+.knowledge-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.knowledge-title {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-summary {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.knowledge-path {
+  font-size: 11px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-area {
+  justify-self: start;
+  padding: 2px 8px;
+  border: 1px solid var(--edge);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.knowledge-updated {
+  font-size: 11px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.knowledge-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.knowledge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px dashed rgba(242, 239, 230, 0.07);
+  text-decoration: none;
+}
+
+.knowledge-row:last-child {
+  border-bottom: 0;
+}
+
+.knowledge-row:hover {
+  background: rgba(0, 229, 255, 0.04);
+}
+
+.knowledge-row .knowledge-title {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Right rail */
 
 .right {
@@ -855,6 +956,16 @@ a {
   .project-table-row > :nth-child(3),
   .project-table-head span:nth-child(5),
   .project-table-row > :nth-child(5) {
+    display: none;
+  }
+
+  .knowledge-table-head,
+  .knowledge-table-row {
+    grid-template-columns: minmax(0, 1fr) 96px;
+  }
+
+  .knowledge-table-head span:nth-child(2),
+  .knowledge-table-row > :nth-child(2) {
     display: none;
   }
 }

@@ -9,10 +9,11 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from aksa_os.models import FactoryView, ProjectsView, Source
+from aksa_os.models import FactoryView, KnowledgeView, ProjectsView, Source
 from aksa_os.runner import run_command
 from aksa_os.settings import Settings
 from aksa_os.sources.factory import read_factory
+from aksa_os.sources.knowledge import read_knowledge
 from aksa_os.sources.projects import read_projects
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -25,6 +26,7 @@ class Sources:
 
     factory: Callable[[], Source[FactoryView]]
     projects: Callable[[], Source[ProjectsView]]
+    knowledge: Callable[[], Source[KnowledgeView]]
 
 
 def default_sources(settings: Settings | None = None) -> Sources:
@@ -33,6 +35,7 @@ def default_sources(settings: Settings | None = None) -> Sources:
     return Sources(
         factory=lambda: read_factory(run_command, settings.repo_root, settings.timeout),
         projects=lambda: read_projects(settings.projects, run_command, settings.timeout),
+        knowledge=lambda: read_knowledge(settings.kb),
     )
 
 
@@ -45,7 +48,14 @@ def create_app(sources: Sources | None = None) -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     def overview(request: Request) -> HTMLResponse:
         return TEMPLATES.TemplateResponse(
-            request, "index.html", {"page": "overview", "factory": sources.factory(), "projects": sources.projects()}
+            request,
+            "index.html",
+            {
+                "page": "overview",
+                "factory": sources.factory(),
+                "projects": sources.projects(),
+                "knowledge": sources.knowledge(),
+            },
         )
 
     @app.get("/factory", response_class=HTMLResponse)
@@ -56,6 +66,12 @@ def create_app(sources: Sources | None = None) -> FastAPI:
     def projects_screen(request: Request) -> HTMLResponse:
         return TEMPLATES.TemplateResponse(
             request, "projects.html", {"page": "projects", "projects": sources.projects()}
+        )
+
+    @app.get("/knowledge", response_class=HTMLResponse)
+    def knowledge_screen(request: Request) -> HTMLResponse:
+        return TEMPLATES.TemplateResponse(
+            request, "knowledge.html", {"page": "knowledge", "knowledge": sources.knowledge()}
         )
 
     return app

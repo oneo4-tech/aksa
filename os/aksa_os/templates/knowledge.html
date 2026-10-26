@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block subtitle %}knowledge base{% endblock %}
+
+{% block main %}
+{% if not knowledge.ok %}
+<section class="panel" id="knowledge">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Knowledge</span>
+      <h2>Wiki pages</h2>
+    </div>
+    <span class="panel-meta mono">unavailable</span>
+  </div>
+  <p class="empty error">Knowledge unavailable: {{ knowledge.error }}</p>
+</section>
+{% elif not knowledge.value.pages %}
+<section class="panel" id="knowledge">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Knowledge</span>
+      <h2>Wiki pages</h2>
+    </div>
+    <span class="panel-meta mono">0 pages</span>
+  </div>
+  <p class="empty">No wiki pages under .kb/wiki.</p>
+</section>
+{% else %}
+<section class="panel" id="recent">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Recent</span>
+      <h2>Most recently changed</h2>
+    </div>
+    <span class="panel-meta mono">{{ knowledge.value.pages[:5]|length }} of {{ knowledge.value.pages|length }}</span>
+  </div>
+  <div class="knowledge-list">
+    {% for page in knowledge.value.pages[:5] %}
+    <div class="knowledge-row">
+      <span class="knowledge-title">{{ page.title }}</span>
+      <span class="knowledge-area mono">{{ page.area }}</span>
+      <span class="knowledge-updated mono">{{ page.updated.strftime('%d %b %Y') }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel" id="knowledge">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Knowledge</span>
+      <h2>Wiki pages</h2>
+    </div>
+    <span class="panel-meta mono">{{ knowledge.value.pages|length }} pages{% if knowledge.value.skipped %} &middot; {{ knowledge.value.skipped }} skipped{% endif %}</span>
+  </div>
+  <div class="knowledge-table">
+    <div class="knowledge-table-head">
+      <span>Page</span>
+      <span>Area</span>
+      <span>Updated</span>
+    </div>
+    {% for page in knowledge.value.pages %}
+    <article class="knowledge-table-row">
+      <span class="knowledge-cell">
+        <span class="knowledge-title">{{ page.title }}</span>
+        <span class="knowledge-summary">{{ page.summary }}</span>
+        <span class="knowledge-path mono">{{ page.path }}</span>
+      </span>
+      <span class="knowledge-area mono">{{ page.area }}</span>
+      <span class="knowledge-updated mono">{{ page.updated.strftime('%d %b %Y') }}</span>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block right %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Source</span>
+      <h2>Knowledge Base</h2>
+    </div>
+    <span class="panel-meta mono">{{ knowledge.read_at.strftime('%H:%M:%S') if knowledge.read_at else '--' }}</span>
+  </div>
+  <dl class="vitals">
+    <div><dt>Reader</dt><dd class="mono">{{ knowledge.source or '--' }}</dd></div>
+    <div><dt>Pages</dt><dd class="mono">{{ knowledge.value.pages|length if knowledge.ok else '--' }}</dd></div>
+    <div><dt>Inbox</dt><dd class="mono">{% if knowledge.ok %}{{ knowledge.value.inbox_count }} waiting{% else %}--{% endif %}</dd></div>
+    <div><dt>Skipped</dt><dd class="mono">{{ knowledge.value.skipped if knowledge.ok else '--' }}</dd></div>
+  </dl>
+  {% if not knowledge.ok %}<p class="empty error">{{ knowledge.error }}</p>{% endif %}
+</section>
+{% endblock %}

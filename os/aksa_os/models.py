@@ -1,7 +1,7 @@
 """The typed values AKSA OS reads and renders."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Self
 
 
@@ -69,3 +69,23 @@ class ProjectsView:
     """Every project under .projects, most recently changed first."""
 
     projects: list[Project]
+
+
+@dataclass(frozen=True)
+class KnowledgePage:
+    """One wiki page as the knowledge screen shows it."""
+
+    title: str
+    area: str
+    path: str
+    summary: str
+    updated: date
+
+
+@dataclass(frozen=True)
+class KnowledgeView:
+    """Every wiki page, most recently changed first, and how many items wait in the inbox."""
+
+    pages: list[KnowledgePage]
+    inbox_count: int
+    skipped: int = 0
