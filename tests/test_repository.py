@@ -174,6 +174,16 @@ def test_decision_areas_are_listed():
     assert used <= allowed, f"unlisted areas: {used - allowed}"
 
 
+SCAFFOLD_SKILL = ROOT / "agentic" / "skills" / "testing" / "scaffold-test-framework"
+
+
+def test_scaffold_keeps_page_objects_in_the_ui_suite_folder():
+    """One home, `tests/ui/pages/`, the folder the UI suite imports `pages.*` from (D-042)."""
+    text = "\n".join(path.read_text() for path in sorted(SCAFFOLD_SKILL.rglob("*.md")))
+    assert "tests/ui/pages/README.md" in text, "the scaffold writes the page-object README with the UI suite"
+    assert "tests/pages/" not in text, "a second page-object home is not importable from tests/ui"
+
+
 SKILLS_PAGE = ROOT / "docs" / "skills.md"
 
 
