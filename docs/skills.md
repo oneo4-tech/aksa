@@ -83,6 +83,9 @@ Software-testing workflows for a freelance engagement's deliverables.
 | `scaffold-test-framework` | Per-engagement environment, conftest, and page folder |
 | `write-api-tests` | Python `pytest` API tests |
 | `write-ui-tests` | Playwright for Python UI tests |
+| `write-contract-tests` | `jsonschema` checks derived from the OpenAPI `api_spec` |
+| `write-performance-tests` | Locust scenarios from the targets and cases |
+| `test-mobile-app` | Playwright mobile web tests for the brief's devices |
 | `write-bug-report` | One report per defect from evidence |
 | `summarise-test-execution` | Summary of execution evidence |
 
