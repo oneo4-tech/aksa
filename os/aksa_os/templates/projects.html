@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block subtitle %}projects{% endblock %}
+
+{% block main %}
+<section class="panel" id="projects">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Workspace</span>
+      <h2>Projects</h2>
+    </div>
+    <span class="panel-meta mono">
+      {% if projects.ok %}{{ projects.value.projects|length }} tracked{% else %}unavailable{% endif %}
+    </span>
+  </div>
+  {% if not projects.ok %}
+  <p class="empty error">Projects unavailable: {{ projects.error }}</p>
+  {% elif projects.value.projects %}
+  <div class="project-table">
+    <div class="project-table-head">
+      <span>Project</span>
+      <span>Files</span>
+      <span>Last change</span>
+      <span>Branch</span>
+      <span>Dirty</span>
+    </div>
+    {% for project in projects.value.projects %}
+    <div class="project-table-row">
+      <span class="project-cell">
+        <span class="project-name">{{ project.name }}</span>
+        <span class="project-path mono">{{ project.path }}</span>
+      </span>
+      <span class="mono">{{ project.file_count }}</span>
+      <span class="mono">{{ project.last_change.strftime('%d %b %H:%M') if project.last_change else '--' }}</span>
+      <span class="mono">{% if project.is_repo %}{{ project.branch or 'unknown' }}{% else %}not a repository{% endif %}</span>
+      <span class="mono">{% if project.is_repo %}{{ project.dirty if project.dirty is not none else '--' }}{% else %}--{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">No projects under .projects.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block right %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Source</span>
+      <h2>Filesystem</h2>
+    </div>
+    <span class="panel-meta mono">{{ projects.read_at.strftime('%H:%M:%S') if projects.read_at else '--' }}</span>
+  </div>
+  <dl class="vitals">
+    <div><dt>Reader</dt><dd class="mono">{{ projects.source or '--' }}</dd></div>
+    <div><dt>Projects</dt><dd class="mono">{{ projects.value.projects|length if projects.ok else '--' }}</dd></div>
+    <div><dt>Repositories</dt><dd class="mono">{{ projects.value.projects|selectattr('is_repo')|list|length if projects.ok else '--' }}</dd></div>
+  </dl>
+  {% if not projects.ok %}<p class="empty error">{{ projects.error }}</p>{% endif %}
+</section>
+{% endblock %}

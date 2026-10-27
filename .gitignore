@@ -23,6 +23,9 @@
 # Local scratch files
 .temp/
 
+# AKSA OS local state: manual credit balances, never committed
+.local/
+
 # Python bytecode and tool caches
 __pycache__/
 .pytest_cache/

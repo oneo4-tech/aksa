@@ -1,0 +1,31 @@
+<section class="panel" id="projects">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Workspace</span>
+      <h2>Projects</h2>
+    </div>
+    <span class="panel-meta mono">
+      {% if projects.ok %}{{ projects.value.projects|length }} tracked{% else %}unavailable{% endif %}
+    </span>
+  </div>
+  {% if not projects.ok %}
+  <p class="empty error">Projects unavailable: {{ projects.error }}</p>
+  {% elif projects.value.projects %}
+  <div class="project-list">
+    {% for project in projects.value.projects[:5] %}
+    <a class="project-row" href="/projects">
+      <span class="project-name">{{ project.name }}</span>
+      <span class="project-meta mono">{{ project.file_count }} files</span>
+      {% if project.is_repo %}
+      <span class="project-branch mono">{{ project.branch or 'unknown' }}{% if project.dirty %} &middot; {{ project.dirty }} dirty{% endif %}</span>
+      {% else %}
+      <span class="project-flag">not a repo</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  <a class="panel-link" href="/projects">All projects</a>
+  {% else %}
+  <p class="empty">No projects under .projects.</p>
+  {% endif %}
+</section>

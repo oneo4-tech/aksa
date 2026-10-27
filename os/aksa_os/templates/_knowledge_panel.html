@@ -1,0 +1,27 @@
+<section class="panel" id="knowledge">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Knowledge</span>
+      <h2>Recent pages</h2>
+    </div>
+    <span class="panel-meta mono">
+      {% if knowledge.ok %}{{ knowledge.value.inbox_count }} in inbox{% else %}unavailable{% endif %}
+    </span>
+  </div>
+  {% if not knowledge.ok %}
+  <p class="empty error">Knowledge unavailable: {{ knowledge.error }}</p>
+  {% elif knowledge.value.pages %}
+  <div class="knowledge-list">
+    {% for page in knowledge.value.pages[:5] %}
+    <a class="knowledge-row" href="/knowledge">
+      <span class="knowledge-title">{{ page.title }}</span>
+      <span class="knowledge-area mono">{{ page.area }}</span>
+      <span class="knowledge-updated mono">{{ page.updated.strftime('%d %b') }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  <a class="panel-link" href="/knowledge">All pages</a>
+  {% else %}
+  <p class="empty">No wiki pages under .kb/wiki.</p>
+  {% endif %}
+</section>

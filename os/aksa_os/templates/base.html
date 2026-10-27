@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AKSA OS</title>
+  <link rel="stylesheet" href="/static/aksa_os.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand">
+        <span class="brand-mark">&lt;oneo4/&gt;</span><span class="brand-name">aksa</span>
+      </div>
+
+      <p class="rail-label">Command</p>
+      <nav class="nav" aria-label="Screens">
+        <a class="nav-item{% if page == 'overview' %} active{% endif %}" href="/"{% if page == 'overview' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Overview</a>
+        <a class="nav-item{% if page == 'factory' %} active{% endif %}" href="/factory"{% if page == 'factory' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Factory<span class="nav-count">{% if factory is defined and factory.ok %}{{ factory.value.runs|length }}{% else %}--{% endif %}</span></a>
+        <a class="nav-item{% if page == 'projects' %} active{% endif %}" href="/projects"{% if page == 'projects' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Projects<span class="nav-count">{% if projects is defined and projects.ok %}{{ projects.value.projects|length }}{% else %}--{% endif %}</span></a>
+        <a class="nav-item{% if page == 'knowledge' %} active{% endif %}" href="/knowledge"{% if page == 'knowledge' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Knowledge<span class="nav-count">{% if knowledge is defined and knowledge.ok %}{{ knowledge.value.pages|length }}{% else %}--{% endif %}</span></a>
+        <a class="nav-item{% if page == 'agents' %} active{% endif %}" href="/agents"{% if page == 'agents' %} aria-current="page"{% endif %}><span class="nav-dot"></span>Agents<span class="nav-count">{% if credits is defined and credits.ok %}{{ credits.value.available }}{% else %}--{% endif %}</span></a>
+      </nav>
+
+      <p class="rail-label">Vitals</p>
+      <dl class="vitals">
+        {% if system is defined and system.ok %}
+        <div><dt>Branch</dt><dd class="mono">{{ system.value.branch }}</dd></div>
+        <div><dt>Worktrees</dt><dd class="mono">{{ system.value.worktrees }}</dd></div>
+        <div><dt>Python</dt><dd class="mono">{{ system.value.python }}</dd></div>
+        {% else %}
+        <div><dt>Branch</dt><dd class="mono">--</dd></div>
+        <div><dt>Worktrees</dt><dd class="mono">--</dd></div>
+        <div><dt>Python</dt><dd class="mono">--</dd></div>
+        {% endif %}
+        <div><dt>Read at</dt><dd class="mono">{{ read_at.strftime('%H:%M:%S') if read_at else '--' }}</dd></div>
+      </dl>
+
+      <p class="rail-foot"><span class="pulse"></span>localhost &middot; no auth</p>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <span class="eyebrow">AKSA OS</span>
+          <span class="topbar-sub">{% block subtitle %}operating picture{% endblock %}</span>
+        </div>
+        <div class="topbar-right">
+          <span class="status-pill {{ status }}"><span class="pulse"></span>{{ status }}</span>
+          <span class="read-at mono">read {{ read_at.strftime('%H:%M:%S') if read_at else '--' }}</span>
+          <span class="clock mono" id="clock">--:--:--</span>
+          <a class="refresh" href="{{ request.url.path }}">Refresh</a>
+        </div>
+      </header>
+
+      {% block main %}{% endblock %}
+    </main>
+
+    <aside class="right">
+      {% block right %}{% endblock %}
+    </aside>
+  </div>
+
+  <footer class="ticker">
+    <span class="ticker-item"><span class="pulse"></span>AKSA OS</span>
+    <span class="ticker-item">read-only</span>
+    <span class="ticker-item">localhost &middot; no auth</span>
+    <span class="ticker-spacer"></span>
+    <span class="ticker-item mono" id="ticker-clock">--</span>
+  </footer>
+
+  <script src="/static/clock.js"></script>
+</body>
+</html>

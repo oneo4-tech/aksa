@@ -1,0 +1,29 @@
+<section class="panel" id="factory">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Factory</span>
+      <h2>Open runs</h2>
+    </div>
+    <span class="panel-meta mono">
+      {% if factory.ok %}{{ factory.value.runs|length }} tracked{% else %}unavailable{% endif %}
+    </span>
+  </div>
+  {% if not factory.ok %}
+  <p class="empty error">Factory unavailable: {{ factory.error }}</p>
+  {% elif factory.value.runs %}
+  <div class="run-list">
+    {% for run in factory.value.runs %}
+    <a class="run" href="{{ run.url }}" target="_blank" rel="noreferrer">
+      <span class="run-number mono">#{{ run.number }}</span>
+      <span class="run-title">{{ run.title }}</span>
+      <span class="stage stage-{{ run.stage }}">{{ run.stage }}</span>
+      {% if run.needs_owner %}<span class="flag warn">needs you</span>{% endif %}
+      {% if run.claimed %}<span class="flag">claimed</span>{% endif %}
+      <span class="run-updated mono">{{ run.updated_at.strftime('%d %b %H:%M') }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">No open factory runs.</p>
+  {% endif %}
+</section>

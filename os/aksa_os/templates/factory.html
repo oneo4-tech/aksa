@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block subtitle %}factory queue{% endblock %}
+
+{% block main %}
+{% include "_factory_panel.html" %}
+{% endblock %}
+
+{% block right %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">Source</span>
+      <h2>GitHub</h2>
+    </div>
+    <span class="panel-meta mono">{{ factory.read_at.strftime('%H:%M:%S') if factory.read_at else '--' }}</span>
+  </div>
+  <dl class="vitals">
+    <div><dt>Reader</dt><dd class="mono">{{ factory.source or '--' }}</dd></div>
+    <div><dt>Open runs</dt><dd class="mono">{{ factory.value.runs|length if factory.ok else '--' }}</dd></div>
+    <div><dt>Needs owner</dt><dd class="mono">{{ factory.value.waiting if factory.ok else '--' }}</dd></div>
+  </dl>
+  {% if not factory.ok %}<p class="empty error">{{ factory.error }}</p>{% endif %}
+</section>
+{% endblock %}
