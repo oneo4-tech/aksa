@@ -17,6 +17,7 @@ from aksa_os.models import (
     Project,
     ProjectsView,
     Source,
+    SystemView,
 )
 from aksa_os.sources.credits import read_claude, read_credits, read_google, read_opencode, read_openrouter
 from fastapi.testclient import TestClient
@@ -146,22 +147,51 @@ def failed_credit(name: str, error: str = "source failed") -> CreditProvider:
     return CreditProvider.failure(name, error, source="Fake", read_at=READ_AT)
 
 
+def system_view() -> SystemView:
+    return SystemView(branch="feat/37-t6-overview-aggregation", worktrees=3, python="3.13")
+
+
 def fake_sources(
     factory: Source[FactoryView] | None = None,
     projects_source: Source[ProjectsView] | None = None,
     knowledge_source: Source[KnowledgeView] | None = None,
     credits_source: Source[CreditView] | None = None,
+    system_source: Source[SystemView] | None = None,
 ) -> Sources:
     view = factory or Source.success(factory_runs(), source="GitHub", read_at=READ_AT)
     projects_view = projects_source or Source.success(projects(), source="Projects", read_at=READ_AT)
     knowledge_view = knowledge_source or Source.success(knowledge_pages(), source="Knowledge", read_at=READ_AT)
     credits_view = credits_source or Source.success(credit_providers(), source="Credits", read_at=READ_AT)
+    system = system_source or Source.success(system_view(), source="System", read_at=READ_AT)
     return Sources(
         factory=lambda: view,
         projects=lambda: projects_view,
         knowledge=lambda: knowledge_view,
         credits=lambda: credits_view,
+        system=lambda: system,
     )
+
+
+def stat(text: str, label: str) -> str:
+    """One overview stat tile, from its label to the end of its article."""
+    return text.split(f'<span class="stat-label">{label}</span>')[1].split("</article>")[0]
+
+
+def vitals(text: str) -> str:
+    """The shell vitals block."""
+    return text.split('<dl class="vitals">')[1].split("</dl>")[0]
+
+
+class CountingSource:
+    """A fake source that records how often a page reads it."""
+
+    def __init__(self, source: Source):
+        self.source = source
+        self.calls = 0
+
+    def __call__(self):
+        self.calls += 1
+        return self.source
 
 
 def test_overview_answers_with_the_shell():
@@ -169,6 +199,240 @@ def test_overview_answers_with_the_shell():
     response = client.get("/")
     assert response.status_code == 200
     assert "AKSA OS" in response.text
+
+
+def test_overview_fills_the_stat_tiles_from_the_four_sources():
+    response = TestClient(create_app(fake_sources())).get("/")
+
+    assert response.status_code == 200
+    open_runs = stat(response.text, "Open runs")
+    assert '<strong class="stat-value mono">2</strong>' in open_runs
+    assert "1 needs you" in open_runs
+    projects_tile = stat(response.text, "Projects")
+    assert '<strong class="stat-value mono">2</strong>' in projects_tile
+    assert "1 repository" in projects_tile
+    knowledge_tile = stat(response.text, "KB pages")
+    assert '<strong class="stat-value mono">2</strong>' in knowledge_tile
+    assert "3 in inbox" in knowledge_tile
+    credits_tile = stat(response.text, "Credit sources")
+    assert '<strong class="stat-value mono">4<span class="stat-of">/4</span></strong>' in credits_tile
+    assert "4/4 available" in credits_tile
+
+
+def test_overview_says_all_clear_when_no_run_needs_the_owner():
+    runs = FactoryView(
+        [
+            FactoryRun(
+                number=12,
+                title="chore(docs): older run",
+                stage="plan",
+                needs_owner=False,
+                claimed=False,
+                url="https://github.com/oneo4-tech/aksa/issues/12",
+                updated_at=READ_AT,
+            )
+        ]
+    )
+    sources = fake_sources(factory=Source.success(runs, source="GitHub", read_at=READ_AT))
+
+    response = TestClient(create_app(sources)).get("/")
+
+    assert "all clear" in stat(response.text, "Open runs")
+
+
+@pytest.mark.parametrize(
+    ("parameter", "label", "failure"),
+    [
+        ("factory", "Open runs", Source.failure("factory down", source="GitHub", read_at=READ_AT)),
+        ("projects_source", "Projects", Source.failure("projects down", source="Projects", read_at=READ_AT)),
+        ("knowledge_source", "KB pages", Source.failure("wiki down", source="Knowledge", read_at=READ_AT)),
+        ("credits_source", "Credit sources", Source.failure("credits down", source="Credits", read_at=READ_AT)),
+    ],
+)
+def test_overview_shows_a_failed_source_as_unavailable(parameter, label, failure):
+    response = TestClient(create_app(fake_sources(**{parameter: failure}))).get("/")
+
+    assert response.status_code == 200
+    tile = stat(response.text, label)
+    assert '<strong class="stat-value mono">--</strong>' in tile
+    assert "unavailable" in tile
+    assert failure.error in response.text
+
+
+def test_overview_reports_online_when_every_source_answers():
+    response = TestClient(create_app(fake_sources())).get("/")
+
+    assert 'class="status-pill online"' in response.text
+    assert '<span class="core-state">ONLINE</span>' in response.text
+    assert '<span class="core-sub">4/4 sources</span>' in response.text
+
+
+def test_overview_reports_degraded_when_some_sources_fail():
+    failed = Source.failure("gh issue list exited 1", source="GitHub", read_at=READ_AT)
+
+    response = TestClient(create_app(fake_sources(failed))).get("/")
+
+    assert 'class="status-pill degraded"' in response.text
+    assert '<span class="core-state">DEGRADED</span>' in response.text
+    assert '<span class="core-sub">3/4 sources</span>' in response.text
+
+
+def test_overview_reports_offline_when_no_source_answers():
+    failed = Source.failure("source failed", read_at=READ_AT)
+
+    response = TestClient(
+        create_app(
+            fake_sources(
+                factory=failed,
+                projects_source=failed,
+                knowledge_source=failed,
+                credits_source=failed,
+            )
+        )
+    ).get("/")
+
+    assert 'class="status-pill offline"' in response.text
+    assert '<span class="core-state">OFFLINE</span>' in response.text
+    assert '<span class="core-sub">0/4 sources</span>' in response.text
+
+
+def test_overview_hero_line_names_the_read_time():
+    response = TestClient(create_app(fake_sources())).get("/")
+
+    hero = response.text.split('class="hero-line">')[1].split("</p>")[0]
+    assert "09:00:00" in hero
+
+
+def test_shell_vitals_show_the_system_source_and_read_time():
+    response = TestClient(create_app(fake_sources())).get("/")
+
+    block = vitals(response.text)
+    assert '<dt>Branch</dt><dd class="mono">feat/37-t6-overview-aggregation</dd>' in block
+    assert '<dt>Worktrees</dt><dd class="mono">3</dd>' in block
+    assert '<dt>Python</dt><dd class="mono">3.13</dd>' in block
+    assert '<dt>Read at</dt><dd class="mono">09:00:00</dd>' in block
+
+
+def test_shell_vitals_show_dashes_when_the_system_source_fails():
+    failed = Source.failure("git rev-parse exited 128", source="System", read_at=READ_AT)
+
+    response = TestClient(create_app(fake_sources(system_source=failed))).get("/")
+
+    assert response.status_code == 200
+    block = vitals(response.text)
+    assert '<dt>Branch</dt><dd class="mono">--</dd>' in block
+    assert '<dt>Worktrees</dt><dd class="mono">--</dd>' in block
+    assert '<dt>Python</dt><dd class="mono">--</dd>' in block
+    assert '<dt>Read at</dt><dd class="mono">09:00:00</dd>' in block
+
+
+def test_overview_shows_the_latest_source_read_time():
+    def success(view, source, hour):
+        return Source.success(view, source=source, read_at=datetime(2026, 10, 25, hour, tzinfo=UTC))
+
+    sources = Sources(
+        factory=lambda: success(factory_runs(), "GitHub", 9),
+        projects=lambda: success(projects(), "Projects", 10),
+        knowledge=lambda: success(knowledge_pages(), "Knowledge", 11),
+        credits=lambda: success(credit_providers(), "Credits", 12),
+        system=lambda: success(system_view(), "System", 8),
+    )
+
+    response = TestClient(create_app(sources)).get("/")
+
+    assert '<dt>Read at</dt><dd class="mono">12:00:00</dd>' in vitals(response.text)
+
+
+def test_overview_falls_back_to_the_system_read_time():
+    def unread(view, source):
+        return Source.success(view, source=source)
+
+    sources = Sources(
+        factory=lambda: unread(factory_runs(), "GitHub"),
+        projects=lambda: unread(projects(), "Projects"),
+        knowledge=lambda: unread(knowledge_pages(), "Knowledge"),
+        credits=lambda: unread(credit_providers(), "Credits"),
+        system=lambda: Source.success(system_view(), source="System", read_at=READ_AT),
+    )
+
+    response = TestClient(create_app(sources)).get("/")
+
+    assert '<dt>Read at</dt><dd class="mono">09:00:00</dd>' in vitals(response.text)
+
+
+def test_overview_reads_each_source_once():
+    counted = {
+        "factory": CountingSource(Source.success(factory_runs(), source="GitHub", read_at=READ_AT)),
+        "projects": CountingSource(Source.success(projects(), source="Projects", read_at=READ_AT)),
+        "knowledge": CountingSource(Source.success(knowledge_pages(), source="Knowledge", read_at=READ_AT)),
+        "credits": CountingSource(Source.success(credit_providers(), source="Credits", read_at=READ_AT)),
+        "system": CountingSource(Source.success(system_view(), source="System", read_at=READ_AT)),
+    }
+
+    response = TestClient(create_app(Sources(**counted))).get("/")
+
+    assert response.status_code == 200
+    assert {name: source.calls for name, source in counted.items()} == dict.fromkeys(counted, 1)
+
+
+@pytest.mark.parametrize("path", ["/", "/factory", "/projects", "/knowledge", "/agents"])
+def test_every_screen_reads_the_system_source_once(path):
+    system = CountingSource(Source.success(system_view(), source="System", read_at=READ_AT))
+    sources = Sources(
+        factory=lambda: Source.success(factory_runs(), source="GitHub", read_at=READ_AT),
+        projects=lambda: Source.success(projects(), source="Projects", read_at=READ_AT),
+        knowledge=lambda: Source.success(knowledge_pages(), source="Knowledge", read_at=READ_AT),
+        credits=lambda: Source.success(credit_providers(), source="Credits", read_at=READ_AT),
+        system=system,
+    )
+
+    response = TestClient(create_app(sources)).get(path)
+
+    assert response.status_code == 200
+    assert system.calls == 1
+
+
+def test_refresh_reads_the_sources_again():
+    reads = 0
+
+    def changing_factory() -> Source[FactoryView]:
+        nonlocal reads
+        reads += 1
+        runs = factory_runs().runs[:1] if reads == 1 else factory_runs().runs
+        return Source.success(FactoryView(runs), source="GitHub", read_at=READ_AT)
+
+    sources = Sources(
+        factory=changing_factory,
+        projects=lambda: Source.success(projects(), source="Projects", read_at=READ_AT),
+        knowledge=lambda: Source.success(knowledge_pages(), source="Knowledge", read_at=READ_AT),
+        credits=lambda: Source.success(credit_providers(), source="Credits", read_at=READ_AT),
+        system=lambda: Source.success(system_view(), source="System", read_at=READ_AT),
+    )
+    client = TestClient(create_app(sources))
+
+    first = client.get("/")
+    second = client.get("/")
+
+    assert reads == 2
+    assert '<strong class="stat-value mono">1</strong>' in stat(first.text, "Open runs")
+    assert "chore(docs): older run" not in first.text
+    assert '<strong class="stat-value mono">2</strong>' in stat(second.text, "Open runs")
+    assert "chore(docs): older run" in second.text
+
+
+def test_html_responses_are_not_cached():
+    client = TestClient(create_app(fake_sources()))
+
+    for path in ("/", "/factory", "/projects", "/knowledge", "/agents"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store"
+
+
+def test_the_stylesheet_is_not_marked_no_store():
+    response = TestClient(create_app(fake_sources())).get("/static/aksa_os.css")
+
+    assert response.headers.get("cache-control") != "no-store"
 
 
 def test_static_stylesheet_is_served():
@@ -348,6 +612,7 @@ def test_screens_that_do_not_show_knowledge_do_not_read_it(path):
         projects=lambda: Source.success(projects(), source="Projects", read_at=READ_AT),
         knowledge=unread,
         credits=lambda: Source.success(credit_providers(), source="Credits", read_at=READ_AT),
+        system=lambda: Source.success(system_view(), source="System", read_at=READ_AT),
     )
 
     response = TestClient(create_app(sources)).get(path)
@@ -365,6 +630,7 @@ def test_screens_that_do_not_show_credits_do_not_read_them(path):
         projects=lambda: Source.success(projects(), source="Projects", read_at=READ_AT),
         knowledge=lambda: Source.success(knowledge_pages(), source="Knowledge", read_at=READ_AT),
         credits=unread,
+        system=lambda: Source.success(system_view(), source="System", read_at=READ_AT),
     )
 
     response = TestClient(create_app(sources)).get(path)

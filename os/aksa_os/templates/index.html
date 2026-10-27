@@ -9,8 +9,8 @@
       <div class="ring ring-inner"></div>
       <div class="sweep"></div>
       <div class="core-center">
-        <span class="core-state">STANDBY</span>
-        <span class="core-sub">sources pending</span>
+        <span class="core-state">{{ status|upper }}</span>
+        <span class="core-sub">{{ sources_ok }}/{{ sources_total }} sources</span>
       </div>
     </div>
     <div class="core-ticks">
@@ -21,7 +21,7 @@
   <div class="hero-copy">
     <p class="greeting">The cockpit is up.</p>
     <h1>Everything aksa knows, in one picture.</h1>
-    <p class="hero-line">The shell is running on localhost. Each panel fills when its read-only source is connected.</p>
+    <p class="hero-line">{{ sources_ok }} of {{ sources_total }} operating sources read at {{ read_at.strftime('%H:%M:%S') if read_at else '--' }} UTC. Refresh reads again; nothing is cached.</p>
     <div class="hero-actions">
       <a class="button primary" href="https://github.com/oneo4-tech/aksa/issues" target="_blank" rel="noreferrer">Open factory</a>
       <a class="button" href="#credits">Agent credits</a>
@@ -32,23 +32,23 @@
 <section class="stats">
   <article class="stat">
     <span class="stat-label">Open runs</span>
-    <strong class="stat-value mono">--</strong>
-    <span class="stat-note">source pending</span>
+    <strong class="stat-value mono">{% if factory.ok %}{{ factory.value.runs|length }}{% else %}--{% endif %}</strong>
+    <span class="stat-note">{% if factory.ok %}{% set waiting = factory.value.waiting %}{% if waiting %}{{ waiting }} need{{ 's' if waiting == 1 else '' }} you{% else %}all clear{% endif %}{% else %}unavailable{% endif %}</span>
   </article>
   <article class="stat">
     <span class="stat-label">Projects</span>
-    <strong class="stat-value mono">--</strong>
-    <span class="stat-note">source pending</span>
+    <strong class="stat-value mono">{% if projects.ok %}{{ projects.value.projects|length }}{% else %}--{% endif %}</strong>
+    <span class="stat-note">{% if projects.ok %}{% set repos = projects.value.projects|selectattr('is_repo')|list|length %}{{ repos }} repositor{{ 'y' if repos == 1 else 'ies' }}{% else %}unavailable{% endif %}</span>
   </article>
   <article class="stat">
     <span class="stat-label">KB pages</span>
-    <strong class="stat-value mono">--</strong>
-    <span class="stat-note">source pending</span>
+    <strong class="stat-value mono">{% if knowledge.ok %}{{ knowledge.value.pages|length }}{% else %}--{% endif %}</strong>
+    <span class="stat-note">{% if knowledge.ok %}{{ knowledge.value.inbox_count }} in inbox{% else %}unavailable{% endif %}</span>
   </article>
   <article class="stat">
     <span class="stat-label">Credit sources</span>
-    <strong class="stat-value mono">--<span class="stat-of">/4</span></strong>
-    <span class="stat-note">source pending</span>
+    <strong class="stat-value mono">{% if credits.ok %}{{ credits.value.available }}<span class="stat-of">/{{ credits.value.providers|length }}</span>{% else %}--{% endif %}</strong>
+    <span class="stat-note">{% if credits.ok %}{{ credits.value.available }}/{{ credits.value.providers|length }} available{% else %}unavailable{% endif %}</span>
   </article>
 </section>
 

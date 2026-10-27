@@ -1,9 +1,10 @@
-"""Tests for the AKSA OS sources: reads of .projects, .kb, .env, and agent credits mapped into page data."""
+"""Tests for the AKSA OS sources: reads of .projects, .kb, .env, agent credits, and the shell state."""
 
 import json
 import os
 import sqlite3
 import subprocess
+import sys
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from aksa_os.runner import run_command
 from aksa_os.sources.credits import read_claude, read_credits, read_google, read_opencode, read_openrouter
 from aksa_os.sources.knowledge import read_knowledge
 from aksa_os.sources.projects import read_projects
+from aksa_os.sources.system import read_system
 
 TIMEOUT = 5.0
 NOW = datetime(2026, 10, 25, 12, 0, tzinfo=UTC)
@@ -91,6 +93,13 @@ def snapshot(root: Path) -> dict[str, tuple[bytes, int]]:
         for path in sorted(root.rglob("*"))
         if path.is_file()
     }
+
+
+@pytest.fixture
+def clean_git_env(monkeypatch):
+    """Run real git without the repository environment a git hook exports, which would redirect it."""
+    for name in REPOSITORY_ENV:
+        monkeypatch.delenv(name, raising=False)
 
 
 def test_read_projects_lists_a_git_project_and_a_pyproject_project(tmp_path):
@@ -220,9 +229,7 @@ def test_read_projects_reports_a_clean_repository(tmp_path):
     assert found.dirty == 0
 
 
-def test_read_projects_leaves_the_git_index_of_a_real_repository_unchanged(tmp_path, monkeypatch):
-    for name in REPOSITORY_ENV:
-        monkeypatch.delenv(name, raising=False)
+def test_read_projects_leaves_the_git_index_of_a_real_repository_unchanged(tmp_path, clean_git_env):
     project = tmp_path / "repo"
     project.mkdir()
     run_git(project, "init", "-q", "-b", "main", ".")
@@ -442,6 +449,84 @@ def test_read_knowledge_leaves_the_kb_tree_unchanged(tmp_path):
 
     assert [page.title for page in source.value.pages] == ["Agentic design"]
     assert snapshot(tmp_path) == before
+
+
+def python_version() -> str:
+    """The interpreter's major and minor version, as the shell shows it."""
+    return f"{sys.version_info.major}.{sys.version_info.minor}"
+
+
+def make_repository(path: Path, branch: str) -> None:
+    """A repository with one commit on the branch given."""
+    path.mkdir(parents=True)
+    run_git(path, "init", "-q", "-b", branch, ".")
+    (path / "main.py").write_text("content\n")
+    run_git(path, "add", "main.py")
+    run_git(path, "commit", "-qm", "init")
+
+
+def test_read_system_reports_the_branch_worktrees_and_python(tmp_path, clean_git_env):
+    repository = tmp_path / "aksa"
+    make_repository(repository, "feat/overview")
+    (repository / ".worktrees" / "feat-t6").mkdir(parents=True)
+    (repository / ".worktrees" / "feat-t7").mkdir()
+    (repository / ".worktrees" / ".DS_Store").write_text("not a directory\n")
+
+    source = read_system(repository, run_command, TIMEOUT)
+
+    assert source.ok is True
+    assert source.source == "System"
+    assert source.read_at.tzinfo is UTC
+    assert source.value.branch == "feat/overview"
+    assert source.value.worktrees == 2
+    assert source.value.python == python_version()
+
+
+def test_read_system_counts_no_worktrees_when_the_directory_is_absent(tmp_path, clean_git_env):
+    repository = tmp_path / "aksa"
+    make_repository(repository, "main")
+
+    source = read_system(repository, run_command, TIMEOUT)
+
+    assert source.ok is True
+    assert source.value.worktrees == 0
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        completed("", returncode=128, stderr="fatal: not a git repository"),
+        completed("\n"),
+        subprocess.TimeoutExpired(["git"], TIMEOUT),
+        FileNotFoundError(2, "No such file or directory"),
+    ],
+)
+def test_read_system_reports_an_unknown_branch_when_git_fails(tmp_path, result):
+    (tmp_path / ".worktrees" / "feat-t6").mkdir(parents=True)
+    runner = FakeRunner(result)
+
+    source = read_system(tmp_path, runner, TIMEOUT)
+
+    assert source.ok is True
+    assert source.value.branch == "unknown"
+    assert source.value.worktrees == 1
+    assert source.value.python == python_version()
+    assert runner.calls == [
+        (["git", "--no-optional-locks", "-C", str(tmp_path), "rev-parse", "--abbrev-ref", "HEAD"], tmp_path, TIMEOUT)
+    ]
+
+
+def test_read_system_leaves_the_repository_unchanged(tmp_path, clean_git_env):
+    repository = tmp_path / "aksa"
+    make_repository(repository, "main")
+    (repository / ".worktrees" / "feat-t6").mkdir(parents=True)
+    before = snapshot(repository)
+
+    source = read_system(repository, run_command, TIMEOUT)
+
+    assert source.ok is True
+    assert source.value.branch == "main"
+    assert snapshot(repository) == before
 
 
 def test_read_env_parses_keys_and_skips_comments_and_blanks(tmp_path):

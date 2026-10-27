@@ -92,6 +92,15 @@ class KnowledgeView:
 
 
 @dataclass(frozen=True)
+class SystemView:
+    """The repository state the shell shows: its branch, worktree count, and Python version."""
+
+    branch: str
+    worktrees: int
+    python: str
+
+
+@dataclass(frozen=True)
 class CreditValue:
     """One labelled number on a credit card."""
 

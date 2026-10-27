@@ -279,6 +279,38 @@ a {
   box-shadow: none;
 }
 
+.status-pill.online {
+  color: var(--cyan);
+  border-color: var(--cyan-dim);
+}
+
+.status-pill.degraded {
+  color: var(--text);
+}
+
+.status-pill.degraded .pulse {
+  background: var(--text);
+  box-shadow: 0 0 0 0 rgba(242, 239, 230, 0.4);
+}
+
+.status-pill.offline {
+  color: var(--red);
+  border-color: rgba(204, 0, 0, 0.5);
+}
+
+.status-pill.offline .pulse {
+  background: var(--red);
+  animation: none;
+  box-shadow: none;
+}
+
+.read-at {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
 .clock {
   font-size: 13px;
   color: var(--text);

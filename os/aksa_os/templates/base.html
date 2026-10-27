@@ -24,10 +24,16 @@
 
       <p class="rail-label">Vitals</p>
       <dl class="vitals">
+        {% if system is defined and system.ok %}
+        <div><dt>Branch</dt><dd class="mono">{{ system.value.branch }}</dd></div>
+        <div><dt>Worktrees</dt><dd class="mono">{{ system.value.worktrees }}</dd></div>
+        <div><dt>Python</dt><dd class="mono">{{ system.value.python }}</dd></div>
+        {% else %}
         <div><dt>Branch</dt><dd class="mono">--</dd></div>
         <div><dt>Worktrees</dt><dd class="mono">--</dd></div>
         <div><dt>Python</dt><dd class="mono">--</dd></div>
-        <div><dt>Read at</dt><dd class="mono">--</dd></div>
+        {% endif %}
+        <div><dt>Read at</dt><dd class="mono">{{ read_at.strftime('%H:%M:%S') if read_at else '--' }}</dd></div>
       </dl>
 
       <p class="rail-foot"><span class="pulse"></span>localhost &middot; no auth</p>
@@ -40,7 +46,8 @@
           <span class="topbar-sub">{% block subtitle %}operating picture{% endblock %}</span>
         </div>
         <div class="topbar-right">
-          <span class="status-pill standby"><span class="pulse"></span>standby</span>
+          <span class="status-pill {{ status }}"><span class="pulse"></span>{{ status }}</span>
+          <span class="read-at mono">read {{ read_at.strftime('%H:%M:%S') if read_at else '--' }}</span>
           <span class="clock mono" id="clock">--:--:--</span>
           <a class="refresh" href="{{ request.url.path }}">Refresh</a>
         </div>
