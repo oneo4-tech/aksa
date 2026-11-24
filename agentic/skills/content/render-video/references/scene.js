@@ -78,9 +78,11 @@ function colour(text, parent) {
 
 // A code editor view in panel (a .panel holding a .bar and a .code): view has file, lines, typing (0 shows
 // it whole), rows in view, and focus cues {line, at, top, note?}. At each cue the line's band wipes in, the rest
-// dims, and the view scrolls to cue.top. A cue with a note (a mark) gets a callout chip beside the line, on its
-// row or the nearest row whose code ends before the chip, joined to the line's end by a drawn connector; earlier
-// marks stay, dimmed. A cue without a note gets an arrow pointing at the line's end. The font is fitted to
+// dims, and the view scrolls to cue.top. A cue with a note (a mark) gets a callout chip in free space (no code,
+// earlier chip, or connector under it), on its row or the nearest row above or below, joined by one straight
+// horizontal or vertical connector to an arrowhead on the marked row after its last character; with no free
+// space the chip goes at the view's right and window.layout.problems names the line. Earlier marks stay, dimmed.
+// A cue without a note gets an arrow pointing at the line's end. The font is fitted to
 // the longest line, the arrow, and view.rows lines, at most maxSize design pixels.
 function codeView(panel, view, start, maxSize = 30) {
   const box = panel.querySelector('.code'), bar = panel.querySelector('.bar'), lines = view.lines;
@@ -109,8 +111,42 @@ function codeView(panel, view, start, maxSize = 30) {
     t += share;
     return row;
   });
-  const end = i => inset + (lines[i].length + 5) * ch, svg = svgIn(scroll, 'pointer'), used = new Set();
+  const end = i => inset + (lines[i].length + 5) * ch, svg = svgIn(scroll, 'pointer'), taken = [];
   let last = null, top = 0, marks = [];
+  // Mark placement (scroll pixels): a spot is free when no code character, earlier chip, or earlier connector lies
+  // under the chip or its connector (a 1 px graze aside). A box is {l, t, r, b}; a line's code ends at inset + (length + 4) ch.
+  const gap = 12 * u, wing = 12 * u, chars = i => i < lines.length ? inset + (lines[i].length + 4) * ch : 0;
+  const hits = (p, q) => p.l < q.r && q.l < p.r && p.t < q.b && q.t < p.b;
+  const clear = p => {
+    for (let i = Math.max(Math.floor((p.t + 1) / lh), 0); i * lh < p.b - 1; i++) if (chars(i) + gap > p.l) return false;
+    return !taken.some(q => hits(p, q));
+  };
+  // The chip's top on row r, kept inside the view.
+  const place = (r, cue, h) => Math.min(Math.max(r * lh + (lh - h) / 2, cue.top * lh), (cue.top + shown) * lh - h);
+  // Spots in order: on the marked row after its end, joined by a horizontal connector; else on the nearest row above
+  // or below, its left edge past the line's end where it fits (else shifted left over shorter rows), joined by a
+  // vertical connector landing on the marked row after its end. null when none is free.
+  function markSpot(cue, w, h, far) {
+    const line = cue.line, y = line * lh + lh / 2, x = chars(line) + gap, spots = [];
+    const side = { l: x + 48 * u, t: place(line, cue, h) };
+    if (side.l <= far) spots.push({ from: 'side', box: { ...side, r: side.l + w, b: side.t + h }, tip: { x, y },
+      link: { l: x, t: y - wing, r: side.l, b: y + wing } });
+    for (let d = 1; d < shown; d++) [line - d, line + d].forEach(r => {
+      if (r < cue.top || r >= cue.top + shown) return;
+      const t = place(r, cue, h), l = Math.min(x, far), tx = Math.max(l + 16 * u, x + wing);
+      const from = t + h <= y ? 'above' : 'below', edge = from === 'above' ? t + h : t;
+      if (l < 0 || tx > l + w - 16 * u || Math.abs(edge - y) < 24 * u || (t < (line + 1) * lh && t + h > line * lh)) return;
+      spots.push({ from, box: { l, t, r: l + w, b: t + h }, tip: { x: tx, y },
+        link: { l: tx - wing, t: Math.min(edge, y - wing), r: tx + wing, b: Math.max(edge, y + wing) } });
+    });
+    return spots.find(s => clear(s.box) && clear(s.link)) ?? null;
+  }
+  // No free spot: the chip at the view's right on its row, reported as a layout problem render.py refuses.
+  function fallback(cue, w, h, far) {
+    const y = cue.line * lh + lh / 2, x = chars(cue.line) + gap, t = place(cue.line, cue, h);
+    window.layout.problems.push(`mark on line ${cue.line + 1}: no free space for its note; shorten the line or the note (write-video-script)`);
+    return { from: 'side', box: { l: far, t, r: far + w, b: t + h }, tip: { x, y }, link: { l: x, t: y - wing, r: far, b: y + wing } };
+  }
   view.focus.forEach((cue, k) => {
     rows.forEach((row, i) => {
       const was = last === null || i === last ? 1 : 0.28;
@@ -129,34 +165,24 @@ function codeView(panel, view, start, maxSize = 30) {
       if (next) at(path, [{ opacity: 1 }, { opacity: 0 }], next.at, 0.2, { fill: 'forwards' });
     } else {
       const chip = make('div', 'note', cue.note, scroll);
-      chip.style.fontSize = Math.max(Math.min(24 * u, size * 0.95), 16 * u) + 'px';
+      // One row high (line-height 1.15, 3u padding, 2 px borders) where at least 14u allows.
+      chip.style.fontSize = Math.max(Math.min(24 * u, size * 0.95, (lh - 6 * u - 4) / 1.15), 14 * u) + 'px';
       const w = chip.offsetWidth, h = chip.offsetHeight, far = frame.clientWidth - w - 14 * u;
-      // The chip's top on row r, kept inside the view; it fits at left when no code it spans reaches that edge.
-      const place = r => Math.min(Math.max(r * lh + (lh - h) / 2, cue.top * lh), (cue.top + shown) * lh - h);
-      const fits = (r, left) => {
-        const y = place(r), spans = [];
-        for (let i = Math.floor(y / lh); i * lh < y + h - 1; i++) spans.push(i);
-        return left >= 0 && spans.every(i => i >= lines.length || end(i) + 50 * u <= left);
-      };
-      // Just after the line's end when it fits there, else at the view's right on the nearest row with room.
-      const spots = [{ row: cue.line, left: Math.min(x + 90 * u, far) }];
-      for (let d = 0; d < shown; d++) [cue.line - d, cue.line + d].forEach(r => spots.push({ row: r, left: far }));
-      const spot = spots.find(s => s.row >= cue.top && s.row < Math.min(cue.top + shown, lines.length) &&
-        !used.has(s.row) && fits(s.row, s.left)) ?? { row: cue.line, left: far };
-      const row = spot.row, left = spot.left;
-      used.add(row);
-      const cy = place(row) + h / 2;
-      Object.assign(chip.style, { left: left + 'px', top: place(row) + 'px' });
-      // The connector: straight along the row, an elbow from the chip's left, or down (up) from its edge.
-      const xs = Math.min(Math.max(x + 30 * u, left + 16 * u), left + w - 16 * u), edge = cy > y ? cy - h / 2 : cy + h / 2;
-      const tail = Math.abs(cy - y) < 1 ? `M${left - 8 * u} ${y} H${x + 6 * u}`
-        : left - 8 * u > x + 40 * u ? `M${left - 8 * u} ${cy} L${x + 40 * u} ${y} H${x + 6 * u}`
-        : `M${xs} ${edge} V${y} H${x + 6 * u}`;
-      const link = stroke(svg, `${tail} M${x + 24 * u} ${y - 12 * u} L${x + 6 * u} ${y} L${x + 24 * u} ${y + 12 * u}`,
-        CUES.palette.accent, 4 * u, cue.at + 0.1);
+      const spot = markSpot(cue, w, h, far) ?? fallback(cue, w, h, far), { box: c, tip: { x: tx, y: ty }, from } = spot;
+      Object.assign(chip.style, { left: c.l + 'px', top: c.t + 'px' });
+      taken.push(c, spot.link);
+      // One straight connector from the chip to its arrowhead, on the marked row after the line's last character.
+      const a = 12 * u, b = from === 'above' ? -18 * u : 18 * u;
+      const [d, head] = from === 'side'
+        ? [`M${c.l - 8 * u} ${ty} H${tx}`, `M${tx + 18 * u} ${ty - a} L${tx} ${ty} L${tx + 18 * u} ${ty + a}`]
+        : [`M${tx} ${from === 'above' ? c.b : c.t} V${ty}`, `M${tx - a} ${ty + b} L${tx} ${ty} L${tx + a} ${ty + b}`];
+      const link = stroke(svg, d, CUES.palette.accent, 4 * u, cue.at + 0.1);
+      const arrowhead = stroke(svg, head, CUES.palette.accent, 4 * u, cue.at + 0.1);
+      link.classList.add('link');
+      arrowhead.classList.add('head');
       enter(chip, cue.at + 0.15, 'left');
       marks.forEach(m => dim(m, cue.at, 0.4));
-      marks = [chip, link];
+      marks = [chip, link, arrowhead];
     }
     last = cue.line;
     top = cue.top;
@@ -265,6 +291,9 @@ function frame() {
   at($('stage'), [{ opacity: 0 }, { opacity: 1 }], 0, CUES.fade);
   at($('stage'), [{ opacity: 1 }, { opacity: 0 }], CUES.seconds - CUES.fade, CUES.fade, { fill: 'forwards' });
 }
+
+// Layout problems found while building the scene, each a line render.py reports.
+window.layout = { problems: [] };
 
 window.seek = sec => document.getAnimations().forEach(a => { a.pause(); a.currentTime = sec * S; });
 

@@ -40,8 +40,9 @@ h1 { position: absolute; top: calc(100 * var(--u)); left: var(--pad); right: var
 .ln { color: #4a4a66; display: inline-block; width: 3ch; margin-right: 1ch; text-align: right; }
 .glow { position: absolute; left: 0; right: 0; top: 0; background: color-mix(in srgb, var(--accent) 14%, transparent);
   box-shadow: inset calc(6 * var(--u)) 0 var(--accent); }
-.note { position: absolute; white-space: nowrap; padding: calc(6 * var(--u)) calc(14 * var(--u)); color: var(--fg);
-  font: 600 calc(24 * var(--u)) 'Space Grotesk', sans-serif; background: #07070c; border: 2px solid var(--accent);
+/* A mark's note chip, one code row high where its font allows, so it sits on a row without covering the next. */
+.note { position: absolute; white-space: nowrap; padding: calc(3 * var(--u)) calc(14 * var(--u)); color: var(--fg);
+  font: 600 calc(24 * var(--u)) / 1.15 'Space Grotesk', sans-serif; background: #07070c; border: 2px solid var(--accent);
   border-radius: calc(10 * var(--u)); box-shadow: 0 0 calc(18 * var(--u)) color-mix(in srgb, var(--accent) 30%, transparent); }
 .pointer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
 /* A GitHub card (githubCard in scene.js): repo and kit scenes. */

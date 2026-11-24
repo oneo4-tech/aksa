@@ -324,6 +324,108 @@ def test_mark_notes_sit_beside_their_line_without_covering_code_and_earlier_ones
     assert geometry["notes"][0]["opacity"] < 0.6 and geometry["notes"][1]["opacity"] == 1
 
 
+# Content issue #39 scene 2: its test file and marks (lines 10 and 12), the narration naming "patch" and "wrote".
+CHECKOUT_AI = [
+    "from unittest.mock import Mock, patch",
+    "",
+    "from demo import checkout",
+    "",
+    "CART = [(2499, 2), (4992, 1)]",
+    "",
+    "",
+    "def test_order_total_applies_coupon():",
+    "    tax = Mock(rate=Mock(return_value=0.0))",
+    '    with patch.object(checkout, "apply_coupon", return_value=8991):',
+    '        total = checkout.order_total(CART, "SAVE10", tax)',
+    "    assert total == 8991",
+    "",
+    "",
+    "def test_order_total_returns_cents():",
+    "    tax = Mock(rate=Mock(return_value=0.19))",
+    '    total = checkout.order_total(CART, "SAVE10", tax)',
+    "    assert isinstance(total, int)",
+]
+CHECKOUT_MARKS = [
+    {"line": 10, "note": "fakes apply_coupon itself", "at": "patch"},
+    {"line": 12, "note": "checks the number it wrote in", "at": "wrote"},
+]
+# Each mark's chip, connector, and arrowhead, and each line's code glyphs (its non-blank token spans) and last
+# character's right edge, in page pixels; a stroke's box grows by half its width.
+MARK_PARTS = """() => {
+  const box = r => ({top: r.top, bottom: r.bottom, left: r.left, right: r.right});
+  const drawn = p => { const r = p.getBoundingClientRect(), w = parseFloat(p.style.strokeWidth) / 2;
+    return {top: r.top - w, bottom: r.bottom + w, left: r.left - w, right: r.right + w}; };
+  const straight = p => { const b = p.getBBox(); return Math.min(b.width, b.height) < 0.5
+    && Math.abs(p.getTotalLength() - Math.max(b.width, b.height)) < 0.5; };
+  const view = document.querySelector('.view').getBoundingClientRect();
+  const rows = [...document.querySelectorAll('.line')].map(row => {
+    const glyphs = [...row.children].filter(s => s.textContent.trim()).map(s => box(s.getBoundingClientRect()));
+    return {...box(row.getBoundingClientRect()), end: glyphs[glyphs.length - 1].right,
+            glyphs: glyphs.filter(g => g.bottom > view.top && g.top < view.bottom)};
+  });
+  const heads = [...document.querySelectorAll('.pointer .head')];
+  return {rows, problems: window.layout.problems, marks: [...document.querySelectorAll('.pointer .link')].map((p, i) =>
+    ({chip: box(document.querySelectorAll('.note')[i].getBoundingClientRect()), link: drawn(p), head: drawn(heads[i]),
+      straight: straight(p)}))};
+}"""
+
+
+def overlap(a, b, by=1):
+    """Whether boxes a and b intersect by more than by pixels both ways."""
+    return min(a["right"], b["right"]) - max(a["left"], b["left"]) > by and (
+        min(a["bottom"], b["bottom"]) - max(a["top"], b["top"]) > by
+    )
+
+
+def gap(a, b):
+    """The distance between boxes a and b, 0 when they touch or intersect."""
+    dx = max(a["left"] - b["right"], b["left"] - a["right"], 0)
+    return max(dx, a["top"] - b["bottom"], b["top"] - a["bottom"], 0)
+
+
+def mark_parts(lines, marks, words, kind):
+    cues = render.scene_cues(
+        {"kind": "code", "heading": "Spot it", "code": "tests/x.py", "marks": marks},
+        2,
+        [{"word": "spot", "start": 0.1, "end": 0.3}, *words],
+        4.0,
+        render.SIZES[kind],
+        CONFIG,
+        "\n".join(lines),
+    )
+    return evaluate(cues, cues["seconds"] - render.FADE - 0.05, MARK_PARTS, kind)
+
+
+@pytest.mark.parametrize("kind", ["long-form", "short"])
+def test_mark_connectors_run_straight_from_the_note_to_after_the_line_end_clear_of_code(tools, kind):
+    # Owner, #83 (#39 scene 2 on the Short): the arrow pointed inside the code, so its head and note covered code.
+    words = [{"word": "patch", "start": 0.5, "end": 0.8}, {"word": "wrote", "start": 1.6, "end": 1.9}]
+    parts = mark_parts(CHECKOUT_AI, CHECKOUT_MARKS, words, kind)
+    rows, marks = parts["rows"], parts["marks"]
+    assert parts["problems"] == [] and len(marks) == 2
+    u = min(render.SIZES[kind]) / 1080
+    for mark, spec in zip(marks, CHECKOUT_MARKS):
+        row, link, head = rows[spec["line"] - 1], mark["link"], mark["head"]
+        assert mark["straight"], mark  # one horizontal or vertical segment
+        assert gap(link, mark["chip"]) <= 10 * u and gap(link, head) <= 1, mark  # from the note to the arrowhead
+        # The arrowhead on the marked row, after its last character.
+        assert head["left"] >= row["end"] and overlap(head, row), (head, row)
+        for part in ("chip", "link", "head"):
+            covered = [g for r in rows for g in r["glyphs"] if overlap(mark[part], g)]
+            assert not covered, (part, mark[part], covered)
+    first, second = marks
+    assert not any(overlap(first[a], second[b]) for a in first if a != "straight" for b in second if b != "straight")
+
+
+def test_a_mark_with_no_free_space_for_its_note_is_a_layout_problem(tools):
+    lines = [f"value_{i:02d} = compute_the_long_named_thing(argument_one, argument_two)" for i in range(8)]
+    marks = [{"line": 4, "note": "a note far too long for any free space here", "at": "four"}]
+    parts = mark_parts(lines, marks, [{"word": "four", "start": 0.5, "end": 0.8}], "short")
+    assert parts["problems"] == [
+        "mark on line 4: no free space for its note; shorten the line or the note (write-video-script)"
+    ]
+
+
 ENTRANCE = """() => {
   const text = document.querySelector('.point div'), style = getComputedStyle(text), r = text.getBoundingClientRect();
   const shift = style.transform === 'none' ? 0 : new DOMMatrix(style.transform).m41;
