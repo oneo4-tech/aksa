@@ -64,15 +64,29 @@ KIT_FILES = [
 ]
 
 
-# A Short's why-it-matters beat (seventeen words), its drive to the long video (eight words), and its thank-you to the
-# viewer when the kit beat is its last scene (three words).
-WHY_SAY = "So why does it matter? Because a coupon can overcharge customers, and both the tests stay green."
+# A Short's resolution beat (seventeen words), and its closing (twenty-four words): where the links are, the drive to
+# the long video, and the thank-you to the viewer.
+FIX_SAY = "So how do we catch it? Break the code on purpose, and check that one test fails."
+LINKS = "Now the links to the kit and the code are in the description."
 DRIVE = " The full breakdown is in the linked video."
 THANKS = " Thanks for watching."
 
 
-def why(**fields):
-    return scene(heading="Why it matters", visual="Customers pay more\nThe tests stay green", say=WHY_SAY) | fields
+def fix(**fields):
+    """A Short's resolution beat: how to fix or catch the bug."""
+    return scene(heading="Catch it", visual="Break the code\nWatch one test fail", say=FIX_SAY) | fields
+
+
+def close(**fields):
+    """A Short's closing beat: where the links are, the full video, and thanks."""
+    base = {
+        "kind": "title",
+        "heading": "Links and the full video",
+        "visual": "Kit and code links in the description",
+        "say": LINKS + DRIVE + THANKS,
+        "claims": [],
+    }
+    return base | fields
 
 
 def kit(**fields):
@@ -85,7 +99,7 @@ def kit(**fields):
         "files": KIT_FILES,
         "link_at": "code",
         "takeaways": ["Ask what would make the test fail.", "Break the code on purpose."],
-        "say": SAY + DRIVE + THANKS,
+        "say": SAY,
         "claims": [],
     }
     return base | fields
@@ -167,7 +181,8 @@ CTA = cta()
 SHORT_CTA = cta(
     actions=["subscribe"], heading="Subscribe", say="Subscribe for the next challenge. // Thanks for watching."
 )
-WHY = why()
+FIX = fix()
+CLOSE = close()
 SPLIT = split()
 INTRO = intro()
 REPO = repo()
@@ -184,14 +199,14 @@ def long_form(middle, structure="challenge-first", first=None):
 
 
 def script(scenes=None, **fields):
-    """A Short of four scenes, one hundred and three words: about thirty-nine seconds at the channel's pace: the split
-    hook and challenge, a scene, why it matters, and the kit beat driving to the long video and thanking the viewer."""
+    """A Short of five scenes, one hundred and sixteen words: about forty-four seconds at the channel's pace: the
+    problem (the split hook with marks), a scene, the resolution, the kit, and the closing (links, full video, thanks)."""
     base = {
         "title": "Spot the Bug: the test that tests nothing",
         "type": "short",
         "structure": "challenge-first",
         "acronyms": ["AI"],
-        "scenes": scenes if scenes is not None else [split(claims=["C1"]), scene(), WHY, KIT],
+        "scenes": scenes if scenes is not None else [split(claims=["C1"]), scene(), FIX, KIT, CLOSE],
     }
     return base | fields
 
@@ -217,17 +232,17 @@ def test_a_script_under_the_writing_rules_passes_with_its_length_estimate(tmp_pa
     code, out, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
     report = json.loads(out)
-    assert report["words"] == 103 and report["target_seconds"] == [30, 60]
-    assert report["seconds"] == round(103 * 60 / WPM)
+    assert report["words"] == 116 and report["target_seconds"] == [30, 60]
+    assert report["seconds"] == round(116 * 60 / WPM)
 
 
 def test_pauses_and_hesitations_are_not_words_and_sit_inside_the_measured_speed(tmp_path, capsys):
     paused = SAY.replace("Spot the bug.", "Spot the bug. // Look... closely.")
-    files(tmp_path, script([split(say=paused), scene(say=paused), WHY, kit(say=paused + DRIVE + THANKS)]))
+    files(tmp_path, script([split(say=paused), scene(say=paused), FIX, kit(say=paused), CLOSE]))
     code, out, _ = run(tmp_path, capsys)
     report = json.loads(out)
-    assert code == 0 and report["words"] == 3 * 27 + 17 + 8 + 3
-    assert report["seconds"] == round((3 * 27 + 17 + 8 + 3) * 60 / WPM)
+    assert code == 0 and report["words"] == 3 * 27 + 17 + 24
+    assert report["seconds"] == round((3 * 27 + 17 + 24) * 60 / WPM)
 
 
 def test_the_estimate_matches_the_measured_narration_of_content_issue_38():
@@ -259,7 +274,7 @@ TWENTY = "One two three four five six seven eight nine ten eleven twelve thirtee
     ],
 )
 def test_a_scene_breaking_a_writing_rule_is_refused_naming_it(tmp_path, capsys, change, problem):
-    files(tmp_path, script([scene(**change), scene(), WHY, KIT], structure="myth-buster"))
+    files(tmp_path, script([scene(**change), scene(), FIX, KIT, CLOSE], structure="myth-buster"))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert problem in err
@@ -275,14 +290,14 @@ def test_a_scene_breaking_a_writing_rule_is_refused_naming_it(tmp_path, capsys, 
     ],
 )
 def test_one_stressed_word_listed_acronyms_pause_markup_and_real_words_are_allowed(tmp_path, capsys, say):
-    files(tmp_path, script([SPLIT, scene(say=say, visual="The total is 1080 cents", heading="Bug 1"), WHY, KIT]))
+    files(tmp_path, script([SPLIT, scene(say=say, visual="The total is 1080 cents", heading="Bug 1"), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
 
 def test_digits_and_code_stay_allowed_in_a_code_scene(tmp_path, capsys):
     code_scene = {"kind": "code", "heading": "The tests", "code": "demo/test_discount_ai.py", "say": SAY, "claims": []}
-    files(tmp_path, script([SPLIT, code_scene, WHY, KIT]))
+    files(tmp_path, script([SPLIT, code_scene, FIX, KIT, CLOSE]))
     assert run(tmp_path, capsys)[0] == 0
 
 
@@ -348,8 +363,8 @@ def test_an_incident_story_cold_open_showing_what_it_says_passes(tmp_path, capsy
 @pytest.mark.parametrize(
     ("data", "index"),
     [
-        (lambda first: script([first, scene(), WHY, KIT]), 1),
-        (lambda first: script([first, scene(), WHY, KIT], structure="myth-buster"), 1),
+        (lambda first: script([first, scene(), FIX, KIT, CLOSE]), 1),
+        (lambda first: script([first, scene(), FIX, KIT, CLOSE], structure="myth-buster"), 1),
         (lambda first: long_form([], first=first), 2),
     ],
 )
@@ -368,7 +383,7 @@ def test_a_code_challenge_or_short_cold_open_that_is_not_a_split_is_refused(tmp_
     ["patch.object swaps an attribute", "assert result == 90", "apply_discount(100, 10)", "Uses `return_value`"],
 )
 def test_a_points_scene_showing_code_is_refused_pointing_to_marks(tmp_path, capsys, line):
-    files(tmp_path, script([SPLIT, scene(visual="Both tests pass\n" + line), WHY, KIT]))
+    files(tmp_path, script([SPLIT, scene(visual="Both tests pass\n" + line), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert f"scene 2: visual: '{line}' looks like code; show it as a code or split scene with marks" in err
@@ -383,7 +398,7 @@ def test_a_code_scene_with_marks_on_the_lines_it_names_passes(tmp_path, capsys):
         "say": SAY,
         "claims": [],
     }
-    files(tmp_path, script([SPLIT, marked, WHY, KIT]))
+    files(tmp_path, script([SPLIT, marked, FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
@@ -399,7 +414,7 @@ def test_a_code_scene_with_marks_on_the_lines_it_names_passes(tmp_path, capsys):
     ],
 )
 def test_a_cue_word_not_in_the_scene_narration_is_refused(tmp_path, capsys, bad, problem):
-    scenes = [bad, scene(), WHY, KIT] if bad["kind"] == "split" else [SPLIT, scene(), scene(), bad]
+    scenes = [bad, scene(), FIX, KIT, CLOSE] if bad["kind"] == "split" else [SPLIT, scene(), scene(), bad]
     files(tmp_path, script(scenes))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
@@ -411,21 +426,21 @@ def test_a_cue_word_not_in_the_scene_narration_is_refused(tmp_path, capsys, bad,
 
 @pytest.mark.parametrize("heading", ["Tests versus checks", "Mocks vs fakes", "Unit VS. integration"])
 def test_a_comparison_that_is_not_a_compare_scene_is_refused(tmp_path, capsys, heading):
-    files(tmp_path, script([SPLIT, scene(heading=heading, say=heading + ". " + SAY), WHY, KIT]))
+    files(tmp_path, script([SPLIT, scene(heading=heading, say=heading + ". " + SAY), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert f"scene 2: kind: '{heading}' compares two things; make it a compare scene" in err
 
 
 def test_a_compare_scene_with_an_example_each_side_passes(tmp_path, capsys):
-    files(tmp_path, script([SPLIT, compare(), WHY, KIT]))
+    files(tmp_path, script([SPLIT, compare(), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
 
 def test_a_compare_side_without_an_example_is_refused(tmp_path, capsys):
     one_sided = compare(right={"heading": "Bug", "items": ["Hides in the mock"]})
-    files(tmp_path, script([SPLIT, one_sided, WHY, KIT]))
+    files(tmp_path, script([SPLIT, one_sided, FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert "scene 2: right: 1 item; a compare side says what it is and gives at least one example" in err
@@ -435,7 +450,7 @@ def test_a_compare_side_without_an_example_is_refused(tmp_path, capsys):
 
 
 def test_a_heading_term_not_yet_said_is_refused(tmp_path, capsys):
-    files(tmp_path, script([SPLIT, scene(heading="Mutation testing"), WHY, KIT]))
+    files(tmp_path, script([SPLIT, scene(heading="Mutation testing"), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert "scene 2: heading: 'Mutation' is on screen before the narrator says it" in err
@@ -444,7 +459,7 @@ def test_a_heading_term_not_yet_said_is_refused(tmp_path, capsys):
 
 def test_a_heading_term_said_in_its_scene_or_earlier_passes(tmp_path, capsys):
     said = SAY + " Mutation testing breaks the code."
-    scenes = [split(say=said), scene(heading="Mutation testing"), why(heading="Mutations in the tests"), KIT]
+    scenes = [split(say=said), scene(heading="Mutation testing"), fix(heading="Mutations in the tests"), KIT, CLOSE]
     files(tmp_path, script(scenes))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
@@ -454,31 +469,34 @@ def test_a_heading_term_said_in_its_scene_or_earlier_passes(tmp_path, capsys):
 # gate 3 made the kit scene the repo card's GitHub animation, explaining each file and how to use it.
 
 
-@pytest.mark.parametrize(
-    "scenes",
-    [
-        [SPLIT, scene(), scene(), scene()],
-        [SPLIT, scene(), KIT, scene(), scene()],
-    ],
-)
-def test_a_script_without_the_kit_beat_near_its_end_is_refused(tmp_path, capsys, scenes):
-    files(tmp_path, script(scenes))
+def _kit_moved(where):
+    """A long-form with its kit scene replaced (where None) or moved to scenes index where."""
+    data = long_form([])
+    data["scenes"].remove(KIT)
+    data["scenes"].insert(REPO_AT + 1, scene())
+    if where is not None:
+        data["scenes"].insert(where, KIT)
+    return data
+
+
+@pytest.mark.parametrize("where", [None, -4])
+def test_a_long_form_without_the_kit_beat_near_its_end_is_refused(tmp_path, capsys, where):
+    files(tmp_path, _kit_moved(where))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert "kit: no kit scene in the last two; end with the Take it to your agent beat" in err
 
 
-def test_the_kit_beat_may_be_the_one_before_the_bridge(tmp_path, capsys):
-    drive = scene(
-        heading="Watch the full breakdown", say="Next, watch the full breakdown in the linked video. " + SAY + THANKS
-    )
-    files(tmp_path, script([SPLIT, WHY, kit(say=SAY), drive]))
+def test_a_long_form_kit_beat_may_be_the_one_before_the_bridge(tmp_path, capsys):
+    data = long_form([])
+    assert [s["kind"] for s in data["scenes"][-3:]] == ["kit", "points", "cta"]
+    files(tmp_path, data)
     assert run(tmp_path, capsys)[0] == 0
 
 
 @pytest.mark.parametrize("count", [1, 5])
 def test_a_kit_scene_without_two_to_four_takeaways_is_refused(tmp_path, capsys, count):
-    files(tmp_path, script([SPLIT, scene(), WHY, kit(takeaways=[f"Takeaway {i}." for i in range(count)])]))
+    files(tmp_path, script([SPLIT, scene(), FIX, kit(takeaways=[f"Takeaway {i}." for i in range(count)]), CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert f"scene 4: takeaways: {count}; the kit scene shows 2-4 takeaways from the video" in err
@@ -513,7 +531,7 @@ def test_a_kit_file_not_in_the_demo_kit_is_refused(tmp_path, capsys):
 
 def test_a_kit_card_outside_the_demo_kit_folder_is_refused(tmp_path, capsys):
     demo_folder(tmp_path)
-    files(tmp_path, script([SPLIT, scene(), WHY, kit(path="12-mocked-tests")]))
+    files(tmp_path, script([SPLIT, scene(), FIX, kit(path="12-mocked-tests"), CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert f"scene 4: path: the kit card must show the demo's AI kit folder, {DEMO_LINK}/ai-kit" in err
@@ -521,7 +539,7 @@ def test_a_kit_card_outside_the_demo_kit_folder_is_refused(tmp_path, capsys):
 
 def test_a_kit_link_word_defaults_to_description(tmp_path, capsys):
     bare = {k: v for k, v in KIT.items() if k != "link_at"}
-    files(tmp_path, script([SPLIT, scene(), WHY, bare]))
+    files(tmp_path, script([SPLIT, scene(), FIX, bare, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert "scene 4: link_at: 'description' is not a word of say" in err
@@ -529,7 +547,7 @@ def test_a_kit_link_word_defaults_to_description(tmp_path, capsys):
 
 def test_a_kit_file_cue_not_in_say_is_refused(tmp_path, capsys):
     cued = kit(files=[{"path": "AGENTS.md", "use": "Paste into your agents file", "at": "cucumber"}])
-    files(tmp_path, script([SPLIT, scene(), WHY, cued]))
+    files(tmp_path, script([SPLIT, scene(), FIX, cued, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert "scene 4: files: 'cucumber' is not a word of say" in err
@@ -566,7 +584,7 @@ def test_a_kit_file_cue_not_in_say_is_refused(tmp_path, capsys):
     ],
 )
 def test_a_kit_repeating_a_line_shown_earlier_is_refused(tmp_path, capsys, earlier, kit_scene, line):
-    files(tmp_path, script([SPLIT, earlier, scene(), kit_scene]))
+    files(tmp_path, script([SPLIT, earlier, FIX, kit_scene, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert f"scene 4: kit: '{line}' repeats a line shown in scene 2" in err
@@ -628,7 +646,7 @@ def test_a_challenge_first_long_form_whose_second_scene_is_not_the_split_is_refu
 @pytest.mark.parametrize(
     ("data", "problem"),
     [
-        (script([intro(), SPLIT, WHY, KIT]), "scene 1: kind: a Short has no intro; it opens on its split hook"),
+        (script([intro(), SPLIT, FIX, KIT, CLOSE]), "scene 1: kind: a Short has no intro; it opens on its split hook"),
         (long_form([intro()]), "scene 3: kind: an intro is only the first scene of a long-form"),
     ],
 )
@@ -723,7 +741,7 @@ def test_a_repo_card_link_word_not_in_say_is_refused(tmp_path, capsys):
     ],
 )
 def test_a_concept_without_a_reason_first_is_refused(tmp_path, capsys, concept):
-    files(tmp_path, script([SPLIT, concept, WHY, KIT]))
+    files(tmp_path, script([SPLIT, concept, FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert "scene 2: say: a new concept with no reason first; open with why it matters" in err
@@ -739,7 +757,7 @@ def test_a_concept_without_a_reason_first_is_refused(tmp_path, capsys, concept):
     ],
 )
 def test_a_concept_whose_reason_comes_first_passes(tmp_path, capsys, before, concept):
-    files(tmp_path, script([before, concept, WHY, KIT]))
+    files(tmp_path, script([before, concept, FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
@@ -758,7 +776,7 @@ def test_a_concept_whose_reason_comes_first_passes(tmp_path, capsys, before, con
     ],
 )
 def test_a_heading_that_is_not_a_bare_term_needs_no_reason(tmp_path, capsys, plain):
-    files(tmp_path, script([SPLIT, plain, WHY, KIT]))
+    files(tmp_path, script([SPLIT, plain, FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
@@ -855,14 +873,14 @@ def test_a_short_cta_over_four_seconds_is_refused(tmp_path, capsys):
         heading="Subscribe",
         say="Next, subscribe for a brand new spot the bug challenge every single week.",
     )
-    files(tmp_path, script([SPLIT, scene(), WHY, KIT, ending]))
+    files(tmp_path, script([SPLIT, scene(), FIX, KIT, CLOSE, ending]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
-    assert "scene 5: say: the cta takes about 5 s; keep it to about 4 s" in err
+    assert "scene 6: say: the cta takes about 5 s; keep it to about 4 s" in err
 
 
 def test_a_short_may_end_on_a_cta_naming_subscribe(tmp_path, capsys):
-    files(tmp_path, script([SPLIT, scene(), WHY, KIT, SHORT_CTA]))
+    files(tmp_path, script([SPLIT, scene(), FIX, KIT, CLOSE, SHORT_CTA]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
@@ -887,8 +905,8 @@ def test_a_short_cta_not_last_or_without_subscribe_is_refused(tmp_path, capsys, 
     assert problem in err
 
 
-# The Short flow (owner, fourth gate 3 of #38): curiosity in the first three seconds, then challenge, why it
-# matters, the takeaway, and a drive to the long video for the full breakdown.
+# The Short flow (owner, #83, row 37): the problem (curiosity in the first three seconds, the bug marked), a quick
+# resolution, the kit just before the closing scene, and a closing naming the links and the full video, then thanks.
 
 
 @pytest.mark.parametrize(
@@ -906,38 +924,80 @@ def test_a_short_cta_not_last_or_without_subscribe_is_refused(tmp_path, capsys, 
     ],
 )
 def test_a_short_without_a_hook_said_in_its_first_three_seconds_is_refused(tmp_path, capsys, first, problem):
-    files(tmp_path, script([first, scene(), WHY, KIT]))
+    files(tmp_path, script([first, scene(), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert problem in err
+
+
+UNMARKED = split(right={"code": "tests/test_checkout.py", "label": "The tests"})
+KIT_LAST = kit(say=SAY + " The links are in the description." + DRIVE + THANKS)
 
 
 @pytest.mark.parametrize(
     ("scenes", "problem"),
     [
         (
-            [split(right={"code": "tests/test_checkout.py", "label": "The tests"}), scene(), WHY, KIT],
-            "short: no challenge beat; mark the bug's line in a code or split scene",
+            [UNMARKED, scene(), FIX, KIT, CLOSE],
+            "scene 1: marks: a Short's problem beat marks the bug's line in its split",
         ),
         (
-            [SPLIT, scene(), scene(), KIT],
-            "short: no why-it-matters beat; between the challenge and the kit, say why it matters",
+            [SPLIT, scene(), scene(), KIT, CLOSE],
+            "short: no resolution beat; between the problem and the kit, say how to fix or catch the bug",
         ),
         (
-            [SPLIT, scene(), WHY, kit(say=SAY)],
-            "scene 4: say: a Short ends by driving to the long video; name the full video or breakdown",
+            [SPLIT, scene(), KIT, FIX, CLOSE],
+            "short: no resolution beat; between the problem and the kit, say how to fix or catch the bug",
         ),
         (
-            [SPLIT, WHY, scene(kind="title", visual="Take it to your agent"), KIT],
+            [SPLIT, FIX, KIT, scene(), CLOSE],
+            "short: no kit beat just before the closing scene (scene 5); it is scene 3",
+        ),
+        (
+            [SPLIT, scene(), FIX, KIT_LAST],
+            "short: no kit beat just before the closing scene (scene 4); it is scene 4",
+        ),
+        (
+            [SPLIT, scene(), FIX, scene(), CLOSE],
+            "short: no kit beat just before the closing scene (scene 5); there is none",
+        ),
+        (
+            [SPLIT, scene(), FIX, KIT, close(say=DRIVE.strip() + THANKS)],
+            "scene 5: say: a Short's closing beat names where the links are (link, links, description)",
+        ),
+        (
+            [SPLIT, scene(), FIX, KIT, close(say=LINKS + THANKS)],
+            "scene 5: say: a Short's closing beat names the full video or breakdown",
+        ),
+        (
+            [SPLIT, scene(), FIX, KIT, close(say=LINKS), SHORT_CTA],
+            "scene 5: say: a Short's closing beat names the full video or breakdown",
+        ),
+        (
+            [SPLIT, FIX, scene(kind="title", visual="Take it to your agent"), KIT, CLOSE],
             "scene 3: kind: a Short has no title slide before the kit",
         ),
     ],
 )
-def test_a_short_missing_a_beat_of_its_flow_is_refused(tmp_path, capsys, scenes, problem):
+def test_a_short_missing_or_misplacing_a_beat_of_its_flow_is_refused_naming_it(tmp_path, capsys, scenes, problem):
     files(tmp_path, script(scenes))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert problem in err
+
+
+@pytest.mark.parametrize(
+    "scenes",
+    [
+        [SPLIT, scene(), FIX, KIT, CLOSE],
+        [SPLIT, FIX, KIT, CLOSE],
+        [SPLIT, scene(), FIX, KIT, close(say=LINKS + DRIVE), SHORT_CTA],
+    ],
+)
+def test_a_short_flowing_problem_resolution_kit_and_closing_passes(tmp_path, capsys, scenes):
+    files(tmp_path, script(scenes))
+    code, _, err = run(tmp_path, capsys)
+    assert (code, err) == (0, "")
 
 
 def test_a_long_form_split_may_have_a_hook_and_needs_none(tmp_path, capsys):
@@ -970,7 +1030,7 @@ def test_a_long_form_split_may_have_a_hook_and_needs_none(tmp_path, capsys):
     ],
 )
 def test_a_scene_opening_on_a_transition_cue_passes(tmp_path, capsys, opening):
-    files(tmp_path, script([SPLIT, scene(say=opening + " " + SAY), WHY, KIT]))
+    files(tmp_path, script([SPLIT, scene(say=opening + " " + SAY), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
@@ -978,8 +1038,8 @@ def test_a_scene_opening_on_a_transition_cue_passes(tmp_path, capsys, opening):
 @pytest.mark.parametrize(
     ("data", "index"),
     [
-        (script([SPLIT, scene(say="The tests pass. " + SAY), WHY, KIT]), 2),
-        (script([SPLIT, scene(), why(say=WHY_SAY.replace("So why", "Why")), KIT]), 3),
+        (script([SPLIT, scene(say="The tests pass. " + SAY), FIX, KIT, CLOSE]), 2),
+        (script([SPLIT, scene(), fix(say=FIX_SAY.replace("So how", "How")), KIT, CLOSE]), 3),
         (long_form([scene(say="The tests pass. " + SAY)]), 3),
     ],
 )
@@ -988,11 +1048,11 @@ def test_a_scene_after_the_first_with_no_bridge_is_refused_showing_its_first_sen
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert f"scene {index}: say: no bridge from the scene before; open with a transition cue" in err
-    assert "The tests pass." in err or "Why does it matter?" in err
+    assert "The tests pass." in err or "How do we catch it?" in err
 
 
 def test_the_first_scene_needs_no_bridge(tmp_path, capsys):
-    files(tmp_path, script([split(say="Both tests pass. " + SAY), scene(), WHY, KIT]))
+    files(tmp_path, script([split(say="Both tests pass. " + SAY), scene(), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
@@ -1015,7 +1075,7 @@ def test_the_first_scene_needs_no_bridge(tmp_path, capsys):
     ],
 )
 def test_an_ungrammatical_line_or_sentence_is_refused_naming_it(tmp_path, capsys, change, problem):
-    files(tmp_path, script([SPLIT, scene(**change), WHY, KIT]))
+    files(tmp_path, script([SPLIT, scene(**change), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert problem in err
@@ -1031,7 +1091,7 @@ def test_an_ungrammatical_line_or_sentence_is_refused_naming_it(tmp_path, capsys
     ],
 )
 def test_grammatical_lines_and_short_labels_pass(tmp_path, capsys, line):
-    files(tmp_path, script([SPLIT, scene(visual="Both tests pass\n" + line), WHY, KIT]))
+    files(tmp_path, script([SPLIT, scene(visual="Both tests pass\n" + line), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
@@ -1062,7 +1122,7 @@ NAMES = {"narration_avoid_names": ["James Bach", "Michael Bolton", "Bolton"]}
 
 @pytest.mark.parametrize("said", ["As James Bach puts it, testing is not checking.", "Bolton calls this checking."])
 def test_narration_naming_a_listed_person_is_refused(tmp_path, capsys, said):
-    files(tmp_path, script([SPLIT, scene(say=SAY + " " + said), WHY, KIT]))
+    files(tmp_path, script([SPLIT, scene(say=SAY + " " + said), FIX, KIT, CLOSE]))
     workspace(tmp_path, config=CONFIG | NAMES)
     code, _, err = run(tmp_path, capsys)
     assert code == 3
@@ -1071,7 +1131,7 @@ def test_narration_naming_a_listed_person_is_refused(tmp_path, capsys, said):
 
 
 def test_a_name_passes_when_the_channel_lists_none(tmp_path, capsys):
-    files(tmp_path, script([SPLIT, scene(say=SAY + " Bolton calls this checking."), WHY, KIT]))
+    files(tmp_path, script([SPLIT, scene(say=SAY + " Bolton calls this checking."), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
@@ -1083,7 +1143,7 @@ def test_claims_without_a_citations_file_are_refused(tmp_path, capsys):
 
 
 def test_every_problem_is_named_at_once(tmp_path, capsys):
-    files(tmp_path, script([split(say="In this video it costs 90. " + SAY), scene(claims=["C9"]), WHY, KIT]))
+    files(tmp_path, script([split(say="In this video it costs 90. " + SAY), scene(claims=["C9"]), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert all(p in err for p in ["banned phrase", "digits '90'", "scene 2: claims: C9"])
@@ -1157,7 +1217,7 @@ def test_a_missing_script_exits_2(tmp_path, capsys):
 
 def test_a_split_with_marks_outside_its_sides_is_refused(tmp_path, capsys):
     """render.py reads a split's marks inside each side, so marks on the scene would never show."""
-    files(tmp_path, script([split(marks=[{"line": 4, "note": "n", "at": "bug"}]), scene(), WHY, KIT]))
+    files(tmp_path, script([split(marks=[{"line": 4, "note": "n", "at": "bug"}]), scene(), FIX, KIT, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 2
     assert "scene 1: marks: a split's marks go inside its left or right side" in err
@@ -1171,8 +1231,12 @@ def test_a_split_with_marks_outside_its_sides_is_refused(tmp_path, capsys):
     ("data", "ending", "last"),
     [
         (long_form([]), cta(say="Before you go, like and share this. // Subscribe, and turn on the bell."), 43),
-        (script(), kit(say=SAY + DRIVE), 4),
-        (script([SPLIT, scene(), WHY, KIT, SHORT_CTA]), SHORT_CTA | {"say": "Subscribe for the next challenge."}, 5),
+        (script(), close(say=LINKS + DRIVE), 5),
+        (
+            script([SPLIT, scene(), FIX, KIT, CLOSE, SHORT_CTA]),
+            SHORT_CTA | {"say": "Subscribe for the next challenge."},
+            6,
+        ),
     ],
 )
 def test_a_last_scene_without_a_thank_you_is_refused_naming_it(tmp_path, capsys, data, ending, last):
@@ -1183,7 +1247,7 @@ def test_a_last_scene_without_a_thank_you_is_refused_naming_it(tmp_path, capsys,
     assert f"scene {last}: say: the last scene thanks the viewer; say thank you or thanks" in err
 
 
-@pytest.mark.parametrize("data", [long_form([]), script(), script([SPLIT, scene(), WHY, KIT, SHORT_CTA])])
+@pytest.mark.parametrize("data", [long_form([]), script(), script([SPLIT, scene(), FIX, KIT, CLOSE, SHORT_CTA])])
 def test_a_last_scene_thanking_the_viewer_passes_inside_the_cta_limits(tmp_path, capsys, data):
     files(tmp_path, data)
     code, _, err = run(tmp_path, capsys)
