@@ -73,11 +73,14 @@ function build() {
     const card = make('div', 'role', undefined, $('roles'));
     glyph(card, i);
     make('div', '', role.text, card);
+    boxed(card, 'text');
     enter(card, role.at, 'up');
   });
   $('activity').querySelector('div').textContent = CUES.activity.text;
+  boxed($('activity'), 'text');
   enter($('activity'), CUES.activity.at, 'scale');
   $('stake').querySelector('span').textContent = CUES.stake.text;
+  boxed($('stake'), 'text');
   enter($('stake'), CUES.stake.at, 'left');
   // Fit: long roles or lines shrink the text until it all fits above the floor.
   for (let size = parseFloat(getComputedStyle(box).fontSize) / u; box.scrollHeight > box.clientHeight && size > 22; size -= 1) box.style.fontSize = size * u + 'px';

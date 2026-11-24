@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from test_assemble import assemble
-from test_render import NUMBER, SCENES, WORDMARK, files, render
+from test_render import NUMBER, SCENES, WORDMARK, Fakes, files, render, said, spoken
 from test_youtube_channel import CONFIG
 
 ISSUE = "https://github.com/oneo4-tech/aksa/issues/28"
@@ -22,6 +22,15 @@ pytestmark = [
     ),
 ]
 TERMINAL = {"kind": "terminal", "heading": "Run it", "visual": "$ pytest -q", "say": "S"}
+
+
+def heard(scene, narration):
+    """A narration saying every word of the scene's fields in order (spoken), spread over at most 0.8 of its
+    length, so each heading and item is heard (#81's own-word cues) and shows before the scene ends; a cta's notify
+    is said as notification (render.CTA_WORDS)."""
+    words = [w if w != "notify" else "notification" for w in render.WORD.findall(spoken(scene))]
+    step = min(0.3, 0.8 * narration / len(words))
+    return [{"word": w, "start": i * step, "end": (i + 1) * step} for i, w in enumerate(words)]
 
 
 @pytest.fixture(scope="module")
@@ -78,7 +87,7 @@ def test_two_scenes_render_at_the_frame_size_with_identical_frames_on_two_render
     )
     renders = []
     for _ in range(2):
-        assert render.main(["example", str(NUMBER)], root=tmp_path) == 0
+        assert render.main(["example", str(NUMBER)], transcribe=Fakes().transcribe, root=tmp_path) == 0
         report = json.loads((folder / "render" / "scenes.json").read_text())
         renders.append([frame_hashes(folder / s["file"]) for s in report["scenes"]])
         for scene in report["scenes"]:
@@ -91,18 +100,21 @@ def test_two_scenes_render_at_the_frame_size_with_identical_frames_on_two_render
     assert renders[0] == renders[1]
 
 
-def test_a_terminal_clip_longer_than_its_scene_is_sped_up_to_the_scenes_frames(tmp_path, tools):
+def test_a_terminal_clip_as_long_as_its_scene_plays_whole_in_the_scenes_frames(tmp_path, tools):
     folder = files(tmp_path, scenes=[SCENES[0], TERMINAL], seconds=(1.5, 1.5), demo_json=False)
-    # A 4 s clip for a 2.5 s scene plays 1.6 times faster.
-    ffmpeg("-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30:duration=4", "-pix_fmt", "yuv420p",
+    # A 2.5 s clip for a 2.5 s scene plays at its own speed (#81 refuses a longer one instead of speeding it up).
+    ffmpeg("-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30:duration=2.5", "-pix_fmt", "yuv420p",
            str(folder / "demo-1.mp4"))  # fmt: skip
-    assert render.main(["example", str(NUMBER)], root=tmp_path) == 0
+    assert render.main(["example", str(NUMBER)], transcribe=Fakes().transcribe, root=tmp_path) == 0
     scene = json.loads((folder / "render" / "scenes.json").read_text())["scenes"][1]
     assert scene["source"] == "demo"
     assert int(probe(folder / scene["file"])[0]["nb_read_frames"]) == scene["frames"]
 
 
-SAYS = ["The test mocks the discount. // So the assert only checks the fake.", "Run it... and it passes anyway."]
+SAYS = [
+    "Look closer. // The test mocks the discount. // So the assert only checks the fake.",
+    "Run it... and it passes anyway.",
+]
 
 
 def loudness(path):
@@ -185,7 +197,7 @@ def code_geometry(lines, line, kind="long-form", seconds=4.0, scene=2, at=3):
     cues = render.scene_cues(
         {"kind": "code", "heading": "H", "code": "demo/x.py"},
         scene,
-        [],
+        said("H"),
         seconds - render.LEAD - render.TAIL,
         size,
         CONFIG,
@@ -303,7 +315,7 @@ def test_mark_notes_sit_beside_their_line_without_covering_code_and_earlier_ones
     cues = render.scene_cues(
         {"kind": "code", "heading": "H", "code": "tests/x.py", "marks": marks},
         2,
-        [{"word": "patch", "start": 0.5, "end": 0.8}, {"word": "none", "start": 2.0, "end": 2.3}],
+        [*said("H"), {"word": "patch", "start": 0.5, "end": 0.8}, {"word": "none", "start": 2.0, "end": 2.3}],
         4.0,
         render.SIZES[kind],
         CONFIG,
@@ -324,6 +336,108 @@ def test_mark_notes_sit_beside_their_line_without_covering_code_and_earlier_ones
     assert geometry["notes"][0]["opacity"] < 0.6 and geometry["notes"][1]["opacity"] == 1
 
 
+# Content issue #39 scene 2: its test file and marks (lines 10 and 12), the narration naming "patch" and "wrote".
+CHECKOUT_AI = [
+    "from unittest.mock import Mock, patch",
+    "",
+    "from demo import checkout",
+    "",
+    "CART = [(2499, 2), (4992, 1)]",
+    "",
+    "",
+    "def test_order_total_applies_coupon():",
+    "    tax = Mock(rate=Mock(return_value=0.0))",
+    '    with patch.object(checkout, "apply_coupon", return_value=8991):',
+    '        total = checkout.order_total(CART, "SAVE10", tax)',
+    "    assert total == 8991",
+    "",
+    "",
+    "def test_order_total_returns_cents():",
+    "    tax = Mock(rate=Mock(return_value=0.19))",
+    '    total = checkout.order_total(CART, "SAVE10", tax)',
+    "    assert isinstance(total, int)",
+]
+CHECKOUT_MARKS = [
+    {"line": 10, "note": "fakes apply_coupon itself", "at": "patch"},
+    {"line": 12, "note": "checks the number it wrote in", "at": "wrote"},
+]
+# Each mark's chip, connector, and arrowhead, and each line's code glyphs (its non-blank token spans) and last
+# character's right edge, in page pixels; a stroke's box grows by half its width.
+MARK_PARTS = """() => {
+  const box = r => ({top: r.top, bottom: r.bottom, left: r.left, right: r.right});
+  const drawn = p => { const r = p.getBoundingClientRect(), w = parseFloat(p.style.strokeWidth) / 2;
+    return {top: r.top - w, bottom: r.bottom + w, left: r.left - w, right: r.right + w}; };
+  const straight = p => { const b = p.getBBox(); return Math.min(b.width, b.height) < 0.5
+    && Math.abs(p.getTotalLength() - Math.max(b.width, b.height)) < 0.5; };
+  const view = document.querySelector('.view').getBoundingClientRect();
+  const rows = [...document.querySelectorAll('.line')].map(row => {
+    const glyphs = [...row.children].filter(s => s.textContent.trim()).map(s => box(s.getBoundingClientRect()));
+    return {...box(row.getBoundingClientRect()), end: glyphs[glyphs.length - 1].right,
+            glyphs: glyphs.filter(g => g.bottom > view.top && g.top < view.bottom)};
+  });
+  const heads = [...document.querySelectorAll('.pointer .head')];
+  return {rows, problems: window.layout.problems.map(p => p.text), marks: [...document.querySelectorAll('.pointer .link')].map((p, i) =>
+    ({chip: box(document.querySelectorAll('.note')[i].getBoundingClientRect()), link: drawn(p), head: drawn(heads[i]),
+      straight: straight(p)}))};
+}"""
+
+
+def overlap(a, b, by=1):
+    """Whether boxes a and b intersect by more than by pixels both ways."""
+    return min(a["right"], b["right"]) - max(a["left"], b["left"]) > by and (
+        min(a["bottom"], b["bottom"]) - max(a["top"], b["top"]) > by
+    )
+
+
+def gap(a, b):
+    """The distance between boxes a and b, 0 when they touch or intersect."""
+    dx = max(a["left"] - b["right"], b["left"] - a["right"], 0)
+    return max(dx, a["top"] - b["bottom"], b["top"] - a["bottom"], 0)
+
+
+def mark_parts(lines, marks, words, kind):
+    cues = render.scene_cues(
+        {"kind": "code", "heading": "Spot it", "code": "tests/x.py", "marks": marks},
+        2,
+        [{"word": "spot", "start": 0.1, "end": 0.3}, *words],
+        4.0,
+        render.SIZES[kind],
+        CONFIG,
+        "\n".join(lines),
+    )
+    return evaluate(cues, cues["seconds"] - render.FADE - 0.05, MARK_PARTS, kind)
+
+
+@pytest.mark.parametrize("kind", ["long-form", "short"])
+def test_mark_connectors_run_straight_from_the_note_to_after_the_line_end_clear_of_code(tools, kind):
+    # Owner, #83 (#39 scene 2 on the Short): the arrow pointed inside the code, so its head and note covered code.
+    words = [{"word": "patch", "start": 0.5, "end": 0.8}, {"word": "wrote", "start": 1.6, "end": 1.9}]
+    parts = mark_parts(CHECKOUT_AI, CHECKOUT_MARKS, words, kind)
+    rows, marks = parts["rows"], parts["marks"]
+    assert parts["problems"] == [] and len(marks) == 2
+    u = min(render.SIZES[kind]) / 1080
+    for mark, spec in zip(marks, CHECKOUT_MARKS):
+        row, link, head = rows[spec["line"] - 1], mark["link"], mark["head"]
+        assert mark["straight"], mark  # one horizontal or vertical segment
+        assert gap(link, mark["chip"]) <= 10 * u and gap(link, head) <= 1, mark  # from the note to the arrowhead
+        # The arrowhead on the marked row, after its last character.
+        assert head["left"] >= row["end"] and overlap(head, row), (head, row)
+        for part in ("chip", "link", "head"):
+            covered = [g for r in rows for g in r["glyphs"] if overlap(mark[part], g)]
+            assert not covered, (part, mark[part], covered)
+    first, second = marks
+    assert not any(overlap(first[a], second[b]) for a in first if a != "straight" for b in second if b != "straight")
+
+
+def test_a_mark_with_no_free_space_for_its_note_is_a_layout_problem(tools):
+    lines = [f"value_{i:02d} = compute_the_long_named_thing(argument_one, argument_two)" for i in range(8)]
+    marks = [{"line": 4, "note": "a note far too long for any free space here", "at": "four"}]
+    parts = mark_parts(lines, marks, [{"word": "four", "start": 0.5, "end": 0.8}], "short")
+    assert parts["problems"] == [
+        "mark on line 4: no free space for its note; shorten the line or the note (write-video-script)"
+    ]
+
+
 ENTRANCE = """() => {
   const text = document.querySelector('.point div'), style = getComputedStyle(text), r = text.getBoundingClientRect();
   const shift = style.transform === 'none' ? 0 : new DOMMatrix(style.transform).m41;
@@ -337,7 +451,7 @@ def test_an_entrance_moves_mid_way_and_rests_in_place(tools):
         render.scene_cues(
             {"kind": "points", "heading": "H", "visual": "Mocks replace code\nThe assert checks"},
             2,
-            [{"word": "mocks", "start": 0.5, "end": 0.8}],
+            [*said("H"), {"word": "mocks", "start": 0.5, "end": 0.8}, {"word": "assert", "start": 1.5, "end": 1.8}],
             3.0,
             render.SIZES["long-form"],
             CONFIG,
@@ -449,7 +563,7 @@ NEW_KINDS = {
 @pytest.mark.parametrize("scene_kind", sorted(NEW_KINDS))
 def test_new_kinds_show_every_element_whole_inside_the_frame_once_cued(tools, kind, scene_kind):
     scene, code, selector = NEW_KINDS[scene_kind]
-    cues = render.staggered(render.scene_cues(scene, 2, [], 5.0, render.SIZES[kind], CONFIG, code))
+    cues = render.staggered(render.scene_cues(scene, 2, heard(scene, 5.0), 5.0, render.SIZES[kind], CONFIG, code))
     width, height = render.SIZES[kind]
     elements = evaluate(cues, cues["seconds"] - render.FADE - 0.05, f"() => ({INSIDE})('{selector}')", kind)
     assert elements
@@ -493,7 +607,7 @@ def test_short_scenes_draw_nothing_in_the_caption_band(tools, scene_kind):
     scene, code, _ = SHORT_KINDS[scene_kind]
     width, height = render.SIZES["short"]
     for index in (1, 2):  # the cold open and a later scene
-        cues = render.staggered(render.scene_cues(scene, index, [], 3.0, (width, height), CONFIG, code))
+        cues = render.staggered(render.scene_cues(scene, index, heard(scene, 3.0), 3.0, (width, height), CONFIG, code))
         elements = evaluate(cues, cues["seconds"] - render.FADE - 0.05, CONTENT, "short")
         assert elements
         band = render.CAPTION_TOP * height
@@ -532,7 +646,7 @@ def test_the_brand_image_sits_centred_faint_and_still_behind_a_code_scene(tools,
     width, height = render.SIZES[kind]
     data = "data:image/svg+xml;base64," + base64.b64encode(WORDMARK.encode()).decode()
     scene = {"kind": "code", "heading": "H", "code": "tests/x.py"}
-    cues = render.scene_cues(scene, 2, [], 4.0, (width, height), CONFIG, "\n".join(AI_TESTS))
+    cues = render.scene_cues(scene, 2, said("H"), 4.0, (width, height), CONFIG, "\n".join(AI_TESTS))
     cues |= {"backdrop": {"image": data, "opacity": 0.1}}
     early, late = (evaluate(cues, t, BACKDROP, kind) for t in (1.0, 4.0))
     assert early == late, (early, late)  # static while the camera drifts
@@ -561,7 +675,10 @@ def test_a_cover_backdrop_fills_the_frame_still_under_its_scrim(tmp_path, tools,
     (tmp_path / "branding").mkdir()
     (tmp_path / "branding" / "backdrop.jpg").write_bytes(photo.read_bytes())
     config = CONFIG | {"background": {"image": "branding/backdrop.jpg", "opacity": 0.35, "fit": "cover"}}
-    cues = render.scene_cues(SCENES[0], 2, [], 4.0, (width, height), config, None) | render.backdrop(config, tmp_path)
+    words = said(SCENES[0]["say"])
+    cues = render.scene_cues(SCENES[0], 2, words, 4.0, (width, height), config, None) | render.backdrop(
+        config, tmp_path
+    )
     early, late = (evaluate(cues, t, COVER, kind) for t in (1.0, 4.0))
     assert early == late, (early, late)  # static while the camera drifts
     assert (early["left"], early["top"], early["right"], early["bottom"]) == (0, 0, width, height)
@@ -583,7 +700,7 @@ def test_a_kit_lights_only_the_current_file_with_its_use_beside_the_card(tools, 
     # Owner, #28 gate 3 (fourth review): the same GitHub animation, each part explained with how to use it.
     scene = NEW_KINDS["kit"][0]
     width, height = render.SIZES[kind]
-    cues = render.staggered(render.scene_cues(scene, 14, [], 12.0, (width, height), CONFIG, None))
+    cues = render.staggered(render.scene_cues(scene, 14, heard(scene, 12.0), 12.0, (width, height), CONFIG, None))
     second = cues["files"][1]["at"]
     state = evaluate(cues, second + 0.8, KIT_STATE, kind)
     card, rows, uses = state["card"], state["rows"], state["uses"]
@@ -615,7 +732,8 @@ MOVES = """() => [...document.querySelectorAll('.action')].map(a => {
 def test_cta_icons_each_do_one_short_move_then_rest_and_the_pill_is_deep_red(tools):
     # Owner, #28 gate 3 (fourth review): like, share, subscribe, notification graphics, each animated as named.
     scene = NEW_KINDS["cta"][0]
-    cues = render.staggered(render.scene_cues(scene, 15, [], 8.0, render.SIZES["long-form"], CONFIG, None))
+    words = heard(scene, 8.0)
+    cues = render.staggered(render.scene_cues(scene, 15, words, 8.0, render.SIZES["long-form"], CONFIG, None))
     starts = [a["at"] + render.MOTION["enter"] for a in cues["actions"]]
     middle = [evaluate(cues, t + 0.17, MOVES)[i] for i, t in enumerate(starts)]
     rest = evaluate(cues, cues["seconds"] - render.FADE - 0.05, MOVES)
@@ -658,3 +776,76 @@ def test_a_split_hook_shows_big_from_the_first_frame_then_leaves_as_the_panels_c
     )
     assert all(t != "none" for t in first["panels"]), first  # the split sits back under the hook
     assert gone["opacity"] == 0 and all(t in ("none", "matrix(1, 0, 0, 1, 0, 0)") for t in gone["panels"]), gone
+
+
+# The hook's text (its glyphs' box and line count), and every box it must keep clear of while it shows: the panels
+# (each side with its label), each code line's glyphs, and the heading and brand while visible.
+HOOK_CLEAR = """() => {
+  const box = r => ({top: r.top, bottom: r.bottom, left: r.left, right: r.right});
+  const hook = document.querySelector('.hook'), span = document.createRange();
+  span.selectNodeContents(hook);
+  const text = box(span.getBoundingClientRect()), height = parseFloat(getComputedStyle(hook).lineHeight);
+  const shown = e => +getComputedStyle(e).opacity > 0;
+  const code = [...document.querySelectorAll('.line > *')].filter(s => s.textContent.trim())
+    .map(s => box(s.getBoundingClientRect())).filter(r => r.right > r.left);
+  return {text, opacity: +getComputedStyle(hook).opacity, lines: Math.round((text.bottom - text.top) / height),
+          veils: document.querySelectorAll('.veil').length,
+          others: [...[...document.querySelectorAll('.side')].map(s => ['panel', box(s.getBoundingClientRect())]),
+                   ...code.map(r => ['code', r]),
+                   ...[...document.querySelectorAll('h1, .brand')].filter(shown).map(e => [e.tagName, box(e.getBoundingClientRect())])]};
+}"""
+
+
+@pytest.mark.parametrize("kind", ["long-form", "short"])
+@pytest.mark.parametrize("hook", ["This test has never failed", "Your AI wrote tests that can never fail"])
+def test_a_split_hook_covers_no_code_panel_or_other_text_while_it_shows(tools, kind, hook):
+    # Owner, #83 (#39's cold open): the hook showed big over the dimmed code panels.
+    scene, code, _ = NEW_KINDS["split"]
+    say = f"{hook}. // Spot the bug in the code and the AI's tests."
+    scene = scene | {"hook": hook, "say": say}
+    width, height = render.SIZES[kind]
+    cues = render.staggered(render.scene_cues(scene, 1, said(say), 4.0, (width, height), CONFIG, code))
+    until = cues["hook"]["until"]
+    for t in (0.0, until / 2):  # the first frame and mid-hook
+        state = evaluate(cues, t, HOOK_CLEAR, kind)
+        text = state["text"]
+        assert state["veils"] == 0 and 1 <= state["lines"] <= 2, (t, state)
+        assert 0 <= text["left"] and text["right"] <= width and 0 <= text["top"], (t, text)
+        covered = [(name, other) for name, other in state["others"] if overlap(text, other)]
+        assert not covered, (t, text, covered)
+    assert evaluate(cues, until / 2, HOOK_CLEAR, kind)["opacity"] == 1
+
+
+# The layout check at render (#83 AC2), in Chrome at the video's own size.
+WORDY = (
+    "This heading runs on and on across the whole frame until it wraps onto so many lines that it reaches down"
+    " into the points below it"
+)
+
+
+@pytest.mark.parametrize("kind", ["long-form", "short"])
+def test_render_refuses_text_over_text_naming_the_scene_time_and_both_elements(tmp_path, tools, capsys, kind):
+    # Owner, #83: text never sits over other text or code.
+    wordy = {"kind": "points", "heading": WORDY, "visual": "Mocks replace code", "say": f"{WORDY}. Mocks replace code."}
+    folder = files(tmp_path, scenes=[SCENES[0], wordy], kind=kind, seconds=(2.0, 9.0))
+    code = render.main(["example", str(NUMBER)], transcribe=Fakes().transcribe, root=tmp_path)
+    err = capsys.readouterr().err
+    assert code == 2, err
+    assert re.search(r'scene 2 at \d+\.\d\d s: heading "This heading runs.*" overlaps text "Mocks replace code"', err)
+    assert (folder / "render" / "scenes" / "01.mp4").is_file()  # the clean scene rendered
+    assert not (folder / "render" / "scenes" / "02.mp4").exists()
+
+
+def test_render_refuses_a_mark_with_no_free_space_naming_the_scene_and_time(tmp_path, tools, capsys):
+    # #83 verify T1 F1: the problem scene.js finds reaches the user as a render refusal.
+    lines = [f"value_{i:02d} = compute_the_long_named_thing(argument_one, argument_two)" for i in range(8)]
+    mark = {"line": 4, "note": "a note far too long for any free space here", "at": "four"}
+    scene = {"kind": "code", "heading": "Spot it", "code": "demo/discount.py", "marks": [mark],
+             "say": "Spot it. Line four."}  # fmt: skip
+    folder = files(tmp_path, scenes=[SCENES[0], scene], kind="short", seconds=(2.0, 3.0))
+    (tmp_path / ".projects/content/example-demos/14-mocked-tests/demo/discount.py").write_text("\n".join(lines))
+    code = render.main(["example", str(NUMBER)], transcribe=Fakes().transcribe, root=tmp_path)
+    err = capsys.readouterr().err
+    assert code == 2, err
+    assert re.search(r"scene 2 at \d+\.\d\d s: mark on line 4: no free space for its note; shorten the line", err), err
+    assert not (folder / "render" / "scenes" / "02.mp4").exists()

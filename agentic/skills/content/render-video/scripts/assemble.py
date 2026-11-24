@@ -6,7 +6,8 @@ Reads, in the channel workspace:
 
   videos/<N>/script.json        from write-video-script: type and each scene's say
   videos/<N>/render/scenes.json from render.py: per scene its clip, narration, seconds,
-                                frames, and lead (where its narration starts in the clip)
+                                frames, lead (where its narration starts in the clip), and,
+                                for a drawn scene, texts (its on-screen texts and when they show)
   videos/<N>/narration/NN.wav   from narrate-video
   music/bed.mp3                 the channel's music bed (MUSIC), supplied by the owner
                                 (style guide Audio; the Lyria ambient bed, decision 39)
@@ -33,7 +34,11 @@ Both sides are compared as narrate-video's leak check compares them (narrate.py 
 and comparable), so a script's "fourteen" or "minus one" matches whisper's "14" or "-1".
 A long-form gets an SRT file, a cue per sentence of at most CUE_WORDS words and CUE_CHARS
 characters. A Short gets burned word-highlight captions: groups of GROUP words in the
-lower area clear of the Shorts buttons, the word being said in the accent colour, drawn
+lower area clear of the Shorts buttons, the word being said in the accent colour. One text
+layer speaks at a time: a group stays blank while big spoken text (a split's hook, a title's
+visual, a point) shows at any time of it, or while an on-screen text shown then has two or
+more of its consecutive words in the group's order (compared as above); a Short's
+scenes.json without texts is stale. The captions are drawn
 from references/captions.html in Chrome (one transparent PNG per state, as render.py
 draws scenes: local fonts, software raster, so two runs give identical frames) and
 overlaid by ffmpeg.
@@ -41,7 +46,7 @@ overlaid by ffmpeg.
 Needs Google Chrome (Shorts), ffmpeg, whisper-cli with its model, and the fonts (README, Setup).
 
 Exit codes: 0 assembled, 1 a tool or file error, 2 bad input (an invalid script or channel,
-a missing or stale scene report, narration, or music bed, or a silent mix).
+a missing or stale scene report (a Short's without texts), narration, or music bed, or a silent mix).
 """
 
 import argparse
@@ -109,17 +114,22 @@ def word_starts(words: list[str], heard: list[dict], narration: float) -> list[f
 
 
 def timeline(scenes: list[dict], says: list[str], heard: list[list[dict]], narrations: list[float]) -> list[dict]:
-    """Per scene, in the video's time: where its voice starts and ends, and where each caption word starts."""
+    """Per scene, in the video's time: where its voice starts and ends, where each caption word starts, and when
+    each of its on-screen texts (render.py texts) shows."""
     out, frames = [], 0
     for scene, say, words, narration in zip(scenes, says, heard, narrations):
-        voice = frames / FPS + scene["lead"]
+        start = frames / FPS
+        voice = start + scene["lead"]
         shown = caption_words(say)
         starts = word_starts(shown, words, narration)
+        texts = [t | {"from": round(start + t["from"], 3), "until": round(start + t["until"], 3)}
+                 for t in scene.get("texts", [])]  # fmt: skip
         out.append(
             {
                 "voice": round(voice, 3),
                 "end": round(voice + narration, 3),
                 "words": [{"text": w, "at": round(voice + s, 3)} for w, s in zip(shown, starts)],
+                "texts": texts,
             }
         )
         frames += scene["frames"]
@@ -156,14 +166,31 @@ def srt(scenes: list[dict]) -> str:
     return "".join(f"{n}\n{_stamp(a)} --> {_stamp(b)}\n{text}\n\n" for n, (a, b, text) in enumerate(cues, 1))
 
 
+def _pairs(pieces: list[str]) -> set[tuple[str, str]]:
+    """Each two consecutive comparable words of pieces (narrate.py), so "AI's tests" matches "the AI's tests"."""
+    keys = [key for key, _ in _keys(pieces)]
+    return set(itertools.pairwise(keys))
+
+
+def stacked(group: list[dict], start: float, end: float, texts: list[dict]) -> bool:
+    """Whether a caption group shown from start to end would stack on on-screen text: big spoken text shows at any
+    time of it, or a text shown then has two or more of its consecutive words in the group's order."""
+    shown = [t for t in texts if t["from"] < end and t["until"] > start]
+    said = _pairs([w["text"] for w in group])
+    return any(t["big"] or said & _pairs([t["text"]]) for t in shown)
+
+
 def caption_states(scenes: list[dict]) -> tuple[list[dict], list[tuple[int, float, float]]]:
-    """The Short's caption states (state 0 blank) and when each shows: GROUP words, the said one current."""
+    """The Short's caption states (state 0 blank) and when each shows: GROUP words, the said one current; a group
+    that would stack on on-screen text (stacked) stays blank, so one text layer speaks at a time."""
     states, spans = [{"words": [], "current": -1}], []
     for scene in scenes:
         words = scene["words"]
         groups = [words[i : i + GROUP] for i in range(0, len(words), GROUP)]
         for g, group in enumerate(groups):
             group_end = groups[g + 1][0]["at"] if g + 1 < len(groups) else scene["end"]
+            if stacked(group, group[0]["at"], group_end, scene["texts"]):
+                continue
             for j, word in enumerate(group):
                 end = group[j + 1]["at"] if j + 1 < len(group) else group_end
                 states.append({"words": [w["text"] for w in group], "current": j})
@@ -281,6 +308,13 @@ def problems(script, scenes) -> list[str]:
     report = scenes.get("scenes") if isinstance(scenes, dict) else None
     if not (isinstance(report, list) and len(report) == len(script["scenes"]) and scenes.get("type") == script["type"]):
         found.append("render/scenes.json: does not match script.json; render the scenes again (render.py)")
+    elif script["type"] == "short":
+        found += [
+            f"render/scenes.json: scene {index}: texts: missing, from an older render.py; render the scenes again"
+            " (render.py)"
+            for index, scene in enumerate(report, 1)
+            if isinstance(scene, dict) and scene.get("source") == "html" and not isinstance(scene.get("texts"), list)
+        ]
     return found
 
 

@@ -79,6 +79,7 @@ function build() {
     });
     // Its use in a callout beside it: level with the row on a long-form, at the side's top on a Short.
     const note = make('div', 'use', file.use, side);
+    boxed(note, 'text');
     for (let size = wide ? 40 : 38; note.offsetHeight > box.height && size > 24; size -= 1) note.style.fontSize = size * u + 'px';
     const r = own[own.length - 1].getBoundingClientRect(), y = (r.top + r.bottom) / 2, h = note.offsetHeight;
     const top = wide ? Math.min(Math.max(y - box.top - h / 2, 0), box.height - h) : 0;
@@ -96,6 +97,7 @@ function build() {
     const row = make('div', 'takeaway', undefined, $('takeaways'));
     make('b', '', String(i + 1), row);
     rich(item.text, make('span', '', undefined, row));
+    boxed(row, 'text');
     enter(row, item.at, 'up');
   });
   fit($('takeaways'), wide ? 40 : 38, 22);

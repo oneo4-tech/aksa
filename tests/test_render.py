@@ -64,10 +64,11 @@ class Fakes:
     """whisper hearing the given words (by default each scene's say, a word every 0.3 s), Chrome recording each page,
     ffmpeg writing its output file."""
 
-    def __init__(self, heard=None, demo_seconds=30.0, lengths=None):
+    def __init__(self, heard=None, demo_seconds=30.0, lengths=None, layout=None):
         self.heard = heard or {}  # scene number -> [(word, start, end)]
         self.pages, self.commands, self.demo_seconds = [], [], demo_seconds
         self.lengths = lengths or {}  # recording file name -> its length in seconds
+        self.layout = layout or {}  # scene number -> ({check time: boxes}, problems); none by default
 
     def transcribe(self, wav):
         number = int(Path(wav).stem)
@@ -76,8 +77,9 @@ class Fakes:
         say = json.loads((Path(wav).parents[1] / "script.json").read_text())["scenes"][number - 1]["say"]
         return whisper_json([(w["word"], w["start"], w["end"]) for w in said(say)])
 
-    def shoot(self, html, size, frames, folder):
-        self.pages.append({"html": html, "size": size, "frames": frames})
+    def shoot(self, html, size, frames, folder, checks):
+        self.pages.append({"html": html, "size": size, "frames": frames, "checks": checks})
+        return self.layout.get(cues(self.pages[-1])["scene"], ({}, []))
 
     def run(self, command):
         self.commands.append(command)
@@ -135,6 +137,12 @@ def test_main_renders_each_scene_into_a_numbered_clip_and_reports_its_length(tmp
         "seconds": frames[0] / render.FPS,
         "frames": frames[0],
         "lead": render.LEAD,
+        # Its on-screen texts, for assemble.py's caption rule: the heading, and each point big from its cue.
+        "texts": [{"text": "Two tests", "from": render.LEAD, "until": frames[0] / render.FPS, "big": False}]
+        + [
+            {"text": point["text"], "from": point["at"], "until": frames[0] / render.FPS, "big": True}
+            for point in cues(fakes.pages[0])["items"]
+        ],
     }
     assert (report["width"], report["height"], report["fps"]) == (1920, 1080, 30)
 
@@ -332,6 +340,36 @@ def spoken(scene):
     """A narration saying every word of the scene's fields in order, so each item is heard."""
     fields = {k: v for k, v in scene.items() if k not in ("kind", "say")}
     return " ".join(render.WORD.findall(json.dumps(fields).replace("\\n", " ").lower()))
+
+
+TEXTS = {
+    "title": [("one two", True)],
+    "points": [("one", True), ("two", True)],
+    "terminal": [],
+    "code": [("patches the function under test", False)],
+    "split": [("checks the fake's answer", False)],
+    "compare": [("A", False), ("a", False), ("B", False), ("`b`", False)],
+    "kit": [("AGENTS.md", False), ("Paste it", False), ("b", False)],
+    "intro": [("Developers", False), ("Testers", False), ("Spot the bug", False), ("They pass", False)],
+    "cta": [],
+    "repo": [("AGENTS.md", False)],
+}
+
+
+@pytest.mark.parametrize("kind", render.KINDS)
+def test_each_drawn_scene_records_its_on_screen_texts_with_when_they_show(tmp_path, fonts, capsys, kind):
+    # Owner, #39 and #40: assemble.py hides a Short's captions that stack on these (#83 AC1).
+    marked = {"code": {"marks": MARKS[:1]}, "split": {"right": KIND_FIELDS["split"]["right"] | {"marks": MARKS[1:]}}}
+    scene = {"kind": kind, "heading": "H"} | KIND_FIELDS[kind] | marked.get(kind, {})
+    scene["say"] = spoken(scene)
+    folder = split_files(tmp_path, [scene], seconds=(9.0,))
+    assert run(tmp_path, fakes := Fakes(), capsys)[0] == 0
+    [report] = json.loads((folder / "render" / "scenes.json").read_text())["scenes"]
+    texts = report["texts"]
+    assert [(t["text"], t["big"]) for t in texts] == [("H", False), *TEXTS[kind]]
+    assert all(0 <= t["from"] < t["until"] <= report["seconds"] for t in texts), texts
+    if kind == "kit":  # the use line shows until the takeaways come in
+        assert texts[2]["until"] == cues(fakes.pages[0])["takeaways"][0]["at"] < report["seconds"]
 
 
 @pytest.mark.parametrize("kind", render.KINDS)
@@ -1156,6 +1194,18 @@ def test_a_split_hook_shows_from_the_first_frame_until_the_first_sentence_ends_t
     assert all(t >= until for t in later), cues
 
 
+@pytest.mark.parametrize("index", [1, 2])
+def test_a_split_heading_enters_only_once_the_hook_has_faded(index):
+    # #83 verify T2 F1: the heading entered the hook's band at hook.until while the hook was still fading out.
+    scene = HOOK | {
+        "say": "This test has never failed. // Spot the bug. Here is the code, and the AI's tests. Look at the patch."
+    }
+    cues = render.scene_cues(
+        scene, index, said(scene["say"]), 8.0, render.SIZES["short"], CONFIG, {"left": CODE, "right": TESTS}
+    )
+    assert cues["heading"]["at"] >= cues["hook"]["until"] + render.MOTION["enter"], cues["heading"]
+
+
 def test_a_split_hook_over_a_long_first_sentence_leaves_by_three_seconds():
     scene = HOOK | {"say": "This test has never failed in a year of nightly builds on every branch we ship. // Why?"
                     " // Spot the bug in the patch."}  # fmt: skip
@@ -1176,3 +1226,59 @@ def test_a_split_hook_of_other_than_two_to_eight_words_is_refused(tmp_path, font
     split_files(tmp_path, [HOOK | {"hook": hook}])
     code, _, err = run(tmp_path, Fakes(), capsys)
     assert code == 2 and "scene 1: hook: must be 2 to 8 words" in err, err
+
+
+# The layout check (#83 AC2): Chrome reads each shown box at every settled entrance, and render refuses overlaps.
+def box(kind, name, group, left, top, right, bottom):
+    return {"kind": kind, "name": name, "group": group, "left": left, "top": top, "right": right, "bottom": bottom}
+
+
+HEADING = box("heading", 'heading "Two tests"', "h", 80, 100, 900, 180)
+TEXT = box("text", 'text "Mocks replace code"', "t", 850, 170, 1200, 230)
+CODE_LINE = box("code", "code line 3 of demo/discount.py", "c3", 100, 150, 400, 190)
+
+
+def test_render_checks_the_layout_once_each_entrance_has_settled_and_at_the_last_frame(tmp_path, fonts, capsys):
+    files(tmp_path)
+    fakes = Fakes()
+    assert run(tmp_path, fakes, capsys)[0] == 0
+    page = fakes.pages[0]
+    settled = {round(e["at"] + render.MOTION["enter"] + render.SETTLE, 3) for e in render._entrances(cues(page))}
+    last = round((page["frames"] - 1) / render.FPS, 3)
+    assert page["checks"] == sorted({min(t, last) for t in settled} | {last}), page["checks"]
+
+
+@pytest.mark.parametrize("first, second", [(HEADING, TEXT), (HEADING, CODE_LINE)])
+def test_render_refuses_overlapping_boxes_naming_the_scene_time_and_both_elements(
+    tmp_path, fonts, capsys, first, second
+):
+    # Owner, #83: text never sits over other text or code.
+    folder = files(tmp_path)
+    fakes = Fakes(layout={1: ({1.5: [first, second]}, [])})
+    code, _, err = run(tmp_path, fakes, capsys)
+    assert code == 2, err
+    assert f"scene 1 at 1.50 s: {first['name']} overlaps {second['name']}; shorten or move it" in err, err
+    assert not fakes.commands and not (folder / "render" / "scenes.json").exists()  # refused before encoding
+
+
+@pytest.mark.parametrize(
+    "first, second",
+    [
+        (HEADING, TEXT | {"left": 899, "top": 179}),  # a 1 px graze
+        (HEADING, TEXT | {"top": 181}),  # apart
+        (HEADING, TEXT | {"kind": "arrow", "group": "h"}),  # one element's own parts, such as a mark's chip and arrow
+        (CODE_LINE, CODE_LINE | {"name": "code line 4", "group": "c4"}),  # code against code
+    ],
+)
+def test_render_accepts_boxes_that_do_not_overlap_by_more_than_a_pixel(tmp_path, fonts, capsys, first, second):
+    files(tmp_path)
+    code, _, err = run(tmp_path, Fakes(layout={1: ({1.5: [first, second]}, [])}), capsys)
+    assert code == 0, err
+
+
+def test_render_refuses_a_layout_problem_naming_the_scene_and_time(tmp_path, fonts, capsys):
+    # #83 verify T1 F1: a mark with no free space for its note reaches the user as a refusal naming the scene.
+    files(tmp_path)
+    text = "mark on line 3: no free space for its note; shorten the line or the note (write-video-script)"
+    code, _, err = run(tmp_path, Fakes(layout={2: ({}, [{"at": 1.234, "text": text}])}), capsys)
+    assert code == 2 and f"scene 2 at 1.23 s: {text}" in err, err

@@ -34,6 +34,7 @@ function build() {
     const next = words[i + 1];
     if (next) at(span, [{ color: CUES.palette.accent }, { color: CUES.palette.text }], next.at, M.dim, { fill: 'forwards' });
   });
+  boxed(box, 'text');  // the visual is one text: its words wrap onto rows that may share a line's height
 }
 </script>
 </body>

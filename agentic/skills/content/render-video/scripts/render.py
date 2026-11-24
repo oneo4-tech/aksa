@@ -15,7 +15,11 @@ Reads, in the channel workspace's videos/<N>/:
 and writes render/scenes/NN.mp4, one silent H.264 clip per scene at FPS frames a second,
 1920x1080 for a long-form and 1080x1920 for a Short, and render/scenes.json, which it also
 prints: type, width, height, fps, and per scene its kind, source (html or demo), file,
-narration, seconds, frames, and lead (where the narration starts in the clip). It also writes
+narration, seconds, frames, lead (where the narration starts in the clip), and, for a drawn scene, texts:
+its on-screen texts, each with text, from and until (seconds from the clip's start), and big (spoken text shown
+large: a split's hook until it leaves, a title's visual, each point), which assemble.py keeps a Short's captions
+off (texts lists the heading, mark notes, compare headings and items, intro texts, kit use lines until the next
+file lights, takeaways, and repo and kit file names, each from its cue to the scene's end). It also writes
 render/alignment.md, the alignment report for gate 3: per drawn scene, each on-screen element
 (heading, point, word, line, item, role, activity, stake, panel, mark, focus, file, link, takeaway,
 action) with its text, cue, heard (when its own words start), lag (cue minus heard), and the
@@ -76,15 +80,18 @@ heard again does not pull it back up. A code scene shows at most ROWS lines (sty
 Short); a longer file scrolls with the focus, so the focused line and a line of context round it stay
 in view. Every line has the same box; the focus band wipes over it and the arrow points at its last
 character. Marks replace that word-driven focus: each focuses its line at the first heard word naming
-its at word after the previous mark's, with its note in a chip beside the line over
-no code; earlier notes stay, dimmed. A split scene shows its two files side by side (stacked on a
+its at word after the previous mark's, with its note in a chip in free space (no code, earlier chip, or
+connector under it) on its row or the nearest row above or below, joined by one straight horizontal or
+vertical connector to an arrowhead on the marked row after its last character; with no free space it is
+a layout problem (below). Earlier notes stay, dimmed. A split scene shows its two files side by side (stacked on a
 Short), SPLIT_ROWS lines in view a side, scrolling as code does; only marks focus its lines. As the
 first scene both files are whole from its first frame; later, each panel enters at its label's cue and
-its marks no earlier. A split's hook shows big over a veil from the first frame until the narration's first
-sentence ends (split_hook, at most HOOK_MAX seconds), then fades while the panels come forward; the heading,
-panels, and marks enter no earlier. A kit draws the repo card (entering at the lead, every file dim), lights only the current
-file with its use in a callout beside it (below the card on a Short), and lists the numbered takeaways beside
-(below) the card. A cta draws flat icons of its own (a thumb up, a share arrow, a bell, and a subscribe pill in
+its marks no earlier. A split's hook shows big in the heading band above the panels, clear of them, fitted to
+two lines at most, from the first frame until the narration's first sentence ends (split_hook, at most HOOK_MAX
+seconds), then fades; the panels and marks enter no earlier, and the heading, in the hook's band, once the hook
+has faded (MOTION enter later). A kit draws the repo card (entering at the lead, every file dim), lights only
+the current file with its use in a callout beside it (below the card on a Short), and lists the numbered
+takeaways beside (below) the card. A cta draws flat icons of its own (a thumb up, a share arrow, a bell, and a subscribe pill in
 the palette's deep red, syntax, with "Subscribe" in warm white; no YouTube logo), in a row (two by two on a
 Short), each entering at its cue, then doing one short move: a press, one pulse, or one bell swing. A repo card
 enters at the lead, lists each
@@ -105,7 +112,12 @@ sets any frame exactly. A Short's scenes draw nothing in its caption band, from 
 down, where assemble.py burns the captions: their content ends FLOOR_GAP pixels above it. Motion is medium and purposeful, tuned only in MOTION: each element enters
 with one short eased-out move at its cue, focus bands and links wipe in, earlier elements dim, and
 entrances start at least MOTION stagger seconds apart (staggered). The system Chrome, through Playwright with software raster
-(CHROME_ARGS), seeks and screenshots each frame, and ffmpeg encodes them. Fonts are the local files FONTS in RENDER_FONTS, else
+(CHROME_ARGS), seeks and screenshots each frame, and ffmpeg encodes them. Before encoding, render checks the layout
+in the same Chrome at the video's own size: once each entrance has settled and at the last frame (layout_times), it
+reads every shown hook, heading, text, mark note chip, arrow, and code line's characters (scene.js layout.boxes) and
+refuses a scene where two of them intersect by more than a pixel (overlaps; two code lines, or one element's own
+parts, such as a mark's chip and its arrow, aside), or where scene.js found a layout problem (a mark with no free
+space for its note), naming the scene, the time, and both elements. Fonts are the local files FONTS in RENDER_FONTS, else
 .cache/fonts in the home folder (README, Setup), embedded in the page: nothing loads from
 the network, so two renders give identical frames.
 
@@ -124,7 +136,7 @@ Needs Google Chrome, ffmpeg, ffprobe, whisper-cli with its model, and the fonts 
 Exit codes: 0 every scene rendered, 1 a tool or file error, 2 bad input (an invalid script
 or channel (youtube_channel.load refuses a missing background image or an invalid opacity or fit), a missing narration or demo file, a terminal clip longer than its scene, an item or heading whose
 words are never heard, a scene with nothing to show within BLANK_MAX seconds, or an element cued before its
-own words are heard).
+own words are heard, or a layout with text over text or code).
 """
 
 import argparse
@@ -181,6 +193,7 @@ MOTION = {"enter": 0.4, "offset": 0.08, "wipe": 0.4, "dim": 0.3, "stagger": 0.15
 BACKDROP_TYPES = {".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
 CONTRAST = 4.5
 SCRIM_EDGE = 0.2
+SETTLE = 0.2  # templates start some elements up to 0.15 s after their cue (a mark's chip), so a layout check waits this
 FOCUS_HOLD = 1.2  # a code focus stays at least this long before it moves
 HOOK_MAX = 3.0  # a split's hook leaves by this many seconds into the clip (split_hook)
 HOOK_WORDS = (2, 8)  # and has this many words, fewest and most
@@ -510,11 +523,12 @@ def scene_cues(scene: dict, index: int, words: list[dict], narration: float, siz
     if scene["kind"] == "split":
         # The cold open shows both files whole from its first frame; a later split brings each panel in as the
         # narration names its label. Only marks focus a split's lines, never before their panel is in.
-        # With a hook, nothing else enters before the hook leaves: the heading, the panels, and their marks wait.
+        # With a hook, nothing else enters before the hook leaves: the heading, the panels, and their marks wait;
+        # the heading, in the hook's band, waits until the hook has faded out, so text never sits over text.
         hook = split_hook(scene, words) if "hook" in scene else 0.0
         if "hook" in scene:
             cues["hook"] = {"text": scene["hook"], "at": 0.0, "until": hook}
-            cues["heading"]["at"] = max(cues["heading"]["at"], hook)
+            cues["heading"]["at"] = round(max(cues["heading"]["at"], hook + MOTION["enter"]), 3)
         enters = [None, None] if index == 1 else cue_times([scene[s]["label"] for s in SIDES], words)
         for side, enter in zip(SIDES, enters):
             spec = scene[side]
@@ -660,6 +674,78 @@ def filled(cues: dict, scene: int) -> dict:
             " (write-video-script)"
         )
     return cues
+
+
+def layout_times(cues: dict, frames: int) -> list[float]:
+    """When to check a scene's layout: once each entrance has settled (its cue plus MOTION enter and SETTLE), and at
+    its last frame; never past the last frame."""
+    last = round((frames - 1) / FPS, 3)
+    settled = {min(round(e["at"] + MOTION["enter"] + SETTLE, 3), last) for e in _entrances(cues)}
+    return sorted(settled | {last})
+
+
+def overlaps(boxes: list[dict]) -> list[tuple[dict, dict]]:
+    """Each pair of shown boxes (scene.js layout.boxes) intersecting by more than 1 px both ways, except two parts of
+    one element (one group: a text's lines, a mark's chip and its arrow) and two code lines."""
+    pairs = []
+    for index, a in enumerate(boxes):
+        for b in boxes[index + 1 :]:
+            if a["group"] == b["group"] or a["kind"] == b["kind"] == "code":
+                continue
+            wide = min(a["right"], b["right"]) - max(a["left"], b["left"])
+            high = min(a["bottom"], b["bottom"]) - max(a["top"], b["top"])
+            if wide > 1 and high > 1:
+                pairs.append((b, a) if a["kind"] == "code" else (a, b))
+    return pairs
+
+
+def layout_problems(scene: int, checked: dict, problems: list[dict]) -> list[str]:
+    """What render refuses in a scene's layout: each problem scene.js found while building it, and each overlap at
+    its first check time."""
+    found = [f"scene {scene} at {p['at']:.2f} s: {p['text']}" for p in problems]
+    seen = set()
+    for at in sorted(checked):
+        for a, b in overlaps(checked[at]):
+            if (a["name"], b["name"]) not in seen:
+                seen.add((a["name"], b["name"]))
+                found.append(
+                    f"scene {scene} at {at:.2f} s: {a['name']} overlaps {b['name']}; shorten or move it"
+                    " (write-video-script)"
+                )
+    return found
+
+
+def texts(cues: dict) -> list[dict]:
+    """A drawn scene's on-screen texts with when each shows, seconds from its clip's start, for assemble.py's caption
+    rule: big for spoken text shown large (a split's hook until it leaves, a title's visual, each point), else the
+    heading, mark notes, compare headings and items, intro texts, kit use lines (until the next file lights) and
+    takeaways, and repo and kit file names, each from its cue to the scene's end."""
+    end, kind = round(cues["seconds"], 3), cues["kind"]
+
+    def shown(text: str, start: float, until: float = end, big: bool = False) -> dict:
+        return {"text": text, "from": round(start, 3), "until": round(until, 3), "big": big}
+
+    found = [shown(cues["heading"]["text"], cues["heading"]["at"])]
+    if "hook" in cues:
+        found.append(shown(cues["hook"]["text"], 0.0, cues["hook"]["until"], big=True))
+    if kind == "title" and cues["items"]:
+        found.append(shown(" ".join(item["text"] for item in cues["items"]), cues["items"][0]["at"], big=True))
+    if kind == "points":
+        found += [shown(item["text"], item["at"], big=True) for item in cues["items"]]
+    views = [cues] if kind == "code" else [cues[side] for side in SIDES] if kind == "split" else []
+    found += [shown(mark["note"], mark["at"]) for view in views for mark in view["focus"] if "note" in mark]
+    if kind == "compare":
+        found += [shown(e["text"], e["at"]) for side in SIDES for e in [cues[side]["heading"], *cues[side]["items"]]]
+    if kind == "intro":
+        found += [shown(e["text"], e["at"]) for e in [*cues["roles"], cues["activity"], cues["stake"]]]
+    if kind == "kit":
+        lit = [file["at"] for file in cues["files"][1:]] + [cues["takeaways"][0]["at"]]
+        found += [shown(file["text"], cues["card"]["at"]) for file in cues["files"]]
+        found += [shown(file["use"], file["at"], until) for file, until in zip(cues["files"], lit)]
+        found += [shown(item["text"], item["at"]) for item in cues["takeaways"]]
+    if kind == "repo":
+        found += [shown(file["text"], file["at"]) for file in cues["files"]]
+    return found
 
 
 def _luminance(colour: list[float]) -> float:
@@ -929,7 +1015,7 @@ def mark_problems(holder: dict, where: str = "marks") -> list[str]:
 # Thin shell: whisper-cli, Chrome, ffmpeg, ffprobe, and the video's files.
 
 Transcribe = Callable[[Path], dict]
-Shoot = Callable[[str, tuple[int, int], int, Path], None]
+Shoot = Callable[[str, tuple[int, int], int, Path, list[float]], tuple[dict, list[dict]]]
 Run = Callable[[list[str]], None]
 Probe = Callable[[Path], float]
 
@@ -970,8 +1056,9 @@ def whisper(wav: Path) -> dict:
             raise ToolError(f"whisper-cli wrote no readable JSON for {wav.name} ({error})") from None
 
 
-def chrome(html: str, size: tuple[int, int], frames: int, folder: Path) -> None:
-    """Each frame of the page, seeked to its time in the system Chrome, as folder/NNNNN.jpg."""
+def chrome(html: str, size: tuple[int, int], frames: int, folder: Path, checks: list[float]) -> tuple[dict, list[dict]]:
+    """Each frame of the page, seeked to its time in the system Chrome, as folder/NNNNN.jpg; first, the boxes shown
+    at each check time ({time: layout.boxes()}) and the layout problems found building the scene (scene.js)."""
     from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import sync_playwright
 
@@ -985,6 +1072,11 @@ def chrome(html: str, size: tuple[int, int], frames: int, folder: Path) -> None:
             tab.set_content(html)
             if tab.evaluate("window.ready") is not True:
                 raise ToolError("the scene's fonts did not load in Chrome; check the font files (README, Setup)")
+            checked = {}
+            for at in checks:
+                tab.evaluate(f"seek({at})")
+                checked[at] = tab.evaluate("layout.boxes()")
+            problems = tab.evaluate("layout.problems")
             for index, at in enumerate(seek_times(frames)):
                 tab.evaluate(f"seek({at})")
                 tab.screenshot(path=str(folder / f"{index:05d}.jpg"), type="jpeg", quality=JPEG_QUALITY)
@@ -992,6 +1084,7 @@ def chrome(html: str, size: tuple[int, int], frames: int, folder: Path) -> None:
             raise ToolError(f"Chrome failed on the scene ({str(error).splitlines()[0]})") from None
         finally:
             browser.close()
+    return checked, problems
 
 
 def read_json(path: Path, missing: str):
@@ -1071,7 +1164,12 @@ def render(video: Path, script: dict, config: dict, root: Path, transcribe, shoo
             run(clip_command(source, scene["start"], scene["seconds"], size, background, clip))
         else:
             with tempfile.TemporaryDirectory() as frames:
-                shoot(page(scene["cues"] | brand, fonts), size, scene["frames"], Path(frames))
+                checks = layout_times(scene["cues"], scene["frames"])
+                checked, problems = shoot(
+                    page(scene["cues"] | brand, fonts), size, scene["frames"], Path(frames), checks
+                )
+                if found := layout_problems(scene["scene"], checked, problems):
+                    raise BadInput("\n  ".join(found))
                 run(encode_command(Path(frames), clip))
         report.append(
             {
@@ -1084,6 +1182,7 @@ def render(video: Path, script: dict, config: dict, root: Path, transcribe, shoo
                 "frames": scene["frames"],
                 "lead": LEAD,
             }
+            | ({"texts": texts(scene["cues"])} if scene["source"] == "html" else {})
         )
     return {"type": script["type"], "width": size[0], "height": size[1], "fps": FPS, "scenes": report}
 

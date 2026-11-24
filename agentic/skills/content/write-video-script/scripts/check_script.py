@@ -45,9 +45,9 @@ Reads videos/<N>/script.json in the channel workspace, written by write-video-sc
     kit       the "Take it to your agent" beat: the repo card's GitHub animation again, now explaining
               each file of the kit and how the viewer uses it, never repeating an earlier scene:
       repo, path  as a repo scene: the GitHub repository and the kit folder, <n>-<slug>/ai-kit
-      files   REPO_FILES entries (1-8) of KIT_FILE {"path": "AGENTS.md", "use": "Paste into your
-              AGENTS.md or CLAUDE.md", "at": "rules"}: the file in ai-kit/, one line on how the
-              viewer uses it, and the word of say at which its line appears
+      files   REPO_FILES entries (1-8) of KIT_FILE {"path": "AGENTS.md", "use": "Paste it so your
+              agent checks tests", "at": "rules"}: the file in ai-kit/, one line on how the viewer
+              uses it and its benefit, and the word of say at which its line appears
       link_at optional: the word of say at which the link appears, default REPO_CUE
       takeaways  two to four lines: what the viewer takes from the video
       takeaways_at  optional: the word of say at which the first takeaway appears; absent, each
@@ -107,22 +107,34 @@ credit the concept and its source. Scene rules:
     first, then, finally, one more, before, after, also, because, instead, again), as a whole word
     anywhere in it; the refusal shows that sentence; whether it truly links is judged at gate 2;
   - a long-form ends on a cta scene, after the bridge and its comment question, showing all four
-    ACTIONS; a Short may end on a cta naming subscribe, as its last scene; a cta is never before
+    ACTIONS; a Short may end on a cta naming subscribe, after its closing scene; a cta is never before
     the last scene; its say names each action it shows, in at most CTA_SENTENCES sentences and
     about CTA_SECONDS (8 s a long-form, 4 s a Short, estimated as the length);
   - the last scene's say thanks the viewer (THANKS: thank you or thanks, any case), long-form and
     Short, inside the cta's limits when the last scene is a cta;
-  - a Short flows hook, challenge, why it matters, takeaway, and drive: scene 1 is a split with a
-    hook whose words are all in say's first sentence, that sentence at most HOOK_SECONDS at the
-    channel's pace (estimated as the length); a code or split scene before the kit has marks
-    (the challenge); from the challenge to before the kit a sentence has a REASON cue (why it
-    matters); no title scene comes before the kit; the last scene, or the one before a closing
-    cta, names the full video or breakdown (DRIVE);
-  - a kit scene is among the last KIT_FROM_END (a cta not counted), with TAKEAWAYS takeaways; none of its use lines or
-    takeaways repeats, word for word (any case or punctuation), a line an earlier scene showed
-    (its on-screen text, compare items, or mark notes): the kit explains each file and how to use
-    it; when videos/<N>/demo.json names the demo folder, its card shows <demo link>/ai-kit and,
-    when that folder exists in the demo clone (channel.yaml demos.path), each file is in it.
+  - a Short flows problem, resolution, kit, and closing (row 37), each refusal naming its beat and
+    scene: the problem is scene 1, a split with marks and a hook whose words are all in say's first
+    sentence, that sentence at most HOOK_SECONDS at the channel's pace (estimated as the length);
+    the resolution is a scene after it and before the kit whose say has a RESOLUTION cue (fix,
+    catch, instead, should, check, so that), saying how to fix or catch the bug; no title scene
+    comes before the kit; the kit is the scene just before the closing scene; the closing is the
+    last scene, or the one before a closing cta, and names where the links are (LINKS: link,
+    links, description) and the full video or breakdown (DRIVE); the last scene's thank-you above
+    covers the thanks;
+  - a Short's on-screen line (prose_lines: the heading, visual lines, split labels, mark notes,
+    compare headings and items, kit use lines and takeaways, and an intro's roles, activity, and
+    stake, though a Short has no intro) has at most SHORT_LINE_WORDS (8) words (row 35), naming the
+    scene and line; a long-form's lines are not limited;
+  - every kit scene, long-form and Short, states its benefit (row 37): its say and each file's use
+    line have a BENEFIT cue (your agent, asks, catches, flags, checks, finds, writes, helps, so you,
+    for you), saying what the viewer's agent then does for them, the refusal naming the scene and
+    line; whether it is a good benefit is judged at gate 2;
+  - a long-form's kit scene is among its last KIT_FROM_END (a cta not counted); every kit scene has
+    TAKEAWAYS takeaways; none of its use lines or takeaways repeats, word for word (any case or
+    punctuation), a line an earlier scene showed (its on-screen text, compare items, or mark
+    notes): the kit explains each file and how to use it; when videos/<N>/demo.json names the
+    demo folder, its card shows <demo link>/ai-kit and, when that folder exists in the demo clone
+    (channel.yaml demos.path), each file is in it.
 say keeps the real words: narrate-video applies the channel's pronunciation list just before
 synthesis, so captions taken from the script show them.
 
@@ -165,16 +177,25 @@ ACTIONS = {
 HOOK_WORDS = (2, 8)  # a split's hook line
 HOOK_SECONDS = 3  # a Short's first sentence, holding its hook, at the channel's pace
 DRIVE = re.compile(r"\bfull (video|breakdown)\b|\bbreakdown\b", re.IGNORECASE)  # a Short's drive to the long video
+LINKS = re.compile(r"\b(link|links|description)\b", re.IGNORECASE)  # a Short's closing: where the links are
+# A Short's resolution beat: how to fix or catch the bug.
+RESOLUTION = re.compile(
+    r"\b(fix|fixes|fixed|catch|catches|caught|instead|should|check|checks|so that)\b", re.IGNORECASE
+)
 CTA_SECONDS = {"long-form": 8, "short": 4}  # a cta, the last scene, said in about this long at the channel's pace
 CTA_SENTENCES = 2  # a cta's say, at most
 THANKS = re.compile(r"\b(thank you|thanks)\b", re.IGNORECASE)  # the last scene's thank-you to the viewer
+# A kit's benefit (row 37): its say and each file's use line say what the viewer's agent then does for them.
+BENEFITS = ["your agent", "asks", "catches", "flags", "checks", "finds", "writes", "helps", "so you", "for you"]
+BENEFIT = re.compile(r"\b(" + "|".join(BENEFITS) + r")\b", re.IGNORECASE)
+SHORT_LINE_WORDS = 8  # a Short's on-screen line, at most (row 35), as the hook's own maximum
 SIDES = ["left", "right"]
 CLAIM_ID = re.compile(r"C[1-9][0-9]*")
 WORD = re.compile(r"[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*")
 PAUSE = "//"
 HESITATION = re.compile(r"\.\.\.|…")
 HOOK_SHARE = 2 / 3  # of the cold open's on-screen words that its narration says
-KIT_FROM_END = 2  # the kit beat is the last scene or the one before the bridge
+KIT_FROM_END = 2  # a long-form's kit beat is the last scene or the one before the bridge, a cta not counted
 TAKEAWAYS = (2, 4)
 ROLES = (2, 3)  # an intro's lines naming who the video is for
 REPO_FILES = (1, 8)  # a repo card's file lines
@@ -501,10 +522,11 @@ def repo_problems(scenes: list[dict], long_form: bool, demo: dict | None) -> lis
 
 
 def short_problems(scenes: list[dict], pace: float) -> list[str]:
-    """A Short's flow, each beat bridged by a sentence: the hook (a split with a hook said in a first sentence of at
-    most HOOK_SECONDS), the challenge (marks on the bug's line), why it matters (a REASON sentence before the kit, no
-    title slide), the takeaway (the kit), and the drive to the long video (the last scene, or the one before a
-    closing cta, names the full video or breakdown)."""
+    """A Short's flow (row 37), each beat bridged by a sentence: the problem (scene 1, a split with marks and a hook
+    said in a first sentence of at most HOOK_SECONDS), the resolution (a scene after it and before the kit saying how
+    to fix or catch the bug, a RESOLUTION cue; no title slide before the kit), the kit (the scene just before the
+    closing scene), and the closing (the last scene, or the one before a closing cta, naming where the links are,
+    LINKS, and the full video, DRIVE). The last scene's thank-you is checked for every video."""
     found, first = [], scenes[0]
     opening = _sentence_texts(first["say"])[:1]
     if first["kind"] == "split" and "hook" not in first:
@@ -521,26 +543,34 @@ def short_problems(scenes: list[dict], pace: float) -> list[str]:
                 f"scene 1: say: the first sentence takes about {round(seconds)} s; a Short's hook is said within "
                 f"{HOOK_SECONDS} s"
             )
+    if first["kind"] == "split" and not scene_marks(first):
+        found.append("scene 1: marks: a Short's problem beat marks the bug's line in its split; add marks to a side")
+    closing = len(scenes) - 1 if scenes[-1]["kind"] == "cta" and len(scenes) > 1 else len(scenes)
     kits = [index for index, scene in enumerate(scenes, 1) if scene["kind"] == "kit"]
-    end = kits[0] if kits else len(scenes) + 1
-    challenge = next((i for i, scene in enumerate(scenes[: end - 1], 1) if scene_marks(scene)), None)
-    if challenge is None:
-        found.append("short: no challenge beat; mark the bug's line in a code or split scene before the kit")
-    elif not any(
-        REASON.search(text) for scene in scenes[challenge - 1 : end - 1] for text in _sentence_texts(scene["say"])
-    ):
+    end = kits[0] if kits else closing
+    if not any(RESOLUTION.search(text) for scene in scenes[1 : end - 1] for text in _sentence_texts(scene["say"])):
         found.append(
-            "short: no why-it-matters beat; between the challenge and the kit, say why it matters "
-            "(why, so, because, to know, how do we, how can)"
+            "short: no resolution beat; between the problem and the kit, say how to fix or catch the bug "
+            "(fix, catch, instead, should, check, so that)"
         )
     found += [
-        f"scene {index}: kind: a Short has no title slide before the kit; go from the challenge to why it matters"
+        f"scene {index}: kind: a Short has no title slide before the kit; go from the problem to its resolution"
         for index, scene in enumerate(scenes[: end - 1], 1)
         if scene["kind"] == "title"
     ]
-    drive = len(scenes) - 1 if scenes[-1]["kind"] == "cta" and len(scenes) > 1 else len(scenes)
-    if not DRIVE.search(spoken(scenes[drive - 1]["say"])):
-        found.append(f"scene {drive}: say: a Short ends by driving to the long video; name the full video or breakdown")
+    if closing - 1 not in kits:
+        where = f"it is scene {', '.join(map(str, kits))}" if kits else "there is none"
+        found.append(
+            f"short: no kit beat just before the closing scene (scene {closing}); {where}: put Take it to your agent "
+            "there, then close with the links, the full video, and thanks"
+        )
+    said = spoken(scenes[closing - 1]["say"])
+    if not LINKS.search(said):
+        found.append(
+            f"scene {closing}: say: a Short's closing beat names where the links are (link, links, description)"
+        )
+    if not DRIVE.search(said):
+        found.append(f"scene {closing}: say: a Short's closing beat names the full video or breakdown")
     return found
 
 
@@ -560,7 +590,7 @@ def cta_problems(scenes: list[dict], long_form: bool, pace: float) -> list[str]:
         if long_form and set(scene["actions"]) != set(ACTIONS):
             found.append(f"{name}: actions: a long-form's cta shows all four: {', '.join(ACTIONS)}")
         if index != last:
-            where = "after the bridge and its comment question" if long_form else "after the drive to the long video"
+            where = "after the bridge and its comment question" if long_form else "after the closing scene"
             found.append(f"{name}: kind: a {'long-form' if long_form else 'Short'}'s cta is its last scene, {where}")
         if not long_form and "subscribe" not in scene["actions"]:
             found.append(f"{name}: actions: a Short's cta names subscribe")
@@ -632,6 +662,16 @@ def grammar_problems(index: int, scene: dict) -> list[str]:
                 "rephrasing a sentence that opens on a lowercase name such as pytest"
             )
     return found
+
+
+def line_problems(index: int, scene: dict) -> list[str]:
+    """Each on-screen line of a Short's scene (prose_lines: the heading, visual lines, mark notes, compare headings
+    and items, kit use lines and takeaways) longer than SHORT_LINE_WORDS words."""
+    return [
+        f"scene {index}: {field}: '{line}' has {count} words; a Short's on-screen line has at most {SHORT_LINE_WORDS}"
+        for field, line in prose_lines(scene)
+        if (count := len(WORD.findall(line))) > SHORT_LINE_WORDS
+    ]
 
 
 def _sentence_texts(say: str) -> list[str]:
@@ -720,9 +760,21 @@ def shown_lines(scene: dict) -> list[str]:
 
 
 def kit_problems(index: int, scene: dict, earlier: list[dict], demo: dict | None, kit_dir: Path | None) -> list[str]:
-    """A kit scene against the earlier scenes, none of whose lines it repeats, and the demo: its card shows the
-    demo's ai-kit folder, and each file is in that folder of the demo clone (kit_dir, None when absent)."""
+    """A kit scene's benefit (a BENEFIT cue in its say and in each file's use line), the earlier scenes, none of whose
+    lines it repeats, and the demo: its card shows the demo's ai-kit folder, and each file is in that folder of the
+    demo clone (kit_dir, None when absent)."""
     found, name = [], f"scene {index}"
+    if not BENEFIT.search(spoken(scene["say"])):
+        found.append(
+            f"{name}: say: the kit does not state its benefit, what the viewer's agent then does for them "
+            f"({', '.join(BENEFITS)})"
+        )
+    found += [
+        f"{name}: files: '{f['use']}' does not state the benefit, what the viewer's agent then does for them "
+        f"({', '.join(BENEFITS)})"
+        for f in scene["files"]
+        if not BENEFIT.search(f["use"])
+    ]
     shown = {}
     for number, before in enumerate(earlier, 1):
         for line in shown_lines(before):
@@ -766,6 +818,7 @@ def problems(
             found += kit_problems(index, scene, script["scenes"][: index - 1], demo, kit_dir)
         found += [f"{name}: say: {p}" for p in say_problems(scene["say"], acronyms)]
         found += grammar_problems(index, scene)
+        found += line_problems(index, scene) if script["type"] == "short" else []
         found += [
             f"{name}: say: names a person ('{person}'); narration never names people, so credit the concept and its "
             "source in the description's References"
@@ -791,7 +844,8 @@ def problems(
     if not THANKS.search(spoken(scenes[-1]["say"])):
         found.append(f"scene {len(scenes)}: say: the last scene thanks the viewer; say thank you or thanks")
     found += [] if long_form else short_problems(scenes, pace)
-    if not any(scene["kind"] == "kit" for scene in [s for s in scenes if s["kind"] != "cta"][-KIT_FROM_END:]):
+    ends = [s for s in scenes if s["kind"] != "cta"][-KIT_FROM_END:]
+    if long_form and not any(scene["kind"] == "kit" for scene in ends):
         found.append("kit: no kit scene in the last two; end with the Take it to your agent beat")
     _, seconds = estimate(script["scenes"], pace)
     low, high = TARGET_SECONDS[script["type"]]
