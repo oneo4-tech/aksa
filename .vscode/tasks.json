@@ -80,7 +80,7 @@
       "label": "Pi - NMI",
       "detail": "PI Agent Harness CLI with NVIDIA API key",
       "type": "shell",
-      "command": "pi --model nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "command": "set -a && . ./.env && set +a && pi --model nvidia/nemotron-3.5-super-vl-120b-a12b",
       "icon": { "id": "sparkle", "color": "terminal.ansiWhite" },
       "presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": false, "close": false },
       "problemMatcher": []

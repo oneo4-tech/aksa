@@ -1,11 +1,13 @@
 """Repository invariants: path policy, channel URLs, rule index, skill structure, and references."""
 
+import json
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 PATHS_FILE = "config/environment.yaml"
@@ -262,3 +264,17 @@ def test_skills_page_shows_the_skill_folder_structure():
     expected = skill_folder_entries(COMPONENTS.read_text())
     assert expected == ["SKILL.md", "references/", "scripts/"]
     assert skill_folder_entries(page_section("### Skill Structure")) == expected
+
+
+def test_continue_config_has_no_duplicate_models():
+    models = yaml.safe_load((ROOT / ".vscode" / "continue" / "config.yaml").read_text())["models"]
+    pairs = [(m["provider"], m["model"]) for m in models]
+    assert sorted({p for p in pairs if pairs.count(p) > 1}) == []
+
+
+def test_tasks_needing_an_api_key_load_env_first():
+    tasks = json.loads((ROOT / ".vscode" / "tasks.json").read_text())["tasks"]
+    keyed = {t["label"]: t["command"] for t in tasks if re.search(r"\bkey\b", t["detail"], re.IGNORECASE)}
+    assert "Pi - NMI" in keyed
+    assert [label for label, cmd in keyed.items() if not cmd.startswith("set -a && . ./.env && set +a && ")] == []
+    assert keyed["Pi - NMI"].endswith("&& pi --model nvidia/nemotron-3.5-super-vl-120b-a12b")
