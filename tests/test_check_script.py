@@ -64,9 +64,11 @@ KIT_FILES = [
 ]
 
 
-# A Short's why-it-matters beat (seventeen words) and its drive to the long video (eight words).
+# A Short's why-it-matters beat (seventeen words), its drive to the long video (eight words), and its thank-you to the
+# viewer when the kit beat is its last scene (three words).
 WHY_SAY = "So why does it matter? Because a coupon can overcharge customers, and both the tests stay green."
 DRIVE = " The full breakdown is in the linked video."
+THANKS = " Thanks for watching."
 
 
 def why(**fields):
@@ -83,7 +85,7 @@ def kit(**fields):
         "files": KIT_FILES,
         "link_at": "code",
         "takeaways": ["Ask what would make the test fail.", "Break the code on purpose."],
-        "say": SAY + DRIVE,
+        "say": SAY + DRIVE + THANKS,
         "claims": [],
     }
     return base | fields
@@ -141,8 +143,10 @@ def repo(**fields):
     return base | fields
 
 
-# Two sentences, eighteen words: about seven seconds at the channel's pace.
-CTA_SAY = "Before you go, like and share this with a tester. // Subscribe, and turn on the bell for notifications."
+# Two sentences, twenty words with the thank-you: about eight seconds at the channel's pace.
+CTA_SAY = (
+    "Before you go, like and share this with a tester. // Subscribe, turn on the bell, and thank you for watching."
+)
 
 
 def cta(**fields):
@@ -160,6 +164,9 @@ def cta(**fields):
 DEMO_LINK = "https://github.com/example-org/example-demos/tree/main/12-mocked-tests"
 KIT = kit()
 CTA = cta()
+SHORT_CTA = cta(
+    actions=["subscribe"], heading="Subscribe", say="Subscribe for the next challenge. // Thanks for watching."
+)
 WHY = why()
 SPLIT = split()
 INTRO = intro()
@@ -177,8 +184,8 @@ def long_form(middle, structure="challenge-first", first=None):
 
 
 def script(scenes=None, **fields):
-    """A Short of four scenes, one hundred words: about forty-one seconds at the channel's pace: the split hook and
-    challenge, a scene, why it matters, and the kit beat driving to the long video."""
+    """A Short of four scenes, one hundred and three words: about thirty-nine seconds at the channel's pace: the split
+    hook and challenge, a scene, why it matters, and the kit beat driving to the long video and thanking the viewer."""
     base = {
         "title": "Spot the Bug: the test that tests nothing",
         "type": "short",
@@ -210,17 +217,17 @@ def test_a_script_under_the_writing_rules_passes_with_its_length_estimate(tmp_pa
     code, out, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
     report = json.loads(out)
-    assert report["words"] == 100 and report["target_seconds"] == [30, 60]
-    assert report["seconds"] == round(100 * 60 / WPM)
+    assert report["words"] == 103 and report["target_seconds"] == [30, 60]
+    assert report["seconds"] == round(103 * 60 / WPM)
 
 
 def test_pauses_and_hesitations_are_not_words_and_sit_inside_the_measured_speed(tmp_path, capsys):
     paused = SAY.replace("Spot the bug.", "Spot the bug. // Look... closely.")
-    files(tmp_path, script([split(say=paused), scene(say=paused), WHY, kit(say=paused + DRIVE)]))
+    files(tmp_path, script([split(say=paused), scene(say=paused), WHY, kit(say=paused + DRIVE + THANKS)]))
     code, out, _ = run(tmp_path, capsys)
     report = json.loads(out)
-    assert code == 0 and report["words"] == 3 * 27 + 17 + 8
-    assert report["seconds"] == round((3 * 27 + 17 + 8) * 60 / WPM)
+    assert code == 0 and report["words"] == 3 * 27 + 17 + 8 + 3
+    assert report["seconds"] == round((3 * 27 + 17 + 8 + 3) * 60 / WPM)
 
 
 def test_the_estimate_matches_the_measured_narration_of_content_issue_38():
@@ -462,7 +469,9 @@ def test_a_script_without_the_kit_beat_near_its_end_is_refused(tmp_path, capsys,
 
 
 def test_the_kit_beat_may_be_the_one_before_the_bridge(tmp_path, capsys):
-    drive = scene(heading="Watch the full breakdown", say="Next, watch the full breakdown in the linked video. " + SAY)
+    drive = scene(
+        heading="Watch the full breakdown", say="Next, watch the full breakdown in the linked video. " + SAY + THANKS
+    )
     files(tmp_path, script([SPLIT, WHY, kit(say=SAY), drive]))
     assert run(tmp_path, capsys)[0] == 0
 
@@ -853,8 +862,7 @@ def test_a_short_cta_over_four_seconds_is_refused(tmp_path, capsys):
 
 
 def test_a_short_may_end_on_a_cta_naming_subscribe(tmp_path, capsys):
-    ending = cta(actions=["subscribe"], heading="Subscribe", say="Subscribe for the next challenge.")
-    files(tmp_path, script([SPLIT, scene(), WHY, KIT, ending]))
+    files(tmp_path, script([SPLIT, scene(), WHY, KIT, SHORT_CTA]))
     code, _, err = run(tmp_path, capsys)
     assert (code, err) == (0, "")
 
@@ -1153,3 +1161,30 @@ def test_a_split_with_marks_outside_its_sides_is_refused(tmp_path, capsys):
     code, _, err = run(tmp_path, capsys)
     assert code == 2
     assert "scene 1: marks: a split's marks go inside its left or right side" in err
+
+
+# The thank-you ending (owner, #81): every video, long-form and Short, ends by thanking the viewer in its last
+# scene's say, inside row 32's cta limits.
+
+
+@pytest.mark.parametrize(
+    ("data", "ending", "last"),
+    [
+        (long_form([]), cta(say="Before you go, like and share this. // Subscribe, and turn on the bell."), 43),
+        (script(), kit(say=SAY + DRIVE), 4),
+        (script([SPLIT, scene(), WHY, KIT, SHORT_CTA]), SHORT_CTA | {"say": "Subscribe for the next challenge."}, 5),
+    ],
+)
+def test_a_last_scene_without_a_thank_you_is_refused_naming_it(tmp_path, capsys, data, ending, last):
+    data["scenes"][-1] = ending
+    files(tmp_path, data)
+    code, _, err = run(tmp_path, capsys)
+    assert code == 3
+    assert f"scene {last}: say: the last scene thanks the viewer; say thank you or thanks" in err
+
+
+@pytest.mark.parametrize("data", [long_form([]), script(), script([SPLIT, scene(), WHY, KIT, SHORT_CTA])])
+def test_a_last_scene_thanking_the_viewer_passes_inside_the_cta_limits(tmp_path, capsys, data):
+    files(tmp_path, data)
+    code, _, err = run(tmp_path, capsys)
+    assert (code, err) == (0, "")

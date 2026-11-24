@@ -110,6 +110,8 @@ credit the concept and its source. Scene rules:
     ACTIONS; a Short may end on a cta naming subscribe, as its last scene; a cta is never before
     the last scene; its say names each action it shows, in at most CTA_SENTENCES sentences and
     about CTA_SECONDS (8 s a long-form, 4 s a Short, estimated as the length);
+  - the last scene's say thanks the viewer (THANKS: thank you or thanks, any case), long-form and
+    Short, inside the cta's limits when the last scene is a cta;
   - a Short flows hook, challenge, why it matters, takeaway, and drive: scene 1 is a split with a
     hook whose words are all in say's first sentence, that sentence at most HOOK_SECONDS at the
     channel's pace (estimated as the length); a code or split scene before the kit has marks
@@ -165,6 +167,7 @@ HOOK_SECONDS = 3  # a Short's first sentence, holding its hook, at the channel's
 DRIVE = re.compile(r"\bfull (video|breakdown)\b|\bbreakdown\b", re.IGNORECASE)  # a Short's drive to the long video
 CTA_SECONDS = {"long-form": 8, "short": 4}  # a cta, the last scene, said in about this long at the channel's pace
 CTA_SENTENCES = 2  # a cta's say, at most
+THANKS = re.compile(r"\b(thank you|thanks)\b", re.IGNORECASE)  # the last scene's thank-you to the viewer
 SIDES = ["left", "right"]
 CLAIM_ID = re.compile(r"C[1-9][0-9]*")
 WORD = re.compile(r"[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*")
@@ -785,6 +788,8 @@ def problems(
     found += context_problems(scenes)
     found += transition_problems(scenes)
     found += cta_problems(scenes, long_form, pace)
+    if not THANKS.search(spoken(scenes[-1]["say"])):
+        found.append(f"scene {len(scenes)}: say: the last scene thanks the viewer; say thank you or thanks")
     found += [] if long_form else short_problems(scenes, pace)
     if not any(scene["kind"] == "kit" for scene in [s for s in scenes if s["kind"] != "cta"][-KIT_FROM_END:]):
         found.append("kit: no kit scene in the last two; end with the Take it to your agent beat")
