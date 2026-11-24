@@ -80,15 +80,18 @@ heard again does not pull it back up. A code scene shows at most ROWS lines (sty
 Short); a longer file scrolls with the focus, so the focused line and a line of context round it stay
 in view. Every line has the same box; the focus band wipes over it and the arrow points at its last
 character. Marks replace that word-driven focus: each focuses its line at the first heard word naming
-its at word after the previous mark's, with its note in a chip beside the line over
-no code; earlier notes stay, dimmed. A split scene shows its two files side by side (stacked on a
+its at word after the previous mark's, with its note in a chip in free space (no code, earlier chip, or
+connector under it) on its row or the nearest row above or below, joined by one straight horizontal or
+vertical connector to an arrowhead on the marked row after its last character; with no free space it is
+a layout problem (below). Earlier notes stay, dimmed. A split scene shows its two files side by side (stacked on a
 Short), SPLIT_ROWS lines in view a side, scrolling as code does; only marks focus its lines. As the
 first scene both files are whole from its first frame; later, each panel enters at its label's cue and
-its marks no earlier. A split's hook shows big over a veil from the first frame until the narration's first
-sentence ends (split_hook, at most HOOK_MAX seconds), then fades while the panels come forward; the panels and
-marks enter no earlier, and the heading, in the hook's band, once the hook has faded (MOTION enter later). A kit draws the repo card (entering at the lead, every file dim), lights only the current
-file with its use in a callout beside it (below the card on a Short), and lists the numbered takeaways beside
-(below) the card. A cta draws flat icons of its own (a thumb up, a share arrow, a bell, and a subscribe pill in
+its marks no earlier. A split's hook shows big in the heading band above the panels, clear of them, fitted to
+two lines at most, from the first frame until the narration's first sentence ends (split_hook, at most HOOK_MAX
+seconds), then fades; the panels and marks enter no earlier, and the heading, in the hook's band, once the hook
+has faded (MOTION enter later). A kit draws the repo card (entering at the lead, every file dim), lights only
+the current file with its use in a callout beside it (below the card on a Short), and lists the numbered
+takeaways beside (below) the card. A cta draws flat icons of its own (a thumb up, a share arrow, a bell, and a subscribe pill in
 the palette's deep red, syntax, with "Subscribe" in warm white; no YouTube logo), in a row (two by two on a
 Short), each entering at its cue, then doing one short move: a press, one pulse, or one bell swing. A repo card
 enters at the lead, lists each

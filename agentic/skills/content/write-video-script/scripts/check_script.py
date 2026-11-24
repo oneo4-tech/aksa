@@ -121,9 +121,10 @@ credit the concept and its source. Scene rules:
     last scene, or the one before a closing cta, and names where the links are (LINKS: link,
     links, description) and the full video or breakdown (DRIVE); the last scene's thank-you above
     covers the thanks;
-  - a Short's on-screen line (the heading, visual lines, split labels, mark notes, compare headings
-    and items, kit use lines and takeaways) has at most SHORT_LINE_WORDS (8) words (row 35), naming
-    the scene and line; a long-form's lines are not limited;
+  - a Short's on-screen line (prose_lines: the heading, visual lines, split labels, mark notes,
+    compare headings and items, kit use lines and takeaways, and an intro's roles, activity, and
+    stake, though a Short has no intro) has at most SHORT_LINE_WORDS (8) words (row 35), naming the
+    scene and line; a long-form's lines are not limited;
   - every kit scene, long-form and Short, states its benefit (row 37): its say and each file's use
     line have a BENEFIT cue (your agent, asks, catches, flags, checks, finds, writes, helps, so you,
     for you), saying what the viewer's agent then does for them, the refusal naming the scene and
@@ -131,8 +132,9 @@ credit the concept and its source. Scene rules:
   - a long-form's kit scene is among its last KIT_FROM_END (a cta not counted); every kit scene has
     TAKEAWAYS takeaways; none of its use lines or takeaways repeats, word for word (any case or
     punctuation), a line an earlier scene showed (its on-screen text, compare items, or mark
-    notes): the kit explains each file and how to use it; when videos/<N>/demo.json names the demo folder, its card shows <demo link>/ai-kit and,
-    when that folder exists in the demo clone (channel.yaml demos.path), each file is in it.
+    notes): the kit explains each file and how to use it; when videos/<N>/demo.json names the
+    demo folder, its card shows <demo link>/ai-kit and, when that folder exists in the demo clone
+    (channel.yaml demos.path), each file is in it.
 say keeps the real words: narrate-video applies the channel's pronunciation list just before
 synthesis, so captions taken from the script show them.
 
