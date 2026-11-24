@@ -161,12 +161,16 @@ def test_a_narrated_section_starts_each_comment_step_as_its_sentence_starts(tmp_
     narrate(video, 2, 9.0)  # the first terminal scene: 0.4 + 9 + 0.6 = 10 s, 300 frames
     vhs = FakeVhs()
     assert run(tmp_path, vhs, capsys, whisper(SAID))[0] == 0
-    # Clip time is narration time + LEAD 0.4: steps start at 0.9 (First) and 5.4 (Now, not break at 5.8).
-    # The clip opens on the 0.5 s after Show, so 0.4 s more; each step's last Sleep holds to the next step's start,
-    # the last one to the scene's 10 s.
-    narrated = NARRATED.replace("Sleep 4s", "Sleep 1350ms").replace("Sleep 6s", "Sleep 1750ms")
+    # Clip time is narration time + LEAD 0.4: steps start at 0.9 (First) and 5.4 (Now, not break at 5.8), in tape
+    # time 0.9 / VHS_RATE and 5.4 / VHS_RATE, as VHS's clip runs VHS_RATE clip seconds a tape second. The tape is at
+    # 0.5 s after Show; each step's last Sleep holds to the next step's tape start, the last one to the scene's 10 s
+    # unscaled (the clip ends a little short, never over).
+    first, now = 0.9 / record.VHS_RATE, 5.4 / record.VHS_RATE
+    sleeps = [round((first - 0.5) * 1000), round((now - first - 3.15) * 1000), round((10 - now - 2.85) * 1000)]
+    assert sleeps == [424, 1470, 1606]  # at VHS_RATE 0.974; was 400, 1350, 1750 without the rate
+    narrated = NARRATED.replace("Sleep 4s", f"Sleep {sleeps[1]}ms").replace("Sleep 6s", f"Sleep {sleeps[2]}ms")
     head = NARRATED_TAPE.split("# scene\n")[0].replace("Output demo.mp4", "Output demo-1.mp4")
-    assert vhs.tapes[0]["text"] == head + "Sleep 400ms\n" + narrated
+    assert vhs.tapes[0]["text"] == head + f"Sleep {sleeps[0]}ms\n" + narrated
     # Scenes without narration record as written.
     assert vhs.tapes[1]["text"].endswith(SECTIONS[1])
 
@@ -182,10 +186,22 @@ def test_a_step_whose_comment_is_never_heard_is_refused_naming_scene_and_comment
 def test_a_step_that_cannot_be_typed_before_the_next_sentence_is_refused(tmp_path, capsys):
     video, _ = demo(tmp_path, tape=NARRATED_TAPE)
     narrate(video, 2, 9.0)
-    early = [(w, at - 2.0 if at >= 5.0 else at) for w, at in SAID]  # "Now" at 3.0: the first step needs until 4.05
+    # "Now" at 3.4 in the clip: the first step needs until 3.97 (4.07 s of tape).
+    early = [(w, at - 2.0 if at >= 5.0 else at) for w, at in SAID]
     code, _, err = run(tmp_path, vhs := FakeVhs(), capsys, whisper(early))
     assert code == 3 and vhs.tapes == []
     assert "scene 2" in err and "# break the boundary" in err
+
+
+def test_a_step_is_reachable_on_the_vhs_rate_timing(tmp_path, capsys):
+    video, _ = demo(tmp_path, tape=NARRATED_TAPE)
+    narrate(video, 2, 9.0)
+    # "Now" at 4.0 in the clip: tape time 4.11 s, after the first step ends at 0.92 + 3.15 = 4.07 s of tape, though
+    # 4.0 is before 4.05 in unscaled time.
+    later = [(w, at - 1.4 if at >= 5.0 else at) for w, at in SAID]
+    code, _, err = run(tmp_path, vhs := FakeVhs(), capsys, whisper(later))
+    assert code == 0, err
+    assert "Sleep 33ms" in vhs.tapes[0]["text"]  # (4.0 - 0.9) / 0.974 - 3.15 s, the first step's last Sleep
 
 
 @pytest.mark.media
@@ -202,3 +218,69 @@ def test_real_vhs_records_one_clip_per_section(tmp_path, capsys):
         ).stdout  # fmt: skip
         assert float(out) > 0
     assert not list(folder.glob("*.mp4"))
+
+
+def probe(clip):
+    """The clip's seconds (ffprobe) and its still stretches of at least 0.1 s (ffmpeg freezedetect), as (start, end)
+    pairs, end None for a stretch running to the clip's end."""
+    duration = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(clip)],
+        check=True, capture_output=True, text=True,
+    ).stdout  # fmt: skip
+    log = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-i", str(clip), "-vf", "freezedetect=n=-80dB:d=0.1", "-f", "null", "-"],
+        check=True, capture_output=True, text=True,
+    ).stderr  # fmt: skip
+    starts = [float(t) for t in re.findall(r"freeze_start: ([\d.]+)", log)]
+    ends = [float(t) for t in re.findall(r"freeze_end: ([\d.]+)", log)]
+    stills = []
+    for start, end in zip(starts, ends + [None] * (len(starts) - len(ends))):
+        if stills and stills[-1][1] == start:  # freezedetect splits a long still; join it
+            stills[-1] = (stills[-1][0], end)
+        else:
+            stills.append((start, end))
+    return float(duration), stills
+
+
+# The channel's demo tape settings (1920x1080), with the cursor still so the screen changes only when a step types.
+CHANNEL_SETUP = """Output demo.mp4
+Set Shell zsh
+Set FontFamily "Menlo"
+Set FontSize 30
+Set Width 1920
+Set Height 1080
+Set Padding 48
+Set Theme "Dracula"
+Set TypingSpeed 45ms
+Set WindowBar Colorful
+Set CursorBlink false
+Hide
+Type "setopt interactivecomments && export PS1='$ ' && clear" Enter
+Show
+Sleep 500ms
+"""
+SPREAD = ["alpha", "bravo", "charlie", "delta"]
+# One sentence a step, spread over 14 s of narration: "Alpha starts here." at 0.5, "Bravo ..." at 4.0, and so on.
+SPREAD_SAID = [
+    (word, at) for name, start in zip(SPREAD, [0.5, 4.0, 8.0, 11.5])
+    for word, at in [(name.title(), start), ("starts", start + 0.3), ("here.", start + 0.6)]
+]  # fmt: skip
+
+
+@pytest.mark.media
+@pytest.mark.skipif(not (shutil.which("vhs") and shutil.which("ffmpeg")), reason="vhs or ffmpeg missing (#28)")
+def test_real_vhs_types_each_narrated_step_as_its_sentence_starts(tmp_path, capsys):
+    steps = "".join(f'Type "# {name} step" Enter\nType "echo {name}" Enter\n' for name in SPREAD)
+    video, _ = demo(tmp_path, tape=CHANNEL_SETUP + "# scene\n" + steps, terminals=1)
+    narrate(video, 2, 14.0)  # 0.4 + 14 + 0.6 = 15 s
+    code, _, err = run(tmp_path, record.vhs, capsys, whisper(SPREAD_SAID))
+    assert code == 0, err
+    duration, stills = probe(video / "demo-1.mp4")
+    # Each step's typing ends a still screen of 0.5 s or more; the last still runs to the clip's end.
+    typed = [end for start, end in stills if end is not None and end - start >= 0.5]
+    expected = [round(record.render.LEAD + start, 3) for _, start in SPREAD_SAID[::3]]
+    print(f"typing starts {typed}, expected {expected}; clip {duration} s for a 15.0 s scene")
+    assert len(typed) == len(expected)
+    # Within the larger of 0.1 s or 2 % of the step's clip time: VHS's rate varies run to run (VHS_RATE).
+    assert all(abs(t - e) <= max(0.1, 0.02 * e) for t, e in zip(typed, expected)), (typed, expected)
+    assert duration <= 15.0 + 1 / 30

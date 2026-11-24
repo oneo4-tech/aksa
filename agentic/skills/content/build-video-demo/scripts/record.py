@@ -24,9 +24,11 @@ leading key word of its comment heard after the step before's, else at another o
 as render cues an item; the step starts at the start of the sentence holding that word. The
 section's tape gets a leading Sleep and each step's last Sleep (added when the step ends without
 one) set so each step starts at its time from the clip's start, which is the shared part's last
-Show: typing takes the tape's TypingSpeed (VHS's 50ms default) a character or key press, and the
-command runs inside the step's last Sleep. The last step's Sleep holds to the scene's length
-(LEAD + narration + TAIL, whole frames). A scene without narration records as written.
+Show: typing takes the tape's TypingSpeed (VHS's 50ms default) a character or key press, the
+command runs inside the step's last Sleep, and VHS's clip runs VHS_RATE clip seconds a tape second,
+so each step's clip time is divided by it. The last step's Sleep holds to the scene's length
+(LEAD + narration + TAIL, whole frames) of tape, unscaled, so the clip ends a little short of the
+scene (render holds its last frame). A scene without narration records as written.
 
 Prints each recording written. Exit codes: 0 every section recorded, 1 vhs or whisper-cli
 missing or failing or a file error, 2 bad input (an invalid channel, a missing or invalid
@@ -68,6 +70,12 @@ COMMAND = re.compile(
     rf"|(?:{KEYS})(?:@(?P<key_speed>\S+))?(?:\s+(?P<count>\d+))?"
 )
 TYPING_SPEED = 0.05  # VHS's default TypingSpeed, 50ms
+# Clip seconds a tape second: VHS's clip runs faster than its tape's Sleeps and typing. Measured with vhs 0.12.1 at
+# the channel's 1920x1080 tape settings and ffmpeg freezedetect (#86 T1), in two run-to-run groups: 0.964 (pure Sleep
+# tapes, typing after "Sleep 10s" at 9.64 s in three runs, and some runs of a four-step typed tape) and 0.983 (most
+# runs of that typed tape). It also varies with the mix of typing and Sleep, the screen size, framerate, and load
+# (0.92 at 640x360). This rate sits between the groups; re-measure when the media test drifts.
+VHS_RATE = 0.974
 SENTENCE_END = re.compile(r"""[.!?]["')\]]*$""")
 
 
@@ -154,8 +162,9 @@ def step_starts(comments: list[str], words: list[dict], scene: int) -> list[floa
 def narrated(shared: list[str], section: list[str], scene: int, words: list[dict], length: float) -> list[str]:
     """The section with a leading Sleep and each "# comment" step's last Sleep (added when it has none) set so the
     step starts as its sentence starts, the command running inside that Sleep, and the last step holds to length,
-    the scene's seconds. The clip starts at the shared part's last Show; refused when a step, or the scene's end,
-    comes before the tape can reach it."""
+    the scene's seconds. The clip starts at the shared part's last Show. Each step's clip start is converted to tape
+    time by VHS_RATE; the scene's end stays length of tape, so the clip ends a little short of the scene, never over.
+    Refused when a step, or the scene's end, comes before the tape can reach it."""
     speed = next((seconds(m[1]) for line in shared if (m := SPEED.fullmatch(line.strip()))), TYPING_SPEED)
     shows = [i for i, line in enumerate(shared) if line.strip() == "Show"]
     marks = [i for i, line in enumerate(section) if STEP.match(line.strip())]
@@ -166,20 +175,22 @@ def narrated(shared: list[str], section: list[str], scene: int, words: list[dict
     starts = step_starts(comments, words, scene) + [length]
     out, at = section[: marks[0]], played(shared[shows[-1] + 1 if shows else 0 :] + section[: marks[0]], speed)
     for k, start in enumerate(starts):
-        if start < at:
+        tape = start / VHS_RATE if k < len(steps) else start
+        if tape < at:
             what = f"step '# {comments[k]}' starts with its sentence" if k < len(steps) else "the scene ends"
+            reached = at * VHS_RATE if k < len(steps) else at
             raise Refused(
-                f"scene {scene}: {what} at {start:.2f} s but the tape reaches it at {at:.2f} s; give the narration"
-                " before it more time or shorten the step before it"
+                f"scene {scene}: {what} at {start:.2f} s but the tape reaches it at {reached:.2f} s; give the"
+                " narration before it more time or shorten the step before it"
             )
-        out.append(f"Sleep {round((start - at) * 1000)}ms")
+        out.append(f"Sleep {round((tape - at) * 1000)}ms")
         if k < len(steps):
             step = steps[k]
             while not step[-1].strip():
                 step = step[:-1]
             body = step[:-1] if SLEEP.fullmatch(step[-1].strip()) else step
             out += body
-            at = start + played(body, speed)
+            at = tape + played(body, speed)
     return out
 
 
