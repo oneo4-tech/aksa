@@ -10,8 +10,8 @@ Reads videos/<N>/script.json in the channel workspace, written by write-video-sc
   acronyms    capitalised terms that are not stress, such as ["AI", "CI"]; may be empty
   scenes      a non-empty list, each with:
     kind      title, intro, points, code, terminal, split, compare, repo, kit, or cta
-    heading   the on-screen heading; the renderer shows it from the first of its words the narrator
-              says
+    heading   the on-screen heading; the renderer shows it from its leading key word as the narrator
+              says it
     say       the narration: plain words, // for a pause, ... for a hesitation, no other markup
     claims    the citations.json ids (C1, C2, ...) the scene states as fact; may be empty
   and by kind what it shows:
