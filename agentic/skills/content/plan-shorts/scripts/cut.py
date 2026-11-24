@@ -12,10 +12,14 @@ Reads, in the channel workspace, the long-form's videos/<LONGFORM>/:
 
 and writes into the Short's videos/<SHORT>/, which content_issue.py new created:
 
-  demo.json       the long-form's, unchanged, so the Short shows and links the same demo
+  demo.json       the long-form's, unchanged, so the Short shows and links the same demo, plus,
+                  when the long-form has demo-K.mp4, "sections": each cut terminal scene's K (its
+                  long-form tape '# scene' section) in the --scenes order, from which record.py
+                  re-records the Short's clips to its own narration at its recording stage
   citations.json  the long-form's verified claims that the given scenes state, in its order
   demo-J.mp4      the recording of each cut terminal scene, J counting the Short's terminal
-                  scenes in the --scenes order, as render-video numbers them
+                  scenes in the --scenes order, as render-video numbers them; timed to the
+                  long-form's narration until record.py re-records them from "sections"
   demo.mp4        the long-form's single recording, when it has no demo-K.mp4
 
 so the Short passes gate 2 and packaging without new research. It never edits the long-form.
@@ -72,17 +76,19 @@ def used_claims(scenes: list[dict], numbers: list[int], claims: list[dict]) -> l
     return [claim for claim in claims if claim["id"] in used]
 
 
-def recordings(source: Path, scenes: list[dict], numbers: list[int]) -> list[tuple[Path, str]]:
+def recordings(source: Path, scenes: list[dict], numbers: list[int]) -> tuple[list[tuple[Path, str]], list[int]]:
     """Each recording the Short needs and its name there: the cut terminal scenes' demo-K.mp4
-    renumbered in the Short's order, else the single demo.mp4 when the long-form has only that."""
+    renumbered in the Short's order, else the single demo.mp4 when the long-form has only that;
+    and, with the demo-K.mp4, each cut terminal scene's K, its long-form tape section."""
     terminal = [k for k, scene in enumerate(scenes, 1) if scene.get("kind") == "terminal"]
     clips = {n: source / f"demo-{terminal.index(n) + 1}.mp4" for n in terminal}
     if not any(clip.is_file() for clip in clips.values()):
-        return [(source / "demo.mp4", "demo.mp4")] if (source / "demo.mp4").is_file() else []
+        return ([(source / "demo.mp4", "demo.mp4")] if (source / "demo.mp4").is_file() else []), []
     cut_clips = [clips[n] for n in numbers if n in clips]
     if missing := [clip.name for clip in cut_clips if not clip.is_file()]:
         raise Refused(f"{source}: {', '.join(missing)} missing; record them with build-video-demo's record.py")
-    return [(clip, f"demo-{j}.mp4") for j, clip in enumerate(cut_clips, 1)]
+    sections = [terminal.index(n) + 1 for n in numbers if n in clips]
+    return [(clip, f"demo-{j}.mp4") for j, clip in enumerate(cut_clips, 1)], sections
 
 
 def read(path: Path, writer: str):
@@ -116,7 +122,9 @@ def cut(channel: str, short: int, long_form: int, scenes: str, root: Path) -> Pa
         raise Refused(f"{source / 'script.json'}: needs scenes; write-video-script writes them")
     numbers = scene_numbers(scenes, len(script["scenes"]))
     used = used_claims(script["scenes"], numbers, claims)
-    clips = recordings(source, script["scenes"], numbers)
+    clips, sections = recordings(source, script["scenes"], numbers)
+    if sections:
+        demo = {**demo, "sections": sections}
     (target / "demo.json").write_text(json.dumps(demo, indent=1) + "\n")
     (target / "citations.json").write_text(json.dumps(used, indent=1) + "\n")
     for clip, name in clips:

@@ -35,13 +35,15 @@ TERMINAL = {"kind": "terminal", "heading": "Run it", "visual": "$ ./demo/mutate.
 POINTS = {"kind": "points", "heading": "Why", "visual": "a\nb", "say": "S"}
 
 
-def demo(root, tape=TAPE, terminals=3):
-    """The video's script and demo record, and the demo folder holding its tape; returns (video, folder)."""
+def demo(root, tape=TAPE, terminals=3, sections=None):
+    """The video's script and demo record (naming the tape sections a cut Short uses, when given), and the demo folder
+    holding its tape; returns (video, folder)."""
     video = workspace(root) / "videos" / str(NUMBER)
     video.mkdir(parents=True)
     scenes = [POINTS] + [TERMINAL] * terminals
     (video / "script.json").write_text(json.dumps({"type": "long-form", "scenes": scenes}))
-    (video / "demo.json").write_text(json.dumps({"folder": FOLDER, "link": "https://x", "pushed": False}))
+    entry = {"folder": FOLDER, "link": "https://x", "pushed": False}
+    (video / "demo.json").write_text(json.dumps(entry if sections is None else {**entry, "sections": sections}))
     folder = root / ".projects" / "content" / "example-demos" / FOLDER
     folder.mkdir(parents=True)
     (folder / "demo.tape").write_text(tape)
@@ -161,6 +163,13 @@ def test_a_narrated_section_starts_each_comment_step_as_its_sentence_starts(tmp_
     narrate(video, 2, 9.0)  # the first terminal scene: 0.4 + 9 + 0.6 = 10 s, 300 frames
     vhs = FakeVhs()
     assert run(tmp_path, vhs, capsys, whisper(SAID))[0] == 0
+    assert vhs.tapes[0]["text"] == timed_narrated(1)
+    # Scenes without narration record as written.
+    assert vhs.tapes[1]["text"].endswith(SECTIONS[1])
+
+
+def timed_narrated(k):
+    """The K-th tape recorded for the NARRATED section narrated as SAID in a 10 s scene."""
     # Clip time is narration time + LEAD 0.4: steps start at 0.9 (First) and 5.4 (Now, not break at 5.8), in tape
     # time 0.9 / VHS_RATE and 5.4 / VHS_RATE, as VHS's clip runs VHS_RATE clip seconds a tape second. The tape is at
     # 0.5 s after Show; each step's last Sleep holds to the next step's tape start, the last one to the scene's 10 s
@@ -169,10 +178,8 @@ def test_a_narrated_section_starts_each_comment_step_as_its_sentence_starts(tmp_
     sleeps = [round((first - 0.5) * 1000), round((now - first - 3.15) * 1000), round((10 - now - 2.85) * 1000)]
     assert sleeps == [424, 1470, 1606]  # at VHS_RATE 0.974; was 400, 1350, 1750 without the rate
     narrated = NARRATED.replace("Sleep 4s", f"Sleep {sleeps[1]}ms").replace("Sleep 6s", f"Sleep {sleeps[2]}ms")
-    head = NARRATED_TAPE.split("# scene\n")[0].replace("Output demo.mp4", "Output demo-1.mp4")
-    assert vhs.tapes[0]["text"] == head + f"Sleep {sleeps[0]}ms\n" + narrated
-    # Scenes without narration record as written.
-    assert vhs.tapes[1]["text"].endswith(SECTIONS[1])
+    head = NARRATED_TAPE.split("# scene\n")[0].replace("Output demo.mp4", f"Output demo-{k}.mp4")
+    return head + f"Sleep {sleeps[0]}ms\n" + narrated
 
 
 def test_a_step_whose_comment_is_never_heard_is_refused_naming_scene_and_comment(tmp_path, capsys):
@@ -202,6 +209,60 @@ def test_a_step_is_reachable_on_the_vhs_rate_timing(tmp_path, capsys):
     code, _, err = run(tmp_path, vhs := FakeVhs(), capsys, whisper(later))
     assert code == 0, err
     assert "Sleep 33ms" in vhs.tapes[0]["text"]  # (4.0 - 0.9) / 0.974 - 3.15 s, the first step's last Sleep
+
+
+def test_a_cut_short_records_only_its_named_sections_into_its_own_folder(tmp_path, capsys):
+    video, folder = demo(tmp_path, terminals=2, sections=[3, 1])
+    vhs = FakeVhs()
+    code, _, err = run(tmp_path, vhs, capsys)
+    assert code == 0, err
+    assert [t["cwd"] for t in vhs.tapes] == [folder] * 2
+    assert [t["text"] for t in vhs.tapes] == [
+        SETUP.replace("Output demo.mp4", f"Output demo-{k}.mp4") + SECTIONS[n - 1] for k, n in [(1, 3), (2, 1)]
+    ]
+    assert (video / "demo-1.mp4").read_text().endswith(SECTIONS[2])
+    assert (video / "demo-2.mp4").read_text().endswith(SECTIONS[0])
+    assert not (video / "demo-3.mp4").exists() and not list(folder.glob("*.mp4"))
+
+
+def test_a_cut_short_times_its_section_from_its_own_narration_as_a_long_form(tmp_path, capsys):
+    # The Short's second terminal scene (its scene 3) plays the long-form's first section, the narrated one.
+    video, _ = demo(tmp_path, tape=NARRATED_TAPE, terminals=2, sections=[2, 1])
+    narrate(video, 3, 9.0)
+    vhs = FakeVhs()
+    assert run(tmp_path, vhs, capsys, whisper(SAID))[0] == 0
+    assert vhs.tapes[0]["text"].endswith(SECTIONS[1])
+    assert vhs.tapes[1]["text"] == timed_narrated(2)
+
+
+def test_a_cut_shorts_narrated_step_that_cannot_start_in_time_is_refused(tmp_path, capsys):
+    video, _ = demo(tmp_path, tape=NARRATED_TAPE, terminals=1, sections=[1])
+    narrate(video, 2, 9.0)
+    early = [(w, at - 2.0 if at >= 5.0 else at) for w, at in SAID]
+    code, _, err = run(tmp_path, vhs := FakeVhs(), capsys, whisper(early))
+    assert code == 3 and vhs.tapes == []
+    assert "scene 2" in err and "# break the boundary" in err
+
+
+@pytest.mark.parametrize("terminals", [1, 3])
+def test_a_cut_short_whose_terminal_scenes_differ_from_its_sections_is_refused_naming_both(tmp_path, capsys, terminals):
+    video, _ = demo(tmp_path, terminals=terminals, sections=[3, 1])
+    code, _, err = run(tmp_path, vhs := FakeVhs(), capsys)
+    assert code == 3 and vhs.tapes == []
+    assert "names 2 sections" in err and f"{terminals} terminal scenes" in err
+    assert not list(video.glob("demo-*.mp4"))
+
+
+@pytest.mark.parametrize(
+    "sections, named",
+    [([0, 1], "0"), ([1, 4], "4"), ([1, "2"], "'2'"), ([1, True], "True"), ([], "[]"), ("1,3", "'1,3'")],
+)
+def test_a_cut_short_naming_a_section_not_in_the_tape_is_bad_input_naming_it(tmp_path, capsys, sections, named):
+    video, _ = demo(tmp_path, terminals=2, sections=sections)
+    code, _, err = run(tmp_path, vhs := FakeVhs(), capsys)
+    assert code == 2 and vhs.tapes == []
+    assert f"sections: {named}" in err
+    assert not list(video.glob("demo-*.mp4"))
 
 
 @pytest.mark.media

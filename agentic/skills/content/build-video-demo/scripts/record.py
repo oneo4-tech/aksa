@@ -16,6 +16,12 @@ scene. Each section runs after a fresh setup, so it must not need an earlier sec
 The full tape still records the whole demo (vhs demo.tape) for a viewer: the markers are
 comments to vhs.
 
+A cut Short: when demo.json names "sections" (plan-shorts' cut.py writes them, the long-form tape
+section of each of the Short's terminal scenes, in its order), only those sections are kept, in
+that order, and the K-th is the Short's K-th terminal scene; N is the Short, so its own
+script.json and narration time them and its folder receives demo-K.mp4, replacing the long-form
+clips cut.py copied. Everything else, the timing and its refusals, is as for a long-form.
+
 Narration timing: when narrate-video has written videos/<N>/narration/NN.wav for a terminal
 scene (NN its scene number), its section is timed from the narration, as render-video plays it
 (the narration starting LEAD seconds into the clip). The wav is transcribed with render-video's
@@ -33,10 +39,11 @@ scene (render holds its last frame). A scene without narration records as writte
 Prints each recording written. Exit codes: 0 every section recorded, 1 vhs or whisper-cli
 missing or failing or a file error, 2 bad input (an invalid channel, a missing or invalid
 script.json, demo.json, demo.tape, or narration wav, a tape without exactly one Output line
-before the first marker, or a narrated section without a "# comment" step), 3 refused: the
-tape's section count differs from the script's terminal scenes, a narrated step's comment is
-unheard (naming the scene and the comment), or a step or the scene's end comes before the tape
-can reach it.
+before the first marker, a narrated section without a "# comment" step, or demo.json sections
+not a non-empty list of the tape's section numbers, naming the bad one), 3 refused: the tape's
+section count, or a cut Short's named section count, differs from the script's terminal scenes
+(naming both counts), a narrated step's comment is unheard (naming the scene and the comment),
+or a step or the scene's end comes before the tape can reach it.
 """
 
 import argparse
@@ -194,15 +201,28 @@ def narrated(shared: list[str], section: list[str], scene: int, words: list[dict
     return out
 
 
-def sections_of(tape: str, terminals: int) -> tuple[list[str], list[list[str]]]:
-    """split, refused unless the tape has one section per terminal scene."""
+def sections_of(tape: str, terminals: int, named: object = None) -> tuple[list[str], list[list[str]]]:
+    """split, keeping only the named sections (1-based, in their order) for a cut Short whose demo record names them;
+    bad input when a named section is not in the tape, refused unless one section remains per terminal scene."""
     shared, sections = split(tape)
-    if len(sections) != terminals:
+    if named is None:
+        if len(sections) != terminals:
+            raise Refused(
+                f"demo.tape has {len(sections)} '# scene' sections but script.json has {terminals} terminal scenes;"
+                " mark each terminal scene's steps with one '# scene' line"
+            )
+        return shared, sections
+    if not (isinstance(named, list) and named):
+        raise BadInput(f"demo.json: sections: {named!r}: must be a non-empty list of demo.tape '# scene' numbers")
+    for k in named:
+        if type(k) is not int or not 1 <= k <= len(sections):
+            raise BadInput(f"demo.json: sections: {k!r} is not a '# scene' section of demo.tape (1 to {len(sections)})")
+    if len(named) != terminals:
         raise Refused(
-            f"demo.tape has {len(sections)} '# scene' sections but script.json has {terminals} terminal scenes;"
-            " mark each terminal scene's steps with one '# scene' line"
+            f"demo.json names {len(named)} sections but script.json has {terminals} terminal scenes; keep one"
+            " terminal scene for each long-form scene the Short cut (plan-shorts)"
         )
-    return shared, sections
+    return shared, [sections[k - 1] for k in named]
 
 
 def section_tapes(shared: list[str], sections: list[list[str]], narrations: list[tuple | None]) -> list[str]:
@@ -268,7 +288,7 @@ def record(channel: str, number: int, root: Path, run: Vhs, transcribe: Transcri
         tape = (folder / "demo.tape").read_text()
     except FileNotFoundError:
         raise BadInput(f"{folder / 'demo.tape'}: missing; build-video-demo writes it") from None
-    shared, sections = sections_of(tape, len(terminals))
+    shared, sections = sections_of(tape, len(terminals), entry.get("sections"))
     narrations = [narration(video, scene, transcribe) for scene in terminals]
     tapes, written = section_tapes(shared, sections, narrations), []
     with tempfile.TemporaryDirectory() as scratch:

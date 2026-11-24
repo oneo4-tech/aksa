@@ -82,6 +82,19 @@ def test_a_cut_short_gets_its_terminal_scenes_recordings_renumbered_in_its_order
     assert not (short / "demo.mp4").exists()
 
 
+def test_a_cut_short_records_the_tape_section_of_each_terminal_scene_in_its_order(root):
+    two_terminal_long_form(root)
+    assert cut.main(["example", "43", "--from", "42", "--scenes", "4,3,2"], root=root) == 0
+    # Scene 4 is the long-form's second '# scene' section, scene 2 its first; record.py re-records them from these.
+    assert read(video(root, 43) / "demo.json") == {**DEMO, "sections": [2, 1]}
+
+
+def test_a_short_cut_from_a_single_recording_records_no_sections(root):
+    (video(root, 42) / "demo.mp4").write_bytes(b"recording")
+    assert cut.main(ARGV, root=root) == 0
+    assert "sections" not in read(video(root, 43) / "demo.json")
+
+
 def test_a_cut_terminal_scene_without_its_recording_is_refused(root, capsys):
     two_terminal_long_form(root)
     (video(root, 42) / "demo-2.mp4").unlink()
