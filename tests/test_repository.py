@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 PATHS_FILE = "config/environment.yaml"
@@ -262,3 +263,9 @@ def test_skills_page_shows_the_skill_folder_structure():
     expected = skill_folder_entries(COMPONENTS.read_text())
     assert expected == ["SKILL.md", "references/", "scripts/"]
     assert skill_folder_entries(page_section("### Skill Structure")) == expected
+
+
+def test_continue_config_has_no_duplicate_models():
+    models = yaml.safe_load((ROOT / ".vscode" / "continue" / "config.yaml").read_text())["models"]
+    pairs = [(m["provider"], m["model"]) for m in models]
+    assert sorted({p for p in pairs if pairs.count(p) > 1}) == []

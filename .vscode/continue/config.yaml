@@ -43,6 +43,3 @@ models:
   - name: Autodetect
     provider: ollama
     model: AUTODETECT
-  - name: Autodetect (1)
-    provider: ollama
-    model: AUTODETECT
