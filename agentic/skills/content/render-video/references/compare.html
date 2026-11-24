@@ -42,10 +42,13 @@ function build() {
   const u = Math.min(CUES.width, CUES.height) / 1080, wide = CUES.width > CUES.height;
   ['left', 'right'].forEach(side => {
     const box = $(side), column = CUES[side];
-    enter(make('h2', '', column.heading.text, box), column.heading.at, 'up');
+    const heading = make('h2', '', column.heading.text, box);
+    boxed(heading, 'text');
+    enter(heading, column.heading.at, 'up');
     column.items.forEach(item => {
       const row = make('div', 'item', undefined, box);
       rich(item.text, row);
+      boxed(row, 'text');
       enter(row, item.at, 'up');
     });
     // Fit: a long column shrinks its text until it fits its box.

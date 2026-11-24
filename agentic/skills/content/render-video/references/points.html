@@ -29,7 +29,9 @@ function build() {
     const svg = svgIn(row);
     svg.setAttribute('viewBox', '0 0 64 40');
     stroke(svg, 'M4 20 H56 M42 6 L56 20 L42 34', CUES.palette.accent, 6, point.at);
-    enter(make('div', '', point.text, row), point.at + 0.1, 'left');
+    const text = make('div', '', point.text, row);
+    boxed(text, 'text');
+    enter(text, point.at + 0.1, 'left');
     const next = CUES.items[i + 1];
     if (next) dim(row, next.at);
   });

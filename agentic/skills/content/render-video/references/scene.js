@@ -82,6 +82,7 @@ function colour(text, parent) {
 // earlier chip, or connector under it), on its row or the nearest row above or below, joined by one straight
 // horizontal or vertical connector to an arrowhead on the marked row after its last character; with no free
 // space the chip goes at the view's right and window.layout.problems names the line. Earlier marks stay, dimmed.
+// Each line is a code box, and each chip with its connector and arrowhead one mark, for layout.boxes.
 // A cue without a note gets an arrow pointing at the line's end. The font is fitted to
 // the longest line, the arrow, and view.rows lines, at most maxSize design pixels.
 function codeView(panel, view, start, maxSize = 30) {
@@ -101,6 +102,7 @@ function codeView(panel, view, start, maxSize = 30) {
   let t = start;
   const rows = lines.map((text, i) => {
     const row = make('span', 'line', undefined, scroll);
+    boxed(row, 'code', `code line ${i + 1} of ${view.file}`);
     Object.assign(row.style, { left: inset + 'px', top: i * lh + 'px', height: lh + 'px', lineHeight: lh + 'px' });
     make('span', 'ln', String(i + 1), row);
     colour(text, row);
@@ -144,7 +146,7 @@ function codeView(panel, view, start, maxSize = 30) {
   // No free spot: the chip at the view's right on its row, reported as a layout problem render.py refuses.
   function fallback(cue, w, h, far) {
     const y = cue.line * lh + lh / 2, x = chars(cue.line) + gap, t = place(cue.line, cue, h);
-    window.layout.problems.push(`mark on line ${cue.line + 1}: no free space for its note; shorten the line or the note (write-video-script)`);
+    window.layout.problems.push({ at: cue.at, text: `mark on line ${cue.line + 1}: no free space for its note; shorten the line or the note (write-video-script)` });
     return { from: 'side', box: { l: far, t, r: far + w, b: t + h }, tip: { x, y }, link: { l: x, t: y - wing, r: far, b: y + wing } };
   }
   view.focus.forEach((cue, k) => {
@@ -162,6 +164,7 @@ function codeView(panel, view, start, maxSize = 30) {
     if (!cue.note) {
       const path = stroke(svg, `M${x + 130 * u} ${y} H${x} M${x + 22 * u} ${y - 18 * u} L${x} ${y} L${x + 22 * u} ${y + 18 * u}`,
         CUES.palette.accent, 6 * u, cue.at + 0.1);
+      boxed(path, 'arrow', `arrow of code line ${cue.line + 1}`);
       if (next) at(path, [{ opacity: 1 }, { opacity: 0 }], next.at, 0.2, { fill: 'forwards' });
     } else {
       const chip = make('div', 'note', cue.note, scroll);
@@ -180,6 +183,8 @@ function codeView(panel, view, start, maxSize = 30) {
       const arrowhead = stroke(svg, head, CUES.palette.accent, 4 * u, cue.at + 0.1);
       link.classList.add('link');
       arrowhead.classList.add('head');
+      const mark = boxed(chip, 'chip');
+      [link, arrowhead].forEach(part => boxed(part, 'arrow', `arrow of chip "${short(cue.note)}"`, mark));
       enter(chip, cue.at + 0.15, 'left');
       marks.forEach(m => dim(m, cue.at, 0.4));
       marks = [chip, link, arrowhead];
@@ -286,14 +291,71 @@ function frame() {
     $('stage').prepend(image);
   }
   $('heading').textContent = CUES.heading.text;
+  boxed($('heading'), 'heading');
   enter($('heading'), CUES.heading.at, 'up');
   at($('camera'), [{ transform: 'scale(1)' }, { transform: 'scale(1.04)' }], 0, CUES.seconds, { easing: 'linear' });
   at($('stage'), [{ opacity: 0 }, { opacity: 1 }], 0, CUES.fade);
   at($('stage'), [{ opacity: 1 }, { opacity: 0 }], CUES.seconds - CUES.fade, CUES.fade, { fill: 'forwards' });
 }
 
-// Layout problems found while building the scene, each a line render.py reports.
-window.layout = { problems: [] };
+// The layout render.py checks (layout_times, overlaps): problems found while building the scene, each {at, text},
+// and boxes(), every box shown at the current time, in page pixels: each [data-box] element (boxed) named for the
+// refusal, in groups whose parts never count against each other (a text's lines, a mark's chip and arrow). A text
+// gives each visible line of its glyphs, or its whole box when it has a background or border (a chip, a callout);
+// an arrow its path's box grown by half its stroke; a code line one box over its characters. Boxes are clipped to
+// every ancestor that clips them, and skipped when that leaves nothing or when anything above them is at opacity 0.
+let boxCount = 0;
+function short(text) {
+  const words = text.trim().replace(/\s+/g, ' ');
+  return words.length > 40 ? words.slice(0, 39) + '…' : words;
+}
+function boxed(node, kind, name = `${kind} "${short(node.textContent)}"`, group = `${kind}-${++boxCount}`) {
+  Object.assign(node.dataset, { box: kind, name, group });
+  return group;
+}
+function layoutBoxes() {
+  const seen = node => { for (let n = node; n instanceof Element; n = n.parentNode) if (+getComputedStyle(n).opacity === 0) return false; return true; };
+  const clip = (r, node) => {
+    let b = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    for (let n = node.parentElement; n; n = n.parentElement) {
+      const s = getComputedStyle(n);
+      if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+      const c = n.getBoundingClientRect();
+      b = { left: Math.max(b.left, c.left), top: Math.max(b.top, c.top), right: Math.min(b.right, c.right), bottom: Math.min(b.bottom, c.bottom) };
+    }
+    return b.right > b.left && b.bottom > b.top ? b : null;
+  };
+  const glyphs = node => {
+    const out = [], walk = document.createTreeWalker(node, NodeFilter.SHOW_TEXT), range = document.createRange();
+    for (let t; (t = walk.nextNode());) {
+      if (!t.textContent.trim() || t.parentElement.classList.contains('ln') || !seen(t.parentElement)) continue;
+      range.selectNodeContents(t);
+      out.push(...[...range.getClientRects()].map(r => clip(r, t.parentElement)).filter(Boolean));
+    }
+    return out;
+  };
+  const out = [];
+  document.querySelectorAll('[data-box]').forEach(node => {
+    const { box: kind, name, group } = node.dataset, s = getComputedStyle(node);
+    if (!seen(node)) return;
+    let rects;
+    if (kind === 'arrow') {
+      const r = node.getBoundingClientRect(), w = parseFloat(node.style.strokeWidth) / 2;
+      rects = [clip({ left: r.left - w, top: r.top - w, right: r.right + w, bottom: r.bottom + w }, node)];
+    } else if (kind === 'code') {
+      const parts = glyphs(node);
+      rects = parts.length ? [parts.reduce((a, b) => ({ left: Math.min(a.left, b.left), top: Math.min(a.top, b.top),
+        right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom) }))] : [];
+    } else if (s.backgroundColor !== 'rgba(0, 0, 0, 0)' || parseFloat(s.borderLeftWidth) > 0) {
+      rects = [clip(node.getBoundingClientRect(), node)];
+    } else {
+      rects = glyphs(node);
+    }
+    rects.filter(Boolean).forEach(r => out.push({ kind, name, group, ...r }));
+  });
+  return out;
+}
+window.layout = { problems: [], boxes: layoutBoxes };
 
 window.seek = sec => document.getAnimations().forEach(a => { a.pause(); a.currentTime = sec * S; });
 

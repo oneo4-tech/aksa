@@ -376,7 +376,7 @@ MARK_PARTS = """() => {
             glyphs: glyphs.filter(g => g.bottom > view.top && g.top < view.bottom)};
   });
   const heads = [...document.querySelectorAll('.pointer .head')];
-  return {rows, problems: window.layout.problems, marks: [...document.querySelectorAll('.pointer .link')].map((p, i) =>
+  return {rows, problems: window.layout.problems.map(p => p.text), marks: [...document.querySelectorAll('.pointer .link')].map((p, i) =>
     ({chip: box(document.querySelectorAll('.note')[i].getBoundingClientRect()), link: drawn(p), head: drawn(heads[i]),
       straight: straight(p)}))};
 }"""
@@ -814,3 +814,38 @@ def test_a_split_hook_covers_no_code_panel_or_other_text_while_it_shows(tools, k
         covered = [(name, other) for name, other in state["others"] if overlap(text, other)]
         assert not covered, (t, text, covered)
     assert evaluate(cues, until / 2, HOOK_CLEAR, kind)["opacity"] == 1
+
+
+# The layout check at render (#83 AC2), in Chrome at the video's own size.
+WORDY = (
+    "This heading runs on and on across the whole frame until it wraps onto so many lines that it reaches down"
+    " into the points below it"
+)
+
+
+@pytest.mark.parametrize("kind", ["long-form", "short"])
+def test_render_refuses_text_over_text_naming_the_scene_time_and_both_elements(tmp_path, tools, capsys, kind):
+    # Owner, #83: text never sits over other text or code.
+    wordy = {"kind": "points", "heading": WORDY, "visual": "Mocks replace code", "say": f"{WORDY}. Mocks replace code."}
+    folder = files(tmp_path, scenes=[SCENES[0], wordy], kind=kind, seconds=(2.0, 9.0))
+    code = render.main(["example", str(NUMBER)], transcribe=Fakes().transcribe, root=tmp_path)
+    err = capsys.readouterr().err
+    assert code == 2, err
+    assert re.search(r'scene 2 at \d+\.\d\d s: heading "This heading runs.*" overlaps text "Mocks replace code"', err)
+    assert (folder / "render" / "scenes" / "01.mp4").is_file()  # the clean scene rendered
+    assert not (folder / "render" / "scenes" / "02.mp4").exists()
+
+
+def test_render_refuses_a_mark_with_no_free_space_naming_the_scene_and_time(tmp_path, tools, capsys):
+    # #83 verify T1 F1: the problem scene.js finds reaches the user as a render refusal.
+    lines = [f"value_{i:02d} = compute_the_long_named_thing(argument_one, argument_two)" for i in range(8)]
+    mark = {"line": 4, "note": "a note far too long for any free space here", "at": "four"}
+    scene = {"kind": "code", "heading": "Spot it", "code": "demo/discount.py", "marks": [mark],
+             "say": "Spot it. Line four."}  # fmt: skip
+    folder = files(tmp_path, scenes=[SCENES[0], scene], kind="short", seconds=(2.0, 3.0))
+    (tmp_path / ".projects/content/example-demos/14-mocked-tests/demo/discount.py").write_text("\n".join(lines))
+    code = render.main(["example", str(NUMBER)], transcribe=Fakes().transcribe, root=tmp_path)
+    err = capsys.readouterr().err
+    assert code == 2, err
+    assert re.search(r"scene 2 at \d+\.\d\d s: mark on line 4: no free space for its note; shorten the line", err), err
+    assert not (folder / "render" / "scenes" / "02.mp4").exists()

@@ -49,6 +49,7 @@ function build() {
   ['left', 'right'].forEach(side => {
     const view = CUES[side], box = $(side);
     box.querySelector('.label').textContent = view.label;
+    boxed(box.querySelector('.label'), 'text');
     codeView(box.querySelector('.panel'), view, CUES.lead, 26);
     if (view.at !== undefined) enter(box, view.at, 'up');
     // Under a hook, a panel already in sits back, then comes forward as the hook leaves.
@@ -57,6 +58,7 @@ function build() {
   if (hook) {
     // The hook from the first frame, fitted to its band, fading as the first sentence ends.
     const text = make('div', 'hook', hook.text, $('camera')), span = document.createRange();
+    boxed(text, 'hook');
     span.selectNodeContents(text);
     const lines = () => Math.round(span.getBoundingClientRect().height / parseFloat(getComputedStyle(text).lineHeight));
     for (let size = parseFloat(getComputedStyle(text).fontSize); size > 8 && (lines() > 2

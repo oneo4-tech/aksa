@@ -31,10 +31,13 @@ function build() {
       const row = make('div', 'cmd', undefined, $('term'));
       make('span', 'prompt', '$ ', row);
       make('span', '', line.text.slice(2), row);
+      boxed(row, 'text');
       const n = line.text.length;
       at(row, [{ width: '0ch' }, { width: (n + 1) + 'ch' }], line.at, Math.min(n * 0.04, 1.2), { easing: `steps(${n})` });
     } else {
-      enter(make('div', 'out', line.text, $('term')), line.at, 'up');
+      const out = make('div', 'out', line.text, $('term'));
+      boxed(out, 'text');
+      enter(out, line.at, 'up');
     }
   });
 }

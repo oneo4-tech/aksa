@@ -58,11 +58,12 @@ function build() {
     if (action.name === 'subscribe') {
       moving = make('div', 'pill', 'Subscribe', slot);
       Object.assign(moving.style, { background: p.syntax, color: p.text });
+      boxed(moving, 'text');
       make('div', 'label', ' ', item);
     } else {
       const tile = make('div', 'tile', undefined, slot);
       moving = glyph(tile, action.name, p.text);
-      make('div', 'label', LABELS[action.name], item);
+      boxed(make('div', 'label', LABELS[action.name], item), 'text');
     }
     enter(item, action.at, 'scale');
     // Its one short move once in place; multi-keyframe animations use linear timing (scene.js).
