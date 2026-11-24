@@ -1,10 +1,11 @@
-"""Tests for build-video-demo's record.py, through main(argv, root, vhs) with a fake vhs."""
+"""Tests for build-video-demo's record.py, through main(argv, root, vhs, transcribe) with a fake vhs and whisper."""
 
 import json
 import re
 import shutil
 import subprocess
 import sys
+import wave
 from pathlib import Path
 
 import pytest
@@ -59,8 +60,12 @@ class FakeVhs:
         (Path(cwd) / re.search(r"^Output (\S+)$", text, re.MULTILINE).group(1)).write_bytes(text.encode())
 
 
-def run(root, vhs, capsys):
-    code = record.main(["example", str(NUMBER)], root=root, vhs=vhs)
+def unheard(wav):
+    raise AssertionError(f"transcribed {wav.name} without narration")
+
+
+def run(root, vhs, capsys, transcribe=unheard):
+    code = record.main(["example", str(NUMBER)], root=root, vhs=vhs, transcribe=transcribe)
     out = capsys.readouterr()
     return code, out.out, out.err
 
@@ -115,6 +120,72 @@ def test_a_failing_vhs_is_a_tool_error(tmp_path, capsys):
 
     code, _, err = run(tmp_path, broken, capsys)
     assert code == 1 and "vhs failed" in err
+
+
+# A narrated terminal scene: TypingSpeed 50ms, each key and typed character one tick.
+NARRATED = (
+    'Type "# the claim, in one line" Enter\n'  # 25 ticks, 1.25 s
+    "Sleep 800ms\n"
+    'Type "pytest -q tests" Sleep 300ms Enter\n'  # 16 ticks and 300 ms, 1.1 s: the step takes 3.15 s
+    "Sleep 4s\n"
+    'Type "# break the boundary" Enter\n'  # 21 ticks, 1.05 s
+    "Sleep 500ms\n"
+    'Type "./demo/mutate.sh boundary" Enter\n'  # 26 ticks, 1.3 s: the step takes 2.85 s
+    "Sleep 6s\n"
+)
+NARRATED_TAPE = SETUP.replace("Set Width 1920", "Set Width 1920\nSet TypingSpeed 50ms") + "# scene\n" + NARRATED
+NARRATED_TAPE += "".join(f"# scene\n{section}" for section in SECTIONS[1:])
+# "First, the claim. We run the tests. Now we break the boundary." The second step's word, break, is mid-sentence.
+SAID = [("First,", 0.5), ("the", 0.8), ("claim.", 1.0), ("We", 2.0), ("run", 2.2), ("the", 2.4), ("tests.", 2.6),
+        ("Now", 5.0), ("we", 5.2), ("break", 5.4), ("the", 5.6), ("boundary.", 5.8)]  # fmt: skip
+
+
+def whisper(said):
+    """A transcriber hearing said, as whisper-cli -ml 1 -sow -ojf: one segment per word, offsets in milliseconds."""
+    segments = [{"offsets": {"from": int(at * 1000), "to": int(at * 1000) + 150}, "text": f" {w}"} for w, at in said]
+    return lambda wav: {"transcription": segments}
+
+
+def narrate(video, scene, seconds):
+    """narration/NN.wav for the scene, silent, seconds long."""
+    (video / "narration").mkdir(exist_ok=True)
+    with wave.open(str(video / "narration" / f"{scene:02d}.wav"), "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(16000)
+        audio.writeframes(b"\0\0" * int(16000 * seconds))
+
+
+def test_a_narrated_section_starts_each_comment_step_as_its_sentence_starts(tmp_path, capsys):
+    video, _ = demo(tmp_path, tape=NARRATED_TAPE)
+    narrate(video, 2, 9.0)  # the first terminal scene: 0.4 + 9 + 0.6 = 10 s, 300 frames
+    vhs = FakeVhs()
+    assert run(tmp_path, vhs, capsys, whisper(SAID))[0] == 0
+    # Clip time is narration time + LEAD 0.4: steps start at 0.9 (First) and 5.4 (Now, not break at 5.8).
+    # The clip opens on the 0.5 s after Show, so 0.4 s more; each step's last Sleep holds to the next step's start,
+    # the last one to the scene's 10 s.
+    narrated = NARRATED.replace("Sleep 4s", "Sleep 1350ms").replace("Sleep 6s", "Sleep 1750ms")
+    head = NARRATED_TAPE.split("# scene\n")[0].replace("Output demo.mp4", "Output demo-1.mp4")
+    assert vhs.tapes[0]["text"] == head + "Sleep 400ms\n" + narrated
+    # Scenes without narration record as written.
+    assert vhs.tapes[1]["text"].endswith(SECTIONS[1])
+
+
+def test_a_step_whose_comment_is_never_heard_is_refused_naming_scene_and_comment(tmp_path, capsys):
+    video, _ = demo(tmp_path, tape=NARRATED_TAPE.replace("# break the boundary", "# the mutant survives"))
+    narrate(video, 2, 9.0)
+    code, _, err = run(tmp_path, vhs := FakeVhs(), capsys, whisper(SAID))
+    assert code == 3 and vhs.tapes == []
+    assert "scene 2" in err and "# the mutant survives" in err
+
+
+def test_a_step_that_cannot_be_typed_before_the_next_sentence_is_refused(tmp_path, capsys):
+    video, _ = demo(tmp_path, tape=NARRATED_TAPE)
+    narrate(video, 2, 9.0)
+    early = [(w, at - 2.0 if at >= 5.0 else at) for w, at in SAID]  # "Now" at 3.0: the first step needs until 4.05
+    code, _, err = run(tmp_path, vhs := FakeVhs(), capsys, whisper(early))
+    assert code == 3 and vhs.tapes == []
+    assert "scene 2" in err and "# break the boundary" in err
 
 
 @pytest.mark.media
