@@ -147,8 +147,8 @@ def test_points_appear_at_the_whisper_time_of_their_leading_word(tmp_path, fonts
     run(tmp_path, fakes, capsys)
     items = cues(fakes.pages[0])["items"]
     assert items == [
-        {"text": "Mocks replace code", "at": round(render.LEAD + 0.5, 3)},
-        {"text": "The assert checks the fake", "at": round(render.LEAD + 1.4, 3)},
+        {"text": "Mocks replace code", "at": round(render.LEAD + 0.5, 3), "heard": round(render.LEAD + 0.5, 3)},
+        {"text": "The assert checks the fake", "at": round(render.LEAD + 1.4, 3), "heard": round(render.LEAD + 1.4, 3)},
     ]
 
 
@@ -157,7 +157,7 @@ def test_a_point_cues_at_its_leading_word_not_an_earlier_key_word(tmp_path, font
     files(tmp_path, scenes=SCENES[:1])
     heard = [("two", 0.1, 0.2), ("tests", 0.3, 0.4), ("code", 0.5, 0.6), ("mocks", 0.9, 1.0), ("assert", 1.4, 1.5)]
     run(tmp_path, fakes := Fakes(heard={1: heard}), capsys)
-    assert cues(fakes.pages[0])["items"][0] == {"text": "Mocks replace code", "at": round(render.LEAD + 0.9, 3)}
+    assert cues(fakes.pages[0])["items"][0]["at"] == round(render.LEAD + 0.9, 3)
 
 
 UNHEARD = [
@@ -183,10 +183,44 @@ def test_an_item_none_of_whose_words_is_heard_is_refused_naming_the_scene_item_a
     assert "reword" in err and "write-video-script" in err
 
 
+def test_render_writes_an_alignment_report_of_each_elements_cue_heard_time_and_words(tmp_path, fonts, capsys):
+    terminal = {"kind": "terminal", "heading": "Run it", "visual": "$ pytest -q", "say": "S"}
+    folder = files(tmp_path, scenes=[*SCENES, terminal], seconds=(2.0, 3.0, 2.0), clips=1)
+    # "mocks" at 0.05 s: the first point is heard at 0.45 s but staggered after the heading to 0.55 s.
+    heard = [("two", 0.0, 0.05), ("mocks", 0.05, 0.3), ("replace", 0.3, 0.5), ("code", 0.5, 0.7), ("and", 0.7, 0.8),
+             ("the", 0.8, 0.9), ("assert", 1.4, 1.6), ("checks", 1.6, 1.8)]  # fmt: skip
+    code, _, err = run(tmp_path, Fakes(heard={1: heard}, lengths={"demo-1.mp4": 1.0}), capsys)
+    assert code == 0, err
+    report = (folder / "render" / "alignment.md").read_text()
+    scenes = re.split(r"^## ", report, flags=re.MULTILINE)[1:]
+    assert [s.splitlines()[0] for s in scenes] == ['Scene 1: points "Two tests"', 'Scene 2: code "Look closer"',
+                                                  'Scene 3: terminal "Run it"']  # fmt: skip
+    assert "| heading | Two tests | 0.40 | 0.40 | 0.00 | two mocks replace code and the |" in scenes[0]
+    assert "| point | Mocks replace code | 0.55 | 0.45 | 0.10 | replace code and the |" in scenes[0]
+    assert "| point | The assert checks the fake | 1.80 | 1.80 | 0.00 | assert checks |" in scenes[0]
+    assert "| frame | demo/discount.py types in | 0.40 | - | - | look closer at the |" in scenes[1]
+    assert "recording" in scenes[2] and "demo-1.mp4" in scenes[2] and "|" not in scenes[2]
+
+
+def test_an_element_cued_before_its_words_are_heard_is_refused_naming_the_scene_and_element(
+    tmp_path, fonts, capsys, monkeypatch
+):
+    # A backstop: the cue rules never place an element before its words, so a fault is injected after them.
+    def early(cues):
+        cues["items"][1]["at"] = cues["items"][1]["heard"] - 0.5
+        return cues
+
+    monkeypatch.setattr(render, "staggered", early)
+    files(tmp_path, scenes=SCENES[:1])
+    code, _, err = run(tmp_path, fakes := Fakes(), capsys)
+    assert code == 2 and fakes.commands == [], err
+    assert 'scene 1: point "The assert checks the fake"' in err and "before its words" in err, err
+
+
 def test_cue_times_never_go_back_in_time():
     # "checks", the second item's leading word, is said before the first item's: the second waits for "again".
     words = render.words_from(whisper_json([("checks", 0.1, 0.2), ("assert", 0.2, 0.5), ("again", 0.6, 0.8)]))
-    times = render.cue_times(["assert this", "checks again"], words)
+    times = [cue["at"] for cue in render.cue_times(["assert this", "checks again"], words)]
     assert times == [round(render.LEAD + 0.2, 3), round(render.LEAD + 0.6, 3)]
 
 
@@ -244,7 +278,7 @@ def test_focus_holds_before_moving_again():
     heard = [("patch", 0.5, 0.6), ("assert", 0.9, 1.0), ("assert", 2.0, 2.1)]
     focus = render.focus_cues(lines, render.words_from(whisper_json(heard)))
     # "assert" at 0.9 s comes within FOCUS_HOLD of the first focus, so only the one at 2.0 s moves it.
-    assert focus == [{"line": 0, "at": round(render.LEAD + 0.5, 3)}, {"line": 1, "at": round(render.LEAD + 2.0, 3)}]
+    assert [(c["line"], c["at"]) for c in focus] == [(0, round(render.LEAD + 0.5, 3)), (1, round(render.LEAD + 2.0, 3))]
 
 
 def test_focus_follows_the_narration_down_the_code():
@@ -267,7 +301,7 @@ def test_focus_follows_the_narration_down_the_code():
     focus = render.focus_cues(lines, render.words_from(whisper_json(heard)))
     at = {w: round(render.LEAD + i * 0.4, 3) for i, w in reversed(list(enumerate(said)))}
     moves = [cue["line"] for cue in focus]
-    assert focus[0] == {"line": 0, "at": at["apply"]}
+    assert (focus[0]["line"], focus[0]["at"]) == (0, at["apply"])
     assert moves in ([0, 2, 4], [0, 3, 4]), focus
     assert at["refuses"] <= focus[1]["at"] <= at["hundred"] and at["returns"] <= focus[2]["at"] <= at["rounded"]
 
@@ -507,8 +541,20 @@ def test_code_marks_focus_their_line_with_a_note_at_their_cue_word_instead_of_wo
     heard = [("look", 0.0, 0.1), ("patch", 0.8, 1.0), ("assert", 1.2, 1.3), ("ninety", 2.0, 2.3)]
     run(tmp_path, fakes := Fakes(heard={2: heard}), capsys)
     assert cues(fakes.pages[1])["focus"] == [
-        {"line": 1, "at": round(render.LEAD + 0.8, 3), "note": MARKS[0]["note"], "top": 0},
-        {"line": 2, "at": round(render.LEAD + 2.0, 3), "note": MARKS[1]["note"], "top": 0},
+        {
+            "line": 1,
+            "at": round(render.LEAD + 0.8, 3),
+            "note": MARKS[0]["note"],
+            "top": 0,
+            "heard": round(render.LEAD + 0.8, 3),
+        },
+        {
+            "line": 2,
+            "at": round(render.LEAD + 2.0, 3),
+            "note": MARKS[1]["note"],
+            "top": 0,
+            "heard": round(render.LEAD + 2.0, 3),
+        },
     ]
 
 
@@ -591,7 +637,13 @@ def test_a_split_scene_shows_two_files_each_with_its_label_and_marks(tmp_path, f
     assert first["left"]["lines"] == CODE.splitlines() and first["right"]["lines"] == TESTS.splitlines()
     # Marks live inside their side and focus only that side's line.
     assert first["right"]["focus"] == [
-        {"line": 1, "at": round(render.LEAD + 1.0, 3), "note": MARKS[0]["note"], "top": 0}
+        {
+            "line": 1,
+            "at": round(render.LEAD + 1.0, 3),
+            "note": MARKS[0]["note"],
+            "top": 0,
+            "heard": round(render.LEAD + 1.0, 3),
+        }
     ]
     # The cold open shows both files whole from the first frame; a later split brings each panel in as the
     # narration names its label.
@@ -638,17 +690,17 @@ def test_compare_columns_reveal_each_item_as_the_narration_names_it_alternating_
     scene = cues(fakes.pages[0])
     at = {w: round(render.LEAD + t, 3) for w, t in said}
     assert scene["left"] == {
-        "heading": {"text": "Checking", "at": at["testing"]},  # with the right heading
+        "heading": {"text": "Checking", "at": at["testing"], "heard": at["checking"]},  # with the right heading
         "items": [
-            {"text": "Confirms what we expect", "at": at["confirms"]},
-            {"text": "`assert total == 8991`", "at": at["assert"]},
+            {"text": "Confirms what we expect", "at": at["confirms"], "heard": at["confirms"]},
+            {"text": "`assert total == 8991`", "at": at["assert"], "heard": at["assert"]},
         ],
     }
     assert scene["right"] == {
-        "heading": {"text": "Testing", "at": at["testing"]},
+        "heading": {"text": "Testing", "at": at["testing"], "heard": at["testing"]},
         "items": [
-            {"text": "Explores what could go wrong", "at": at["explores"]},
-            {"text": "`mutate one line`", "at": at["mutate"]},
+            {"text": "Explores what could go wrong", "at": at["explores"], "heard": at["explores"]},
+            {"text": "`mutate one line`", "at": at["mutate"], "heard": at["mutate"]},
         ],
     }
 
@@ -741,8 +793,8 @@ def test_an_intro_brings_in_its_roles_activity_and_stake_as_the_narrator_names_e
     assert [r["text"] for r in cues["roles"]] == INTRO["roles"]
     # Each at its leading key word, not at "let" or "review" in the opening question.
     assert [r["at"] for r in cues["roles"]] == [at["developers"], at["testers"]]
-    assert cues["activity"] == {"text": INTRO["activity"], "at": at["spot"]}
-    assert cues["stake"] == {"text": INTRO["stake"], "at": at["they"]}
+    assert cues["activity"] == {"text": INTRO["activity"], "at": at["spot"], "heard": at["spot"]}
+    assert cues["stake"] == {"text": INTRO["stake"], "at": at["they"], "heard": at["they"]}
     assert cues["heading"]["at"] == at["challenge"]
 
 
@@ -794,6 +846,7 @@ def test_a_repo_card_enters_first_then_lists_its_files_as_named_and_wipes_in_its
     assert cues["link"] == {
         "text": "https://github.com/oneo4-tech/testlab-demos/tree/main/38-ai-test-mutation/ai-kit",
         "at": at["description"],  # link_at defaults to "description"
+        "heard": at["description"],
     }
     times = [f["at"] for f in cues["files"]]
     assert [f["text"] for f in cues["files"]] == REPO["files"]
@@ -999,11 +1052,13 @@ def test_a_kit_lights_each_file_with_its_use_then_wipes_in_its_link_and_shows_th
     cues, at = kit_cues(KIT)
     assert (cues["repo"], cues["path"], cues["card"]) == (KIT["repo"], KIT["path"], {"at": render.LEAD})
     assert cues["files"] == [
-        {"text": f["path"], "use": f["use"], "at": at[w]} for f, w in zip(KIT["files"], ["rules", "skill", "first"])
+        {"text": f["path"], "use": f["use"], "at": at[w], "heard": at[w]}
+        for f, w in zip(KIT["files"], ["rules", "skill", "first"])
     ]
     assert cues["link"] == {
         "text": "https://github.com/oneo4-tech/testlab-demos/tree/main/38-ai-test-mutation/ai-kit",
         "at": at["description"],
+        "heard": at["description"],
     }
     assert [t["at"] for t in cues["takeaways"]] == [at["takeaways"], at["break"]]
     assert [t["text"] for t in cues["takeaways"]] == KIT["takeaways"]
@@ -1060,10 +1115,10 @@ def test_a_cta_brings_in_each_action_as_the_narration_names_it():
     at = {w["word"]: round(render.LEAD + w["start"], 3) for w in reversed(words)}
     cues = render.scene_cues(CTA, 15, words, 14.0, render.SIZES["long-form"], CONFIG, None)
     assert cues["actions"] == [
-        {"name": "like", "at": at["like"]},
-        {"name": "share", "at": at["share"]},
-        {"name": "subscribe", "at": at["subscribe"]},
-        {"name": "notify", "at": at["bell"]},  # "bell" comes before "notifications"
+        {"name": "like", "at": at["like"], "heard": at["like"]},
+        {"name": "share", "at": at["share"], "heard": at["share"]},
+        {"name": "subscribe", "at": at["subscribe"], "heard": at["subscribe"]},
+        {"name": "notify", "at": at["bell"], "heard": at["bell"]},  # "bell" comes before "notifications"
     ]
 
 

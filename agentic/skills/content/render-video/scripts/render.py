@@ -15,7 +15,14 @@ Reads, in the channel workspace's videos/<N>/:
 and writes render/scenes/NN.mp4, one silent H.264 clip per scene at FPS frames a second,
 1920x1080 for a long-form and 1080x1920 for a Short, and render/scenes.json, which it also
 prints: type, width, height, fps, and per scene its kind, source (html or demo), file,
-narration, seconds, frames, and lead (where the narration starts in the clip).
+narration, seconds, frames, and lead (where the narration starts in the clip). It also writes
+render/alignment.md, the alignment report for gate 3: per drawn scene, each on-screen element
+(heading, point, word, line, item, role, activity, stake, panel, mark, focus, file, link, takeaway,
+action) with its text, cue, heard (when its own words start), lag (cue minus heard), and the
+words said from its cue to one second after, in cue order; elements entering with the scene, not
+at words (a code view typing in or shown whole, a repo or kit card, a split's hook, a cold open's
+split panels, a link whose word is unheard), are listed as frame. A terminal scene played from a
+recording is listed as recording, timed by its tape.
 
 Scene kinds and their fields (marks, link_at, takeaways_at, a kit file's at optional; lines counted from 1):
 
@@ -57,7 +64,9 @@ action before's. A heading, item, mark, kit file or takeaway, cta action, or rep
 heard where it is due is refused, naming the scene, the item, and the fix (reword the item or the narration).
 No drawn scene is blank for over BLANK_MAX seconds: one with nothing cued by then, and no code typing in or
 cold-open split panels, is refused (filled), naming the fix: open the narration on the heading's words, or add
-a filler or transition title scene, such as a question in the centre, before it.
+a filler or transition title scene, such as a question in the centre, before it. Each entrance keeps heard, the
+time its own words start, beside its cue; after staggering, an element cued more than a frame before its heard
+time is refused (aligned, a backstop the rules above never trip), naming the scene and element.
 
 A code scene types its file in within TYPE_MAX seconds (the first scene, the cold open, shows it whole
 from its first frame), so the code is whole as the narrator starts on it, and no focus or mark starts
@@ -114,7 +123,8 @@ Needs Google Chrome, ffmpeg, ffprobe, whisper-cli with its model, and the fonts 
 
 Exit codes: 0 every scene rendered, 1 a tool or file error, 2 bad input (an invalid script
 or channel (youtube_channel.load refuses a missing background image or an invalid opacity or fit), a missing narration or demo file, a terminal clip longer than its scene, an item or heading whose
-words are never heard, or a scene with nothing to show within BLANK_MAX seconds).
+words are never heard, a scene with nothing to show within BLANK_MAX seconds, or an element cued before its
+own words are heard).
 """
 
 import argparse
@@ -187,6 +197,10 @@ MODEL_VARIABLE = "WHISPER_MODEL"
 WHISPER_MODEL = Path.home() / ".cache" / "whisper" / "ggml-base.en.bin"
 PLACEHOLDERS = ["/*{{fonts}}*/", "/*{{css}}*/", "/*{{cues}}*/", "/*{{js}}*/"]
 WORD = re.compile(r"[a-z0-9]+(?:'[a-z0-9]+)*")
+# The alignment report's element kinds by the cue field they sit in; a list's items by their scene's kind.
+ELEMENT_KINDS = {"roles": "role", "files": "file", "takeaways": "takeaway", "actions": "action", "left": "panel",
+                 "right": "panel"}  # fmt: skip
+ITEM_KINDS = {"title": "word", "points": "point", "terminal": "line"}
 STOP = {"the", "and", "for", "with", "that", "this", "are", "was", "you", "not", "but", "its", "has"}
 # Names too common in code to point at one line; a spoken "assert" still focuses its line.
 CODE_WORDS = {"return", "import", "from", "with", "self", "none", "true", "false", "lambda", "yield"}
@@ -242,17 +256,18 @@ def _keys(text: str) -> set[str]:
     return {w for w in words if len(w) >= 3 and w not in STOP} or set(words)
 
 
-def cue_times(items: list[str], words: list[dict]) -> list[float]:
-    """When each item appears, in seconds from the clip's start (_cues)."""
+def cue_times(items: list[str], words: list[dict]) -> list[dict]:
+    """Each item with when it appears and when its words are heard, in seconds from the clip's start (_cues)."""
     return _cues(items, words)[0]
 
 
-def _cues(items, words, position=0, start=LEAD, distinct=False) -> tuple[list[float], int]:
-    """When each item of a list appears, from heard word position and time start, with the position after its last
-    item: at its leading key word heard after the previous item's, else at the first of its other key words heard
-    after it; refused (Unheard) when none is. With distinct, an item is cued only by its key words the item before
-    it lacks (all of them when it has no other), so a word read in one item does not bring in the next."""
-    times, before = [], set()
+def _cues(items, words, position=0, start=LEAD, distinct=False) -> tuple[list[dict], int]:
+    """Each item of a list as text, at (when it appears), and heard (when its words start), from heard word position
+    and time start, with the position after its last item: at its leading key word heard after the previous item's,
+    else at the first of its other key words heard after it; refused (Unheard) when none is. With distinct, an item
+    is cued only by its key words the item before it lacks (all of them when it has no other), so a word read in one
+    item does not bring in the next."""
+    timed, before = [], set()
     for item in items:
         keys = _keys(item)
         keys, before = (keys - before if distinct and keys - before else keys), keys
@@ -262,8 +277,11 @@ def _cues(items, words, position=0, start=LEAD, distinct=False) -> tuple[list[fl
         if hit is None:
             raise Unheard(item)
         position = hit + 1
-        times.append(round(max([LEAD + words[hit]["start"], start, *times[-1:]]), 3))
-    return times, position
+        heard = round(LEAD + words[hit]["start"], 3)
+        timed.append(
+            {"text": item, "at": round(max([heard, start, *[t["at"] for t in timed[-1:]]]), 3), "heard": heard}
+        )
+    return timed, position
 
 
 def kit_cues(scene: dict, words: list[dict]) -> dict:
@@ -276,49 +294,61 @@ def kit_cues(scene: dict, words: list[dict]) -> dict:
     def heard_from(cue: str, position: int) -> int | None:
         return _hit(words, position, narrate.spoken_split(cue))
 
-    shown, times, position = scene["files"], [], 0
+    shown, times, heard, position = scene["files"], [], [], 0
     for file in shown:
         hit = heard_from(file["at"], position) if "at" in file else _hit(words, position, _named(file["path"]))
         if hit is None:
             raise Unheard(file.get("at", file["path"]))
         position = hit + 1
-        times.append(round(max([LEAD + words[hit]["start"], *times[-1:]]), 3))
+        heard.append(round(LEAD + words[hit]["start"], 3))
+        times.append(max([heard[-1], *times[-1:]]))
     hit = heard_from(scene.get("link_at", LINK_AT), 0)
-    link = round(times[-1] + MOTION["enter"] if hit is None else LEAD + words[hit]["start"], 3)
-    start = max(times[-1], link)
+    link = _link(times[-1], None if hit is None else words[hit])
+    start = max(times[-1], link["at"])
     position = max(position, next((j for j, w in enumerate(words) if LEAD + w["start"] >= start), len(words)))
     cued = "takeaways_at" in scene and (hit := heard_from(scene["takeaways_at"], position)) is not None
     if cued:
         position, start = hit, max(start, round(LEAD + words[hit]["start"], 3))
     takeaways = _cues(scene["takeaways"], words, position, start, distinct=True)[0]
-    takeaways[0] = start if cued else takeaways[0]  # a cued list's first item shows at its cue word
+    if cued:  # a cued list's first item shows at its cue word
+        takeaways[0] |= {"at": start, "heard": round(LEAD + words[hit]["start"], 3)}
     return _card(scene, link) | {
-        "files": [{"text": f["path"], "use": f["use"], "at": at} for f, at in zip(shown, times)],
-        "takeaways": [{"text": t, "at": at} for t, at in zip(scene["takeaways"], takeaways)],
+        "files": [{"text": f["path"], "use": f["use"], "at": at, "heard": h} for f, at, h in zip(shown, times, heard)],
+        "takeaways": takeaways,
     }
 
 
 def cta_cues(actions: list[str], words: list[dict]) -> list[dict]:
     """Each action's icon at the first heard word after the previous action's that names it (CTA_WORDS), never
     before the action before it; refused (Unheard) when none is."""
-    times, position = [], 0
+    shown, position = [], 0
     for name in actions:
         hit = next((j for j in range(position, len(words)) if words[j]["word"] in CTA_WORDS[name]), None)
         if hit is None:
             raise Unheard(name)
         position = hit + 1
-        times.append(round(max([LEAD + words[hit]["start"], *times[-1:]]), 3))
-    return [{"name": name, "at": at} for name, at in zip(actions, times)]
+        heard = round(LEAD + words[hit]["start"], 3)
+        shown.append({"name": name, "at": max([heard, *[s["at"] for s in shown[-1:]]]), "heard": heard})
+    return shown
 
 
-def _card(scene: dict, link: float) -> dict:
-    """A GitHub card's cues, shared by repo and kit: the card at the lead and its full link at link seconds."""
+def _link(after: float, word: dict | None) -> dict:
+    """A GitHub card's link cue: at its heard word, or, unheard, MOTION enter seconds after the files (a frame
+    element, without heard)."""
+    if word is None:
+        return {"at": round(after + MOTION["enter"], 3)}
+    heard = round(LEAD + word["start"], 3)
+    return {"at": heard, "heard": heard}
+
+
+def _card(scene: dict, link: dict) -> dict:
+    """A GitHub card's cues, shared by repo and kit: the card at the lead and its full link at its link cue."""
     path = scene["path"].strip("/")
     return {
         "repo": scene["repo"],
         "path": path,
         "card": {"at": LEAD},
-        "link": {"text": f"https://github.com/{scene['repo']}/tree/main/{path}", "at": link},
+        "link": {"text": f"https://github.com/{scene['repo']}/tree/main/{path}"} | link,
     }
 
 
@@ -327,19 +357,19 @@ def repo_cues(scene: dict, words: list[dict]) -> dict:
     path's leading key word the file before lacks, else another of them (a name by its first STEM letters), refused
     (Unheard) when none is; the link https://github.com/<repo>/tree/main/<path> at its link_at word (default
     LINK_AT), else after the files."""
-    times, position, before = [], 0, set()
+    shown, position, before = [], 0, set()
     for name in scene["files"]:
         keys = _named(name)
         keys, before = ([k for k in keys if k not in before] or keys), set(keys)
         hit = _hit(words, position, keys)
         if hit is None:
             raise Unheard(name)
-        times.append(round(max([LEAD + words[hit]["start"], *times[-1:]]), 3))
+        heard = round(LEAD + words[hit]["start"], 3)
+        shown.append({"text": name, "at": max([heard, *[s["at"] for s in shown[-1:]]]), "heard": heard})
         position = hit + 1
     names = narrate.spoken_split(scene.get("link_at", LINK_AT))
-    hit = next((w for w in words if _heard(w, names)), None)
-    link = round(times[-1] + MOTION["enter"] if hit is None else LEAD + hit["start"], 3)
-    return _card(scene, link) | {"files": [{"text": t, "at": at} for t, at in zip(scene["files"], times)]}
+    link = _link(shown[-1]["at"], next((w for w in words if _heard(w, names)), None))
+    return _card(scene, link) | {"files": shown}
 
 
 def _names(heard: str, name: str) -> bool:
@@ -389,7 +419,7 @@ def focus_cues(lines: list[str], words: list[dict]) -> list[dict]:
         at = LEAD + word["start"]
         if line is None or line == current or at - last < FOCUS_HOLD:
             continue
-        focus.append({"line": line, "at": round(at, 3)})
+        focus.append({"line": line, "at": round(at, 3), "heard": round(at, 3)})
         current, last = line, at
     return focus
 
@@ -397,14 +427,16 @@ def focus_cues(lines: list[str], words: list[dict]) -> list[dict]:
 def mark_cues(marks: list[dict], words: list[dict]) -> list[dict]:
     """Each mark's focus, in order: at the first heard word after the previous mark's naming its at word (as
     code names, a numeral by its words), refused (Unheard) when none is; line counted from 0."""
-    times, position = [], 0
+    shown, position = [], 0
     for mark in marks:
         hit = _hit(words, position, narrate.spoken_split(mark["at"]))
         if hit is None:
             raise Unheard(mark["at"])
         position = hit + 1
-        times.append(round(max([LEAD + words[hit]["start"], *times[-1:]]), 3))
-    return [{"line": m["line"] - 1, "at": t, "note": m["note"]} for m, t in zip(marks, times)]
+        heard = round(LEAD + words[hit]["start"], 3)
+        at = max([heard, *[s["at"] for s in shown[-1:]]])
+        shown.append({"line": mark["line"] - 1, "at": at, "note": mark["note"], "heard": heard})
+    return shown
 
 
 def scroll_tops(count: int, focus: list[dict], rows: int) -> list[int]:
@@ -447,7 +479,7 @@ def scene_cues(scene: dict, index: int, words: list[dict], narration: float, siz
         "narration": narration,
         "fade": FADE,
         "brand": config["name"],
-        "heading": {"text": scene["heading"], "at": heading_time(scene["heading"], words)},
+        "heading": {"text": scene["heading"]} | dict.fromkeys(["at", "heard"], heading_time(scene["heading"], words)),
         "palette": palette(config),
         "motion": MOTION,
         "floor": round(size[1] * (1 - CAPTION_TOP)) + FLOOR_GAP if size[1] > size[0] else FLOOR,
@@ -460,22 +492,19 @@ def scene_cues(scene: dict, index: int, words: list[dict], narration: float, siz
         return cues | {"actions": cta_cues(scene["actions"], words)}
     if scene["kind"] == "intro":
         # Roles, then the activity, then the stake, each at its leading key word as the narrator names it.
-        shown = [*scene["roles"], scene["activity"], scene["stake"]]
-        times = cue_times(shown, words)
-        timed = [{"text": t, "at": at} for t, at in zip(shown, times)]
+        timed = cue_times([*scene["roles"], scene["activity"], scene["stake"]], words)
         return cues | {"roles": timed[:-2], "activity": timed[-2], "stake": timed[-1]}
     if scene["kind"] == "compare":
         # Both column headings together, at the later of their cues, so neither shows before its words; then each
         # column's items after its heading's word and no earlier than the headings, so the sides alternate as the
         # narration does (staggered keeps the right heading with the left).
         headings = {side: _cues([scene[side]["heading"]], words) for side in SIDES}
-        together = max(times[0] for times, _ in headings.values())
+        together = max(timed[0]["at"] for timed, _ in headings.values())
         for side in SIDES:
-            column = scene[side]
-            shown = _cues(column["items"], words, headings[side][1], together)[0]
+            timed, position = headings[side]
             cues[side] = {
-                "heading": {"text": column["heading"], "at": together},
-                "items": [{"text": t, "at": at} for t, at in zip(column["items"], shown)],
+                "heading": timed[0] | {"at": together},
+                "items": _cues(scene[side]["items"], words, position, together)[0],
             }
         return cues
     if scene["kind"] == "split":
@@ -491,15 +520,14 @@ def scene_cues(scene: dict, index: int, words: list[dict], narration: float, siz
             spec = scene[side]
             view = code_view(spec["code"], code[side], spec.get("marks") or [], words, narration,
                              rows=SPLIT_ROWS[tuple(size)], typed=False, scene=index)  # fmt: skip
-            enter = None if enter is None else max(enter, hook)
-            view["focus"] = [cue | {"at": max(cue["at"], enter or 0, hook)} for cue in view["focus"]]
-            cues[side] = {"label": spec["label"]} | view | ({} if enter is None else {"at": enter})
+            panel = {} if enter is None else {"at": max(enter["at"], hook), "heard": enter["heard"]}
+            view["focus"] = [cue | {"at": max(cue["at"], panel.get("at", 0), hook)} for cue in view["focus"]]
+            cues[side] = {"label": spec["label"]} | view | panel
         return cues
     if scene["kind"] == "code":
         return cues | code_view(scene["code"], code, scene.get("marks"), words, narration, rows=ROWS[tuple(size)],
                                 typed=index != 1, scene=index)  # fmt: skip
-    shown = items(scene)
-    return cues | {"items": [{"text": t, "at": at} for t, at in zip(shown, cue_times(shown, words))]}
+    return cues | {"items": cue_times(items(scene), words)}
 
 
 def split_hook(scene: dict, words: list[dict]) -> float:
@@ -532,12 +560,78 @@ def code_view(name, code, marks, words, narration, rows, typed, scene) -> dict:
     }
 
 
-def _entrances(node) -> list[dict]:
+def _entrances(cues: dict) -> list[dict]:
     """Every entrance in a scene's cues: each object with an at time (the heading, an item, a focus, a mark)."""
+    return [entrance for _, entrance in _elements(cues)]
+
+
+def _elements(node, key: str = "") -> list[tuple[str, dict]]:
+    """Every entrance in a scene's cues with the field it sits in: ("items", an item), ("focus", a mark), ..."""
     if isinstance(node, dict):
-        own = [node] if isinstance(node.get("at"), (int, float)) else []
-        return own + [e for value in node.values() for e in _entrances(value)]
-    return [e for value in node for e in _entrances(value)] if isinstance(node, list) else []
+        own = [(key, node)] if isinstance(node.get("at"), (int, float)) else []
+        return own + [e for field, value in node.items() for e in _elements(value, field)]
+    return [e for value in node for e in _elements(value, key)] if isinstance(node, list) else []
+
+
+def _element(cues: dict, field: str, entrance: dict) -> tuple[str, str]:
+    """An entrance's kind and text for the alignment report and its refusal; one without heard is a frame element."""
+    if field == "focus":  # a mark, or a code line focused by a word naming it
+        return ("mark", entrance["note"]) if "note" in entrance else ("focus", f"line {entrance['line'] + 1}")
+    text = next((entrance[k] for k in ("text", "label", "name") if k in entrance), field)
+    if "heard" not in entrance:
+        return "frame", text if text == field else f"{field}: {text}"
+    if field == "items":
+        return ITEM_KINDS.get(cues["kind"], "item"), text
+    return ELEMENT_KINDS.get(field, field), text
+
+
+def aligned(cues: dict, scene: int) -> dict:
+    """The cues, refused when an element is cued more than a frame before its own words are heard: a backstop, as
+    the cue rules never place one there."""
+    for field, entrance in _elements(cues):
+        if "heard" in entrance and entrance["at"] < entrance["heard"] - 1 / FPS:
+            kind, text = _element(cues, field, entrance)
+            raise BadInput(
+                f'scene {scene}: {kind} "{text}" is cued at {entrance["at"]:.2f} s, before its words are heard at'
+                f" {entrance['heard']:.2f} s; a render.py cue rule is broken (render-video)"
+            )
+    return cues
+
+
+def _cell(text: str) -> str:
+    return " ".join(str(text).split()).replace("|", "\\|")
+
+
+def alignment(script: dict, scenes: list[dict], heard: list[list[dict]]) -> str:
+    """The alignment report, Markdown: per scene, each element's kind, text, cue, heard time, lag, and the words said
+    from its cue to one second after, in cue order; a terminal scene played from a recording is named only."""
+    lines = ["# Narration alignment", "",
+             "Each on-screen element's cue against the narration, in seconds from its clip's start: heard is when its",
+             "own words start, lag the cue after that, words what the narrator says from the cue to a second after.",
+             "A frame element enters with the scene, not at words."]  # fmt: skip
+    for spec, scene, words in zip(script["scenes"], scenes, heard):
+        title = f'## Scene {scene["scene"]}: {scene["kind"]} "{_cell(spec["heading"])}"'
+        if scene["source"] == "demo":
+            lines += ["", title, "",
+                      (f"recording: plays {scene['clip']} from {scene['start']:.2f} s, timed by its tape"
+                       " (build-video-demo record.py).")]  # fmt: skip
+            continue
+        cues = scene["cues"]
+        rows = [(e["at"], *_element(cues, f, e), e.get("heard")) for f, e in _elements(cues)]
+        if cues["kind"] == "code":
+            typed = cues["typing"] > 0
+            rows.append(
+                (LEAD if typed else 0.0, "frame", f"{cues['file']} {'types in' if typed else 'shown whole'}", None)
+            )
+        rows += [(0.0, "frame", f"{cues[s]['label']} shown whole", None) for s in SIDES
+                 if cues["kind"] == "split" and "at" not in cues[s]]  # fmt: skip
+        lines += ["", title, "",
+                  "| Element | Text | Cue | Heard | Lag | Words said |", "|---|---|---|---|---|---|"]  # fmt: skip
+        for at, kind, text, said in sorted(rows, key=lambda row: (row[0], row[3] is not None)):
+            spoken = " ".join(w["word"] for w in words if at <= round(LEAD + w["start"], 3) <= at + 1)
+            timing = "- | -" if said is None else f"{said:.2f} | {at - said:.2f}"
+            lines.append(f"| {kind} | {_cell(text)} | {at:.2f} | {timing} | {spoken} |")
+    return "\n".join(lines) + "\n"
 
 
 def staggered(cues: dict) -> dict:
@@ -649,7 +743,7 @@ def plan(script: dict, narrations: list[float], heard: list[list[dict]], config:
                 cues = scene_cues(scene, index, words, narration, size, config, code)
             except Unheard as error:
                 raise BadInput(f"scene {index}: {error}") from None
-            entry |= {"source": "html", "cues": staggered(filled(cues, index))}
+            entry |= {"source": "html", "cues": aligned(staggered(filled(cues, index)), index)}
         scenes.append(entry)
     return scenes
 
@@ -967,6 +1061,7 @@ def render(video: Path, script: dict, config: dict, root: Path, transcribe, shoo
     scenes = plan(script, narrations, heard, config, codes, demo_seconds, clip_seconds)
     out = video / "render" / "scenes"
     out.mkdir(parents=True, exist_ok=True)
+    (video / "render" / "alignment.md").write_text(alignment(script, scenes, heard))
     size, background = SIZES[script["type"]], config["palette"]["background"]
     report = []
     for scene in scenes:
