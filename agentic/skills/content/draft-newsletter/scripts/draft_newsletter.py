@@ -328,15 +328,6 @@ def run(
     }
 
 
-def main(
-    video_issue_number: int,
-    video_project_slug: str = DEFAULT_VIDEO_PROJECT,
-    newsletter_project_slug: str = DEFAULT_NEWSLETTER_PROJECT,
-) -> dict:
-    """Alias of `run`, kept as the CLI's entry point."""
-    return run(video_issue_number, video_project_slug, newsletter_project_slug)
-
-
 def _exit_code(exc: BaseException) -> int:
     """Map an exception to the CLI exit code."""
     if isinstance(exc, (FileNotFoundError, KeyError, ValueError)):
@@ -344,7 +335,8 @@ def _exit_code(exc: BaseException) -> int:
     return 1
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> int:
+    """The command line: draft (and send on approval) the newsletter for a video issue."""
     import argparse
 
     parser = argparse.ArgumentParser(description="Draft newsletter from video issue")
@@ -359,18 +351,22 @@ if __name__ == "__main__":
         default=DEFAULT_NEWSLETTER_PROJECT,
         help="Newsletter project slug (default: oneo4-newsletter)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     try:
         result = run(args.video_issue_number, args.video_project, args.newsletter_project)
     except Exception as exc:  # noqa: BLE001 - CLI entry point reports every error
         print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(_exit_code(exc))
+        return _exit_code(exc)
 
     print(f"Draft ID: {result['draft_id']}")
     print(f"Preview URL: {result['preview_url']}")
     if result["sent"]:
         print("Sent: yes")
-        sys.exit(0)
+        return 0
     print(f"Sent: no, waiting for the owner's `{APPROVAL_LABEL}`")
-    sys.exit(3)
+    return 3
+
+
+if __name__ == "__main__":
+    sys.exit(main())

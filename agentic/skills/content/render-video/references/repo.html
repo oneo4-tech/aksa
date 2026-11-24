@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- Scene kind "repo", the GitHub card that introduces the AI kit before it is used: a repository card in the
+     channel palette (a drawn book glyph, owner/repo, a neutral "github.com" label, no third-party logo), the path
+     as a breadcrumb, the files as a tree with drawn folder and file glyphs, each listing in at its cue, and the full
+     link wiping in at its cue. The card enters at the scene's start. Same layout on a Short, above the caption band.
+     render.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+</style>
+<body data-kind="repo">
+<div id="stage"><div id="camera">
+  <div class="grid"></div>
+  <div class="brand" id="brand"></div>
+  <h1 id="heading"></h1>
+  <div class="panel card" id="card">
+    <div class="head" id="head"></div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="tree" id="tree"></div>
+    <div class="url" id="url"></div>
+  </div>
+</div></div>
+<script>
+/*{{cues}}*/
+/*{{js}}*/
+function build() {
+  const rows = githubCard(CUES.width > CUES.height ? 1 : 2);
+  // Each file lists in at its cue, a new folder's row just before its first file.
+  CUES.files.forEach((file, i) => rows[i].forEach((row, k) => enter(row, file.at + 0.1 * k, 'left')));
+  enterCard();
+}
+</script>
+</body>

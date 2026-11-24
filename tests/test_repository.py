@@ -1,7 +1,8 @@
-"""Repository invariants: path policy, rule index, skill structure, and references."""
+"""Repository invariants: path policy, channel URLs, rule index, skill structure, and references."""
 
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,8 @@ SKILL_TEMPLATE = ROOT / "agentic" / "templates" / "skill-template.md"
 RESERVED = re.compile(r"(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?", re.IGNORECASE)
 # Absolute or home-relative paths (D-012). Split so this file does not match itself.
 ABSOLUTE_PATH = re.compile("|".join(["/" + "Users/", "/" + "home/", "~" + "/", r"\$" + "HOME", r"[A-Z]:\\"]))
+# A channel URL belongs in its runtime config, never in a tracked file. Split as above.
+CHANNEL_URL = "youtube.com" + "/@"
 # Backticked repo paths, such as `agentic/rules/x.md`, without placeholders.
 REPO_PATH = re.compile(r"`((?:agentic|config|tests|\.githooks|\.github)/[^`<>*\s]+)`")
 DECISION = re.compile(r"\bD-\d{3}\b")
@@ -67,6 +70,19 @@ def test_no_absolute_paths_outside_environment_yaml():
     assert offenders == [], f"absolute paths belong only in {PATHS_FILE}"
 
 
+def test_no_channel_url_in_tracked_files():
+    offenders = []
+    for path in repo_files():
+        try:
+            text = path.read_text()
+        except UnicodeDecodeError:
+            continue
+        offenders += [
+            f"{path.relative_to(ROOT)}:{n}" for n, line in enumerate(text.splitlines(), 1) if CHANNEL_URL in line
+        ]
+    assert offenders == [], "channel URLs belong in .projects/content/yt-<channel>/channel.yaml"
+
+
 def test_rule_index_matches_rule_files():
     agents = (ROOT / "AGENTS.md").read_text()
     index = agents.split("### Rules", 1)[1].split("\n#", 1)[0]
@@ -79,6 +95,17 @@ def skill_categories() -> set[str]:
     """Categories listed under the Category bullet of components.md."""
     block = COMPONENTS.read_text().split("- Category, exactly one", 1)[1].split("\n- ", 1)[0]
     return set(re.findall(r"^  - `([a-z-]+)`:", block, re.MULTILINE))
+
+
+def in_listed_category(skill_md: Path) -> bool:
+    """A skill's folder sits directly under a category listed in components.md (D-022)."""
+    return skill_md.parent.parent.name in skill_categories()
+
+
+@pytest.mark.parametrize(("category", "accepted"), [("content", True), ("factory", True), ("unlisted", False)])
+def test_skill_category_must_be_listed(category, accepted):
+    skill_md = ROOT / "agentic" / "skills" / category / "run-example" / "SKILL.md"
+    assert in_listed_category(skill_md) is accepted
 
 
 def skill_sections() -> list[str]:
@@ -106,7 +133,7 @@ def test_no_windows_reserved_names():
 def test_skill_structure(skill_md):
     text = skill_md.read_text()
     fields = frontmatter(text)
-    assert skill_md.parent.parent.name in skill_categories()
+    assert in_listed_category(skill_md)
     assert skill_md.parent.parent.parent == ROOT / "agentic" / "skills"
     assert fields.get("name") == skill_md.parent.name
     assert re.fullmatch(r"[a-z]+(-[a-z0-9]+)+", fields["name"]), "verb-object, lowercase hyphenated (D-005)"
@@ -172,6 +199,29 @@ def test_decision_areas_are_listed():
     allowed = set(re.findall(r"`([a-z-]+)`", header.split("- Areas:", 1)[1].split("\n", 1)[0]))
     used = {area.strip() for row in decision_rows(DECISIONS) for area in row[3].split(",")}
     assert used <= allowed, f"unlisted areas: {used - allowed}"
+
+
+def command_scripts() -> list[Path]:
+    """Scripts that define main(); library modules without one are exempt."""
+    scripts = [*(ROOT / "agentic" / "scripts").glob("*.py"), *(ROOT / "agentic" / "skills").glob("**/scripts/*.py")]
+    return sorted(path for path in scripts if re.search(r"^def main\(", path.read_text(), re.MULTILINE))
+
+
+@pytest.mark.parametrize("script", command_scripts(), ids=lambda path: path.name)
+def test_command_script_runs_main(script):
+    # Without the guard, `uv run <script>` imports it, checks nothing, and exits 0.
+    assert re.search(r'^if __name__ == "__main__":\n    sys\.exit\(main\(', script.read_text(), re.MULTILINE), (
+        f"{script.relative_to(ROOT)} defines main() but never calls it when run as a command"
+    )
+
+
+def test_evidence_help_prints_usage():
+    script = ROOT / "agentic" / "skills" / "content" / "research-video" / "scripts" / "evidence.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"], check=False, capture_output=True, text=True, timeout=60
+    )
+    assert result.returncode == 0, result.stderr
+    assert "usage:" in result.stdout and "citations.json" in result.stdout
 
 
 SKILLS_PAGE = ROOT / "docs" / "skills.md"

@@ -1,0 +1,69 @@
+/* Neon-terminal theme shared by every scene template. scene.js sets --bg, --fg, --accent from
+   channel.yaml palette, --u (one design pixel, 1px at 1080 short side), and --pad. */
+* { margin: 0; box-sizing: border-box; }
+:root { --hot: #ff2e88; --warn: #ffe066; --panel: #10101a; --line: #2a2a40; --muted: #9a9ab8; }
+html, body { overflow: hidden; background: var(--bg); }
+body { position: relative; color: var(--fg); font-family: 'Space Grotesk', sans-serif;
+  font-variant-ligatures: none; -webkit-font-smoothing: antialiased; }
+.mono { font-family: 'Fira Code', monospace; font-variant-ligatures: none; }
+#stage, #camera { position: absolute; inset: 0; }
+#camera { transform-origin: 50% 45%; }
+/* The channel's background image (render.py backdrop), behind everything and still, its opacity from channel.yaml:
+   "contain" centres it at 70% of a long-form's width, a Short's width inside its padding; "cover" fills the frame,
+   cropped, under the .scrim gradient (scene.js). */
+.backdrop { position: absolute; left: 50%; top: 50%; width: 70%; transform: translate(-50%, -50%); pointer-events: none; }
+[data-shape="tall"] .backdrop { width: calc(100% - 2 * var(--pad)); }
+.backdrop.cover, [data-shape="tall"] .backdrop.cover { left: 0; top: 0; width: 100%; height: 100%; transform: none;
+  object-fit: cover; }
+.scrim { position: absolute; inset: 0; pointer-events: none; }
+.grid { position: absolute; inset: 0; background-size: calc(60 * var(--u)) calc(60 * var(--u));
+  background-image: linear-gradient(#ffffff08 2px, transparent 2px), linear-gradient(90deg, #ffffff08 2px, transparent 2px); }
+.brand { position: absolute; top: calc(44 * var(--u)); left: var(--pad); font: 700 calc(26 * var(--u)) 'Fira Code', monospace;
+  color: var(--accent); }
+h1 { position: absolute; top: calc(100 * var(--u)); left: var(--pad); right: var(--pad); font-size: calc(72 * var(--u));
+  font-weight: 700; letter-spacing: -1px; line-height: 1.1; }
+[data-shape="tall"] h1 { top: calc(180 * var(--u)); font-size: calc(80 * var(--u)); }
+.panel { position: absolute; left: var(--pad); right: var(--pad); top: calc(250 * var(--u)); bottom: var(--floor);
+  background: var(--panel); border: 2px solid var(--line); border-radius: calc(18 * var(--u)); overflow: hidden; }
+[data-shape="tall"] .panel { top: calc(440 * var(--u)); }
+.bar { height: calc(56 * var(--u)); padding: calc(16 * var(--u)) calc(22 * var(--u)); color: var(--muted);
+  font: calc(22 * var(--u)) 'Fira Code', monospace; }
+.bar i { display: inline-block; width: calc(14 * var(--u)); height: calc(14 * var(--u)); border-radius: 50%;
+  margin-right: calc(8 * var(--u)); }
+.k { color: var(--hot); } .s { color: var(--warn); } .n { color: var(--accent); } .c { color: var(--muted); }
+.draw { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+/* A code view (codeView in scene.js): code and split scenes. */
+.code { position: relative; padding: calc(10 * var(--u)) calc(36 * var(--u)) calc(10 * var(--u)) calc(20 * var(--u)); }
+.view { position: relative; overflow: hidden; }
+.scroll { position: absolute; inset: 0; }
+.line { position: absolute; white-space: pre; overflow: hidden; width: 0; }
+.ln { color: #4a4a66; display: inline-block; width: 3ch; margin-right: 1ch; text-align: right; }
+.glow { position: absolute; left: 0; right: 0; top: 0; background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset calc(6 * var(--u)) 0 var(--accent); }
+.note { position: absolute; white-space: nowrap; padding: calc(6 * var(--u)) calc(14 * var(--u)); color: var(--fg);
+  font: 600 calc(24 * var(--u)) 'Space Grotesk', sans-serif; background: #07070c; border: 2px solid var(--accent);
+  border-radius: calc(10 * var(--u)); box-shadow: 0 0 calc(18 * var(--u)) color-mix(in srgb, var(--accent) 30%, transparent); }
+.pointer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
+/* A GitHub card (githubCard in scene.js): repo and kit scenes. */
+.card { display: flex; flex-direction: column; opacity: 0; }
+.head { display: flex; align-items: center; gap: calc(18 * var(--u)); padding: calc(26 * var(--u)) calc(36 * var(--u));
+  border-bottom: 2px solid var(--line); font-size: calc(46 * var(--u)); white-space: nowrap; }
+.head b { color: var(--accent); font-weight: 700; }
+.head .sep { color: var(--muted); }
+.site { margin-left: auto; font: calc(26 * var(--u)) 'Fira Code', monospace; color: var(--muted); }
+.crumbs { display: flex; align-items: center; gap: calc(14 * var(--u)); padding: calc(18 * var(--u)) calc(36 * var(--u));
+  font: calc(28 * var(--u)) 'Fira Code', monospace; color: var(--muted); overflow-wrap: anywhere; }
+.crumbs b { color: var(--fg); font-weight: 400; }
+.tree { flex: 1; min-height: 0; overflow: hidden; font: calc(32 * var(--u)) 'Fira Code', monospace; }
+.row { display: flex; align-items: center; gap: 0.6em; padding: 0.42em calc(36 * var(--u)); border-top: 1px solid var(--line);
+  white-space: nowrap; opacity: 0; }
+.row.in { padding-left: calc(36 * var(--u) + 1.6em); }
+.row.dir { color: var(--accent); }
+.icon { flex: none; width: 1.1em; height: 1.1em; overflow: visible; }
+.url { display: flex; align-items: center; gap: 0.5em; margin: calc(16 * var(--u)) calc(36 * var(--u)) calc(28 * var(--u));
+  padding: calc(12 * var(--u)) calc(20 * var(--u)); color: var(--accent); font-family: 'Fira Code', monospace; line-height: 1.3;
+  border: 2px solid var(--accent); border-radius: calc(14 * var(--u)); background: #07070c; overflow-wrap: anywhere;
+  box-shadow: 0 0 calc(24 * var(--u)) color-mix(in srgb, var(--accent) 25%, transparent); }
+.url span span { white-space: nowrap; }  /* the link breaks only after a slash */
+[data-shape="tall"] .panel.card { top: calc(400 * var(--u)); }
+[data-shape="tall"] .head { font-size: calc(40 * var(--u)); }

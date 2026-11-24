@@ -1,0 +1,31 @@
+/* Shared by every thumbnail layout. A 1280x720 design canvas, shot at 3x for 3840x2160. thumbnail.py sets
+   --red (palette syntax: markers only, never text), --fg (palette name), --accent (palette suffix, the key word),
+   --field-1 and --field-2 (the coloured field, lighter than YouTube's page), --min-text (the least text size, for a
+   cap height of 15% of the frame), --panel and --bar (spot-the-bug's code panel and highlight bar), --head (its chip
+   row), --mark and --lines (its marked line and line count), the art crop (--x, --y: its centre, --crop: its side,
+   as shares of the art's side), and --feather. */
+* { margin: 0; box-sizing: border-box; }
+html, body { width: 1280px; height: 720px; overflow: hidden; }
+body { position: relative; background: radial-gradient(ellipse at 60% 45%, var(--field-1), var(--field-2));
+  color: var(--fg); font-family: 'Space Grotesk', sans-serif;
+  font-variant-ligatures: none; -webkit-font-smoothing: antialiased; }
+/* Square layouts: the art cropped to the square of side --crop centred on (--x, --y), each edge faded into the
+   field over --feather of the box, so the opaque area is a square holding the subject the crop was chosen for. */
+.art { position: absolute; overflow: hidden; mask-composite: intersect;
+  mask-image: linear-gradient(90deg, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent),
+    linear-gradient(transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent); }
+.art img { position: absolute; width: calc(100% / var(--crop)); height: calc(100% / var(--crop));
+  left: calc(50% - 100% * var(--x) / var(--crop)); top: calc(50% - 100% * var(--y) / var(--crop)); }
+/* Wide layouts: the 16:9 art fills the frame; a scrim of the field keeps the text side at the checked contrast. */
+.wide .art { inset: 0; mask-image: none; }
+.wide .art img { inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.scrim { position: absolute; inset: 0; }
+/* Text boxes: fit.js shrinks each from data-size, never below --min-text. A word a line, the last the key word. */
+.fit { position: absolute; display: flex; flex-direction: column; justify-content: center; }
+.line { display: block; width: max-content; font-weight: 700; letter-spacing: -0.035em; line-height: 0.98;
+  white-space: pre; text-shadow: 0 5px 0 #000, 0 0 30px #000c; }
+.line:last-child { color: var(--accent); }
+/* The red marker: a shape only, outlined in warm white so it passes 3:1 against any art or field. */
+.marker { position: absolute; background: var(--red); box-shadow: 0 0 0 5px var(--fg), 0 8px 24px #000a; }
+.underline .line:last-child::after { content: ''; display: block; height: 16px; width: 72%; margin-top: 10px;
+  border-radius: 8px; background: var(--red); box-shadow: 0 0 0 5px var(--fg); transform: rotate(-2deg); }

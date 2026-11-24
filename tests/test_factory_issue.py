@@ -91,21 +91,21 @@ def sections(gh, number):
 # intake
 
 
-def test_intake_files_a_quoted_request_at_triage(gh, tmp_path):
+def test_intake_files_a_quoted_request_at_triage_as_a_factory_issue(gh, tmp_path):
     request = tmp_path / "request.md"
     request.write_text("Please add a thing.\n\n## Not a section\n- [ ] not a task\n")
     assert run(gh, "intake", "--title", "Add a thing", "--request-file", str(request)) == 0
     issue = gh.issues[1]
-    assert issue["labels"] == ["stage:triage"]
+    assert issue["labels"] == ["stage:triage", "kind:factory"]
     assert sections(gh, 1) == {"Request": "> Please add a thing.\n>\n> ## Not a section\n> - \\[ ] not a task"}
     assert issue["comments"] == ["Factory: filed from a work request; stage `triage`."]
 
 
-def test_intake_adopts_an_issue_and_keeps_its_text_as_the_request(gh):
+def test_intake_adopts_an_issue_as_a_factory_issue_and_keeps_its_text_as_the_request(gh):
     gh.add(3, title="Something is broken", body="It breaks.", labels=["bug"])
     assert run(gh, "intake", "--issue", "3") == 0
     assert sections(gh, 3) == {"Request": "> It breaks."}
-    assert gh.issues[3]["labels"] == ["bug", "stage:triage"]
+    assert gh.issues[3]["labels"] == ["bug", "stage:triage", "kind:factory"]
 
 
 def test_intake_refuses_an_issue_that_is_already_a_factory_issue(gh):
@@ -392,6 +392,14 @@ def test_queue_lists_factory_issues_owner_first_then_furthest_along(gh, capsys):
     assert [row["number"] for row in json.loads(capsys.readouterr().out)] == [4, 3, 1]
 
 
+def test_queue_never_lists_a_content_issue_even_one_waiting_for_the_owner(gh, capsys):
+    gh.add(1, labels=["stage:build", "kind:factory"])
+    content = ["kind:youtube", "channel:testlab", "youtube-stage:script", "needs:owner"]
+    gh.add(2, body="A video.", labels=content, comments=["Factory: needs the owner: Approve the script."])
+    run(gh, "status")
+    assert [row["number"] for row in json.loads(capsys.readouterr().out)] == [1]
+
+
 def test_queue_shows_what_each_waiting_run_needs_and_its_pull_request(gh, capsys):
     needs = ["Factory: needs the owner: Approve G1.", "Factory: needs the owner: Review PR #12."]
     gh.add(4, body=BODY.replace("PR: none", "PR: #12"), labels=["stage:ship", "needs:owner"], comments=needs)
@@ -434,6 +442,40 @@ def test_labels_creates_missing_and_updates_changed_labels(gh):
     assert all(gh.repo_labels[name] == wanted for name, wanted in config.labels.items())
     assert gh.repo_labels["bug"] == ("d73a4a", "Something isn't working")
     assert run(gh, "labels", "--check") == 0
+
+
+def backfill_issues(gh):
+    gh.add(1, labels=["stage:build"])
+    gh.add(2, labels=["stage:define", "kind:factory"])
+    gh.add(3, labels=["bug"])
+    gh.add(4, labels=["kind:youtube", "channel:testlab", "youtube-stage:script"])
+
+
+def test_labels_backfill_kind_marks_open_factory_issues_without_it(gh):
+    backfill_issues(gh)
+    assert run(gh, "labels", "--backfill-kind") == 0
+    assert [gh.issues[n]["labels"] for n in (1, 2, 3, 4)] == [
+        ["stage:build", "kind:factory"],
+        ["stage:define", "kind:factory"],
+        ["bug"],
+        ["kind:youtube", "channel:testlab", "youtube-stage:script"],
+    ]
+    assert "kind:factory" in gh.repo_labels
+
+
+def test_labels_backfill_kind_with_check_only_reports(gh, capsys):
+    config = fi.load_config(fi.CONFIG)
+    gh.repo_labels = dict(config.labels)
+    backfill_issues(gh)
+    assert run(gh, "labels", "--check", "--backfill-kind") == 1
+    assert "backfill #1" in capsys.readouterr().out
+    assert gh.issues[1]["labels"] == ["stage:build"]
+
+
+def test_labels_without_backfill_kind_leaves_issues_alone(gh):
+    backfill_issues(gh)
+    assert run(gh, "labels") == 0
+    assert gh.issues[1]["labels"] == ["stage:build"]
 
 
 # body format and config

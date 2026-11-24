@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- Scene kind "code": the demo file types into an editor, then at each focus cue the named line's band wipes
+     in, the rest dims, the view scrolls to keep it in sight, and an arrow draws in pointing at it, or, for a
+     mark, a callout note slides in beside it (codeView in scene.js). render.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+</style>
+<body data-kind="code">
+<div id="stage"><div id="camera">
+  <div class="grid"></div>
+  <div class="brand" id="brand"></div>
+  <h1 id="heading"></h1>
+  <div class="panel" id="panel">
+    <div class="bar" id="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+    <div class="code mono" id="code"></div>
+  </div>
+</div></div>
+<script>
+/*{{cues}}*/
+/*{{js}}*/
+function build() {
+  codeView($('panel'), CUES, CUES.lead);
+}
+</script>
+</body>

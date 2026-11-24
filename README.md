@@ -31,12 +31,31 @@ uv run agentic/scripts/kb_index.py        # .kb/index.md from the wiki pages
 
 Start parallel work in its own worktree, set up the same way: `uv run agentic/scripts/new_worktree.py <branch>`.
 
+Content skills need system tools, installed once. Narration (`narrate-video`) needs `ffmpeg`, `whisper-cli` (whisper.cpp), and its `base.en` model at `.cache/whisper/ggml-base.en.bin` in the home folder, or the path in `WHISPER_MODEL`, plus `GEMINI_API_KEY` in `.env`:
+
+```sh
+brew install ffmpeg whisper.cpp
+(cd && mkdir -p .cache/whisper && curl -L -o .cache/whisper/ggml-base.en.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin)   # into the home folder
+```
+
+Research evidence (`research-video`) and scene rendering (`render-video`) drive Google Chrome through Playwright (no bundled browser); demo recordings (`build-video-demo`) need `vhs`. Rendering also needs `ffmpeg`, `whisper-cli` as above, and the Space Grotesk and Fira Code font files at `.cache/fonts/` in the home folder, or the folder in `RENDER_FONTS`, since scenes never load fonts from the network. Assembly also needs each channel's music bed at `music/bed.mp3` in its workspace, supplied by the owner:
+
+```sh
+brew install --cask google-chrome
+brew install vhs
+(cd && mkdir -p .cache/fonts && cd .cache/fonts \
+  && curl -L -o SpaceGrotesk.ttf 'https://github.com/google/fonts/raw/main/ofl/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf' \
+  && curl -L -o FiraCode.ttf 'https://github.com/google/fonts/raw/main/ofl/firacode/FiraCode%5Bwght%5D.ttf')   # into the home folder
+```
+
 The Knowledge Base (`.kb`) is its own git repository with `inbox/`, `raw/`, `wiki/`, and `outputs/`; see `agentic/rules/knowledge.md`.
 
 ## Checks
 
 ```sh
 uv run pytest            # scripts and repository invariants
+uv run pytest -m media   # real-media render tests, locally only (Chrome, ffmpeg, whisper-cli, fonts, macOS say)
 uv run ruff check .
 uv run ruff format --check .
 ```

@@ -70,6 +70,17 @@ Content creation and publishing workflows.
 | Skill | Purpose |
 |-------|---------|
 | `draft-newsletter` | Draft a newsletter issue from a video, send on the owner's yes |
+| `run-youtube` | File, resume, or list a channel's videos (`youtube-producer` agent) |
+| `scan-video-ideas` | Weekly scan into scored video idea cards |
+| `research-video` | One video's research with checked citations |
+| `write-video-script` | One video's `script.json`, checked against the writing rules |
+| `build-video-demo` | One video's runnable demo and AI kit in the demo repository |
+| `narrate-video` | Scene-by-scene narration in the channel's voice, leak checked |
+| `render-video` | Animated scenes, terminal clips, music, captions, and loudness into `final.mp4` |
+| `design-thumbnail` | One video's thumbnail from a layout template and optional art |
+| `package-video` | Title, description, chapters, tags, and disclosure |
+| `plan-shorts` | A long-form's Shorts, cut or linked, filed on the owner's yes |
+| `brand-channel` | Channel avatar, banner, watermark, and wordmarks from the logo spec |
 
 ### `testing`
 

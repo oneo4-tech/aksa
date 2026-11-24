@@ -1,0 +1,20 @@
+<!doctype html>
+<!-- Layout "split": the 16:9 art fills the frame, its subject in the right two-thirds; the text stacked a word a
+     line over the field-coloured scrim of the left third, the key word last in the accent, underlined by the red
+     marker. thumbnail.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+/*{{palette}}*/
+.scrim { background: linear-gradient(90deg, var(--field-2) 0%, color-mix(in srgb, var(--field-2) 75%, transparent) 32%, transparent 55%); }
+#text { left: 40px; top: 30px; width: 590px; height: 660px; }
+</style>
+<body data-layout="split" class="wide">
+<!--{{art}}-->
+<div class="scrim"></div>
+<div class="fit underline" id="text" data-size="210"><!--{{text}}--></div>
+<script>
+/*{{js}}*/
+</script>
+</body>

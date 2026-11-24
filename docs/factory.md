@@ -34,6 +34,7 @@ Factory issues use structured labels:
 ### Special Labels
 - `needs:owner` — factory waiting for owner decision
 - `claimed` — a session is actively working on it
+- `kind:factory` — marks a factory issue, added on intake
 
 ## Running a Factory Run
 

@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- A Short's burned captions: GROUP words of the script in the lower area, clear of the Shorts buttons on the
+     right and the title at the bottom, the word being said in the accent colour. assemble.py fills the two
+     placeholders and draws each state with show(i) on a transparent page. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+* { margin: 0; box-sizing: border-box; }
+html, body { overflow: hidden; background: transparent; }
+#line { position: absolute; left: 8%; right: 16%; top: calc(var(--top) * 100%); text-align: center; color: var(--fg);
+  font: 700 calc(84 * var(--u)) 'Space Grotesk', sans-serif; line-height: 1.2; letter-spacing: -1px;
+  font-variant-ligatures: none; -webkit-font-smoothing: antialiased; }
+#line span { margin: 0 calc(10 * var(--u)); paint-order: stroke fill;
+  -webkit-text-stroke: calc(14 * var(--u)) var(--bg); }
+#line span.now { color: var(--accent); }
+</style>
+<body>
+<div id="line"></div>
+<script>
+/*{{cues}}*/
+window.show = i => {
+  const line = document.getElementById('line'), state = CUES.states[i];
+  line.replaceChildren();
+  state.words.forEach((word, j) => {
+    const span = document.createElement('span');
+    span.textContent = word;
+    if (j === state.current) span.className = 'now';
+    line.appendChild(span);
+    line.appendChild(document.createTextNode(' '));
+  });
+};
+
+// assemble.py waits for ready: true once the font loaded and the theme is set.
+window.ready = document.fonts.load('700 16px "Space Grotesk"').then(set => {
+  const root = document.documentElement.style, p = CUES.palette;
+  root.setProperty('--bg', p.background);
+  root.setProperty('--fg', p.text);
+  root.setProperty('--accent', p.accent);
+  root.setProperty('--top', CUES.top);  // render.py CAPTION_TOP: scenes draw nothing from here down
+  root.setProperty('--u', Math.min(CUES.width, CUES.height) / 1080 + 'px');
+  Object.assign(document.body.style, { width: CUES.width + 'px', height: CUES.height + 'px' });
+  return set.length > 0;
+});
+</script>
+</body>

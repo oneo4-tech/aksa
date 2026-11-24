@@ -37,7 +37,7 @@ Minimum code that solves the problem. No speculative features/abstractions/confi
   - `memory/`: agreed vocabulary, active decisions, and superseded decisions.
   - `scripts/`: deterministic operations shared across components.
   - `templates/`: starting structures for rules, skills, and agents.
-- `config/`: repository settings read by scripts; `environment.yaml` maps the external symlinks to this machine, and `factory.yaml` holds the Software Factory labels and type prefixes.
+- `config/`: repository settings read by scripts; `environment.yaml` maps the external symlinks to this machine, `factory.yaml` holds the Software Factory labels and type prefixes, and `content.yaml` the content labels, stages, and gates.
 - `tests/`: pytest tests for the scripts and repository invariants.
 - `.githooks/`: tracked hooks, the pre-commit checks and the pre-push guard for `main`; enable once per clone with `git config core.hooksPath .githooks`.
 - `.github/workflows/`: CI running the pre-commit checks (`check.yml`) and the pull request review check (`review.yml`). `.github/pull_request_template.md`: pull request sections, including the `review-component` result.
@@ -57,6 +57,7 @@ Load each item when its condition applies, not up front.
 - `agentic/rules/factory.md`: working on a factory run: its factory issue, any of its stages, or any `factory` skill.
 - `agentic/rules/git.md`: creating a branch, worktree, commit, or pull request, or merging.
 - `agentic/rules/knowledge.md`: retrieving from, adding to, reviewing, or repairing Memory or the Knowledge Base.
+- `agentic/rules/agentic-system-design.md`: designing or reviewing an agentic component: its kind, an agent's RALPH loop, verification, memory boundaries, and agent evals.
 
 ### Memory
 
@@ -78,3 +79,6 @@ Load each item when its condition applies, not up front.
 - `agentic/scripts/check_pr_review.py`: in CI, fail a pull request that changes components without a `review-component` result.
 - `agentic/scripts/kb_index.py`: rebuild `.kb/index.md` from wiki page frontmatter; `--check` validates.
 - `agentic/scripts/factory_issue.py`: the only writer of factory issue labels and bodies; `status` reads a run, `labels` syncs the label set.
+- `agentic/scripts/github_issues.py`: the thin `gh` layer for issues and labels, imported by the issue scripts; not a command.
+- `agentic/scripts/content_issue.py`: the only writer of content issue labels and bodies; `new` files a video, `stage` and `gate` move it, `status` reads one or a channel's queue.
+- `agentic/scripts/youtube_channel.py`: load a channel's `channel.yaml` and `style-guide.md` from `.projects/content/yt-<channel>/`; `check` validates, `init` sets up its media-ignoring git workspace.

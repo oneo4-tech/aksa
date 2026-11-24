@@ -1,0 +1,105 @@
+<!doctype html>
+<!-- Scene kind "kit", the "Take it to your agent" beat on the repo scene's GitHub card (githubCard in scene.js): the
+     card enters at the scene's start with every file dim, each file lights up at its cue with its use in a callout
+     beside it (the earlier file dims and its callout leaves), the link wipes in at its cue, and the takeaways come
+     last as a numbered list beside the card (below it on a Short, above the caption band). render.py fills the
+     placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+.panel.card { right: 44%; }
+.side { position: absolute; left: 58%; right: var(--pad); top: calc(250 * var(--u)); bottom: var(--floor); }
+.use { position: absolute; left: 0; right: 0; padding: calc(24 * var(--u)) calc(30 * var(--u)); background: var(--panel);
+  border: 2px solid var(--line); border-left: calc(8 * var(--u)) solid var(--accent); border-radius: calc(14 * var(--u));
+  font-size: calc(40 * var(--u)); font-weight: 600; line-height: 1.3; opacity: 0; }
+.takeaways { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center;
+  gap: calc(36 * var(--u)); font-size: calc(40 * var(--u)); overflow: hidden; }
+.takeaway { display: flex; gap: calc(20 * var(--u)); align-items: baseline; font-weight: 600; line-height: 1.25; opacity: 0; }
+.takeaway b { flex: none; width: 1.4em; height: 1.4em; border-radius: 50%; display: inline-flex; align-items: center;
+  justify-content: center; background: var(--accent); color: var(--bg); font-size: 0.75em; transform: translateY(-0.1em); }
+.takeaway code { font-family: 'Fira Code', monospace; color: var(--warn); }
+.wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+/* A Short: the card at its natural height under the heading, the callouts and takeaways below it (scene.js sets
+   the side's top), all above the caption band. */
+[data-shape="tall"] .panel.card { top: calc(330 * var(--u)); bottom: auto; right: var(--pad); }
+[data-shape="tall"] .tree { flex: none; }
+[data-shape="tall"] .head { font-size: calc(34 * var(--u)); padding: calc(20 * var(--u)) calc(30 * var(--u)); }
+[data-shape="tall"] .crumbs { font-size: calc(24 * var(--u)); padding: calc(14 * var(--u)) calc(30 * var(--u)); }
+[data-shape="tall"] .side { left: var(--pad); }
+[data-shape="tall"] .use { font-size: calc(38 * var(--u)); }
+[data-shape="tall"] .takeaways { justify-content: flex-start; gap: calc(26 * var(--u)); font-size: calc(38 * var(--u)); }
+</style>
+<body data-kind="kit">
+<div id="stage"><div id="camera">
+  <div class="grid"></div>
+  <div class="brand" id="brand"></div>
+  <h1 id="heading"></h1>
+  <div class="panel card" id="card">
+    <div class="head" id="head"></div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="tree" id="tree"></div>
+    <div class="url" id="url"></div>
+  </div>
+  <div class="side" id="side"><div class="takeaways" id="takeaways"></div></div>
+</div></div>
+<script>
+/*{{cues}}*/
+/*{{js}}*/
+// Text with `code` spans: built with textContent only.
+function rich(text, parent) {
+  text.split('`').forEach((part, i) => { if (part) make(i % 2 ? 'code' : 'span', '', part, parent); });
+}
+
+// Shrink box's text until it fits its height.
+function fit(box, size, least) {
+  const u = Math.min(CUES.width, CUES.height) / 1080;
+  for (; box.scrollHeight > box.clientHeight && size > least; size -= 1) box.style.fontSize = size * u + 'px';
+}
+
+function build() {
+  const u = Math.min(CUES.width, CUES.height) / 1080, wide = CUES.width > CUES.height, p = CUES.palette;
+  const rows = githubCard(2, wide ? 32 : 26), side = $('side'), card = $('card');
+  if (!wide) {
+    // The card at its natural height, its tree shrunk until the callouts and takeaways keep ROOM below it.
+    const tree = $('tree'), floor = CUES.height - CUES.floor, ROOM = 300 * u;
+    for (let size = 26; floor - card.offsetTop - card.offsetHeight < ROOM && size > 18; size -= 1) tree.style.fontSize = size * u + 'px';
+    side.style.top = card.offsetTop + card.offsetHeight + 30 * u + 'px';
+  }
+  const box = side.getBoundingClientRect(), edge = card.getBoundingClientRect().right, svg = svgIn($('camera'), 'wires');
+  const done = CUES.takeaways[0].at, dark = rgba(p.accent, 0), lit = rgba(p.accent, 0.16);
+  const off = { opacity: 0.45, backgroundColor: dark, boxShadow: `inset 0 0 ${p.accent}` };
+  const on = { opacity: 1, backgroundColor: lit, boxShadow: `inset ${6 * u}px 0 ${p.accent}` };
+  CUES.files.forEach((file, i) => {
+    const next = i + 1 < CUES.files.length ? CUES.files[i + 1].at : done, own = rows[i];
+    // Only the current file is fully lit: its rows light at its cue and dim at the next file's (or the takeaways').
+    own.forEach(row => {
+      at(row, [off, on], file.at, M.dim);
+      at(row, [on, off], next, M.dim, { fill: 'forwards' });
+    });
+    // Its use in a callout beside it: level with the row on a long-form, at the side's top on a Short.
+    const note = make('div', 'use', file.use, side);
+    for (let size = wide ? 40 : 38; note.offsetHeight > box.height && size > 24; size -= 1) note.style.fontSize = size * u + 'px';
+    const r = own[own.length - 1].getBoundingClientRect(), y = (r.top + r.bottom) / 2, h = note.offsetHeight;
+    const top = wide ? Math.min(Math.max(y - box.top - h / 2, 0), box.height - h) : 0;
+    note.style.top = top + 'px';
+    enter(note, file.at + 0.1, 'left');
+    at(note, [{ opacity: 1 }, { opacity: 0 }], next, M.dim, { fill: 'forwards' });
+    if (wide) {
+      // A connector from the card's edge at the row to the callout.
+      const cy = box.top + top + h / 2, mid = (edge + box.left) / 2;
+      const wire = stroke(svg, `M${edge + 6 * u} ${y} H${mid} V${cy} H${box.left - 6 * u}`, p.accent, 4 * u, file.at + 0.1);
+      at(wire, [{ opacity: 1 }, { opacity: 0 }], next, M.dim, { fill: 'forwards' });
+    }
+  });
+  CUES.takeaways.forEach((item, i) => {
+    const row = make('div', 'takeaway', undefined, $('takeaways'));
+    make('b', '', String(i + 1), row);
+    rich(item.text, make('span', '', undefined, row));
+    enter(row, item.at, 'up');
+  });
+  fit($('takeaways'), wide ? 40 : 38, 22);
+  enterCard();
+}
+</script>
+</body>
