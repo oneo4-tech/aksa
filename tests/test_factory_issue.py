@@ -123,6 +123,16 @@ def test_intake_refuses_a_content_issue_and_leaves_it_unchanged(gh, capsys):
     assert "run-youtube <channel> #38" in error
 
 
+def test_intake_refuses_every_content_kind_in_the_content_config(gh, tmp_path, capsys):
+    content = tmp_path / "content.yaml"
+    content.write_text('labels:\n  "kind:youtube": ["ff0000", "video"]\n  "kind:podcast": ["00ff00", "episode"]\n')
+    gh.add(5, title="Episode", body="An episode.", labels=["kind:podcast"])
+    before = copy.deepcopy(gh.issues[5])
+    assert fi.main(["intake", "--issue", "5"], gh=gh, content=content) == 3
+    assert gh.issues[5] == before
+    assert "`kind:podcast`" in capsys.readouterr().err
+
+
 # section
 
 
