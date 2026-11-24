@@ -45,9 +45,9 @@ Reads videos/<N>/script.json in the channel workspace, written by write-video-sc
     kit       the "Take it to your agent" beat: the repo card's GitHub animation again, now explaining
               each file of the kit and how the viewer uses it, never repeating an earlier scene:
       repo, path  as a repo scene: the GitHub repository and the kit folder, <n>-<slug>/ai-kit
-      files   REPO_FILES entries (1-8) of KIT_FILE {"path": "AGENTS.md", "use": "Paste into your
-              AGENTS.md or CLAUDE.md", "at": "rules"}: the file in ai-kit/, one line on how the
-              viewer uses it, and the word of say at which its line appears
+      files   REPO_FILES entries (1-8) of KIT_FILE {"path": "AGENTS.md", "use": "Paste it so your
+              agent checks tests", "at": "rules"}: the file in ai-kit/, one line on how the viewer
+              uses it and its benefit, and the word of say at which its line appears
       link_at optional: the word of say at which the link appears, default REPO_CUE
       takeaways  two to four lines: what the viewer takes from the video
       takeaways_at  optional: the word of say at which the first takeaway appears; absent, each
@@ -121,6 +121,13 @@ credit the concept and its source. Scene rules:
     last scene, or the one before a closing cta, and names where the links are (LINKS: link,
     links, description) and the full video or breakdown (DRIVE); the last scene's thank-you above
     covers the thanks;
+  - a Short's on-screen line (the heading, visual lines, split labels, mark notes, compare headings
+    and items, kit use lines and takeaways) has at most SHORT_LINE_WORDS (8) words (row 35), naming
+    the scene and line; a long-form's lines are not limited;
+  - every kit scene, long-form and Short, states its benefit (row 37): its say and each file's use
+    line have a BENEFIT cue (your agent, asks, catches, flags, checks, finds, writes, helps, so you,
+    for you), saying what the viewer's agent then does for them, the refusal naming the scene and
+    line; whether it is a good benefit is judged at gate 2;
   - a long-form's kit scene is among its last KIT_FROM_END (a cta not counted); every kit scene has
     TAKEAWAYS takeaways; none of its use lines or takeaways repeats, word for word (any case or
     punctuation), a line an earlier scene showed (its on-screen text, compare items, or mark
@@ -176,6 +183,10 @@ RESOLUTION = re.compile(
 CTA_SECONDS = {"long-form": 8, "short": 4}  # a cta, the last scene, said in about this long at the channel's pace
 CTA_SENTENCES = 2  # a cta's say, at most
 THANKS = re.compile(r"\b(thank you|thanks)\b", re.IGNORECASE)  # the last scene's thank-you to the viewer
+# A kit's benefit (row 37): its say and each file's use line say what the viewer's agent then does for them.
+BENEFITS = ["your agent", "asks", "catches", "flags", "checks", "finds", "writes", "helps", "so you", "for you"]
+BENEFIT = re.compile(r"\b(" + "|".join(BENEFITS) + r")\b", re.IGNORECASE)
+SHORT_LINE_WORDS = 8  # a Short's on-screen line, at most (row 35), as the hook's own maximum
 SIDES = ["left", "right"]
 CLAIM_ID = re.compile(r"C[1-9][0-9]*")
 WORD = re.compile(r"[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*")
@@ -651,6 +662,16 @@ def grammar_problems(index: int, scene: dict) -> list[str]:
     return found
 
 
+def line_problems(index: int, scene: dict) -> list[str]:
+    """Each on-screen line of a Short's scene (prose_lines: the heading, visual lines, mark notes, compare headings
+    and items, kit use lines and takeaways) longer than SHORT_LINE_WORDS words."""
+    return [
+        f"scene {index}: {field}: '{line}' has {count} words; a Short's on-screen line has at most {SHORT_LINE_WORDS}"
+        for field, line in prose_lines(scene)
+        if (count := len(WORD.findall(line))) > SHORT_LINE_WORDS
+    ]
+
+
 def _sentence_texts(say: str) -> list[str]:
     return [part for part in re.split(r"(?<=[.!?])\s+", spoken(say).strip()) if WORD.search(part)]
 
@@ -737,9 +758,21 @@ def shown_lines(scene: dict) -> list[str]:
 
 
 def kit_problems(index: int, scene: dict, earlier: list[dict], demo: dict | None, kit_dir: Path | None) -> list[str]:
-    """A kit scene against the earlier scenes, none of whose lines it repeats, and the demo: its card shows the
-    demo's ai-kit folder, and each file is in that folder of the demo clone (kit_dir, None when absent)."""
+    """A kit scene's benefit (a BENEFIT cue in its say and in each file's use line), the earlier scenes, none of whose
+    lines it repeats, and the demo: its card shows the demo's ai-kit folder, and each file is in that folder of the
+    demo clone (kit_dir, None when absent)."""
     found, name = [], f"scene {index}"
+    if not BENEFIT.search(spoken(scene["say"])):
+        found.append(
+            f"{name}: say: the kit does not state its benefit, what the viewer's agent then does for them "
+            f"({', '.join(BENEFITS)})"
+        )
+    found += [
+        f"{name}: files: '{f['use']}' does not state the benefit, what the viewer's agent then does for them "
+        f"({', '.join(BENEFITS)})"
+        for f in scene["files"]
+        if not BENEFIT.search(f["use"])
+    ]
     shown = {}
     for number, before in enumerate(earlier, 1):
         for line in shown_lines(before):
@@ -783,6 +816,7 @@ def problems(
             found += kit_problems(index, scene, script["scenes"][: index - 1], demo, kit_dir)
         found += [f"{name}: say: {p}" for p in say_problems(scene["say"], acronyms)]
         found += grammar_problems(index, scene)
+        found += line_problems(index, scene) if script["type"] == "short" else []
         found += [
             f"{name}: say: names a person ('{person}'); narration never names people, so credit the concept and its "
             "source in the description's References"

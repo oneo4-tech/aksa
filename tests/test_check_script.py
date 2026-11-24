@@ -58,8 +58,9 @@ def split(**fields):
     return base | fields
 
 
+# Each use line states the benefit (row 37): what the viewer's agent then does for them.
 KIT_FILES = [
-    {"path": "AGENTS.md", "use": "Paste into your agents file", "at": "code"},
+    {"path": "AGENTS.md", "use": "Paste it so your agent checks tests", "at": "code"},
     {"path": "skills/check-test-can-fail/SKILL.md", "use": "Your agent runs it after writing tests", "at": "tests"},
 ]
 
@@ -89,8 +90,13 @@ def close(**fields):
     return base | fields
 
 
+# The kit's say as SAY, its last sentence (six words) stating the benefit (row 37).
+KIT_SAY = SAY.replace("The bug is in the tests.", "Your agent catches it for you.")
+
+
 def kit(**fields):
-    """The Take it to your agent beat: the kit's GitHub card, each file with how to use it, and the takeaways."""
+    """The Take it to your agent beat: the kit's GitHub card, each file with how to use it, its benefit, and the
+    takeaways."""
     base = {
         "kind": "kit",
         "heading": "Break the code",
@@ -99,7 +105,7 @@ def kit(**fields):
         "files": KIT_FILES,
         "link_at": "code",
         "takeaways": ["Ask what would make the test fail.", "Break the code on purpose."],
-        "say": SAY,
+        "say": KIT_SAY,
         "claims": [],
     }
     return base | fields
@@ -191,10 +197,10 @@ REPO = repo()
 REPO_AT = 39  # the repo card's index in long_form: scene 40
 
 
-def long_form(middle, structure="challenge-first", first=None):
-    """A long-form of about six minutes: the intro, first (default the split), middle, the repo card, the kit, the
-    bridge, and the cta."""
-    scenes = [INTRO, first or SPLIT, *middle] + [scene()] * (37 - len(middle)) + [REPO, KIT, scene(), CTA]
+def long_form(middle, structure="challenge-first", first=None, kit_=None):
+    """A long-form of about six minutes: the intro, first (default the split), middle, the repo card, the kit (default
+    KIT), the bridge, and the cta."""
+    scenes = [INTRO, first or SPLIT, *middle] + [scene()] * (37 - len(middle)) + [REPO, kit_ or KIT, scene(), CTA]
     return script(scenes, type="long-form", structure=structure)
 
 
@@ -238,7 +244,18 @@ def test_a_script_under_the_writing_rules_passes_with_its_length_estimate(tmp_pa
 
 def test_pauses_and_hesitations_are_not_words_and_sit_inside_the_measured_speed(tmp_path, capsys):
     paused = SAY.replace("Spot the bug.", "Spot the bug. // Look... closely.")
-    files(tmp_path, script([split(say=paused), scene(say=paused), FIX, kit(say=paused), CLOSE]))
+    files(
+        tmp_path,
+        script(
+            [
+                split(say=paused),
+                scene(say=paused),
+                FIX,
+                kit(say=paused.replace("The bug is in the tests.", "Your agent catches it for you.")),
+                CLOSE,
+            ]
+        ),
+    )
     code, out, _ = run(tmp_path, capsys)
     report = json.loads(out)
     assert code == 0 and report["words"] == 3 * 27 + 17 + 24
@@ -546,7 +563,7 @@ def test_a_kit_link_word_defaults_to_description(tmp_path, capsys):
 
 
 def test_a_kit_file_cue_not_in_say_is_refused(tmp_path, capsys):
-    cued = kit(files=[{"path": "AGENTS.md", "use": "Paste into your agents file", "at": "cucumber"}])
+    cued = kit(files=[{"path": "AGENTS.md", "use": KIT_FILES[0]["use"], "at": "cucumber"}])
     files(tmp_path, script([SPLIT, scene(), FIX, cued, CLOSE]))
     code, _, err = run(tmp_path, capsys)
     assert code == 3
@@ -560,9 +577,9 @@ def test_a_kit_file_cue_not_in_say_is_refused(tmp_path, capsys):
     ("earlier", "kit_scene", "line"),
     [
         (
-            scene(visual="Paste into your agents file"),
+            scene(visual="Paste it so your agent checks tests"),
             KIT,
-            "Paste into your agents file",
+            "Paste it so your agent checks tests",
         ),
         (
             {
@@ -588,6 +605,93 @@ def test_a_kit_repeating_a_line_shown_earlier_is_refused(tmp_path, capsys, earli
     code, _, err = run(tmp_path, capsys)
     assert code == 3
     assert f"scene 4: kit: '{line}' repeats a line shown in scene 2" in err
+
+
+# The kit states its benefit (row 37, every video): its say and each file's use line say what the viewer's agent
+# then does for them, by a BENEFIT cue; whether the sentence is good is judged at gate 2.
+
+NO_BENEFIT = "Paste into your agents file"
+
+
+@pytest.mark.parametrize("form", ["short", "long-form"])
+@pytest.mark.parametrize(
+    ("change", "problem"),
+    [
+        ({"say": SAY}, "say: the kit does not state its benefit"),
+        (
+            {"files": [{"path": "AGENTS.md", "use": NO_BENEFIT, "at": "code"}]},
+            f"files: '{NO_BENEFIT}' does not state the benefit",
+        ),
+    ],
+)
+def test_a_kit_not_stating_its_benefit_is_refused_naming_the_line(tmp_path, capsys, form, change, problem):
+    data = script([SPLIT, scene(), FIX, kit(**change), CLOSE]) if form == "short" else long_form([], kit_=kit(**change))
+    index = 4 if form == "short" else REPO_AT + 2
+    files(tmp_path, data)
+    code, _, err = run(tmp_path, capsys)
+    assert code == 3
+    assert f"scene {index}: {problem}" in err
+
+
+@pytest.mark.parametrize("data", [script(), long_form([])])
+def test_a_kit_stating_its_benefit_passes(tmp_path, capsys, data):
+    files(tmp_path, data)
+    code, _, err = run(tmp_path, capsys)
+    assert (code, err) == (0, "")
+
+
+# A Short's on-screen line is short (row 35): at most SHORT_LINE_WORDS words, so one text layer reads at a glance.
+
+NINE = "Break the code and watch exactly one test fail"
+EIGHT = "Break the code and watch one test fail"
+NINE_USE = "Paste it so your agent checks each new test"
+NINE_MARK = split(right={"code": "t.py", "label": "The tests", "marks": [{"line": 4, "note": NINE, "at": "bug"}]})
+
+
+@pytest.mark.parametrize(
+    ("scenes", "index", "field", "line"),
+    [
+        ([SPLIT, scene(visual="Both tests pass\n" + NINE), FIX, KIT, CLOSE], 2, "visual", NINE),
+        ([NINE_MARK, scene(), FIX, KIT, CLOSE], 1, "visual", NINE),
+        (
+            [SPLIT, compare(left={"heading": "Tests", "items": ["Pass on green code", NINE]}), FIX, KIT, CLOSE],
+            2,
+            "visual",
+            NINE,
+        ),
+        (
+            [SPLIT, scene(), FIX, kit(files=[{"path": "AGENTS.md", "use": NINE_USE, "at": "code"}]), CLOSE],
+            4,
+            "visual",
+            NINE_USE,
+        ),
+        (
+            [SPLIT, scene(), FIX, kit(takeaways=[NINE + ".", "Ask what would make it fail."]), CLOSE],
+            4,
+            "visual",
+            NINE + ".",
+        ),
+        ([SPLIT, scene(heading=NINE, say=SAY + " " + NINE + "."), FIX, KIT, CLOSE], 2, "heading", NINE),
+    ],
+)
+def test_a_short_on_screen_line_over_eight_words_is_refused_naming_it(tmp_path, capsys, scenes, index, field, line):
+    files(tmp_path, script(scenes))
+    code, _, err = run(tmp_path, capsys)
+    assert code == 3
+    assert f"scene {index}: {field}: '{line}' has 9 words; a Short's on-screen line has at most 8" in err
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        script([SPLIT, scene(visual="Both tests pass\n" + EIGHT), FIX, KIT, CLOSE]),
+        long_form([scene(visual="Both tests pass\n" + NINE)]),
+    ],
+)
+def test_an_eight_word_short_line_or_a_long_form_line_passes(tmp_path, capsys, data):
+    files(tmp_path, data)
+    code, _, err = run(tmp_path, capsys)
+    assert (code, err) == (0, "")
 
 
 def test_a_title_over_title_max_is_refused(tmp_path, capsys):
