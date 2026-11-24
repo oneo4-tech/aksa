@@ -113,6 +113,16 @@ def test_intake_refuses_an_issue_that_is_already_a_factory_issue(gh):
     assert run(gh, "intake", "--issue", "3") == 3
 
 
+def test_intake_refuses_a_content_issue_and_leaves_it_unchanged(gh, capsys):
+    gh.add(38, title="Video", body="A video.", labels=["kind:youtube", "youtube-stage:idea"])
+    before = copy.deepcopy(gh.issues[38])
+    assert run(gh, "intake", "--issue", "38") == 3
+    assert gh.issues[38] == before
+    error = capsys.readouterr().err
+    assert "`kind:youtube`" in error
+    assert "run-youtube <channel> #38" in error
+
+
 # section
 
 

@@ -22,8 +22,8 @@ the stage moves the lifecycle allows, prose sections without second-level headin
 or checkboxes, and a Delivery section this script can read back. A --plan file has
 one task per line as "<slug>: <title>".
 
-Exit codes: 0 done, 1 GitHub or config error, 2 bad input, 3 refused (a held claim
-or a move the lifecycle does not allow).
+Exit codes: 0 done, 1 GitHub or config error, 2 bad input, 3 refused (a held claim,
+a move the lifecycle does not allow, or intake of a content issue).
 """
 
 import argparse
@@ -38,6 +38,7 @@ from github_issues import GitHub, GitHubError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG = REPO_ROOT / "config" / "factory.yaml"
+CONTENT = REPO_ROOT / "config" / "content.yaml"
 
 STAGES = ["triage", "concept", "define", "spec", "plan", "build", "ship"]
 SECTIONS = ["Request", "Concept", "Requirement", "Spec", "Delivery"]
@@ -62,21 +63,22 @@ class BadInput(Exception):
 
 
 class Refused(Exception):
-    """A held claim or a move the lifecycle does not allow: exit 3."""
+    """A held claim, a move the lifecycle does not allow, or intake of a content issue: exit 3."""
 
 
 @dataclass
 class Config:
     prefixes: dict[str, str]
     labels: dict[str, tuple[str, str]]
+    content_kinds: list[str] = field(default_factory=list)
 
     def family(self, name: str) -> list[str]:
         """Values of a label family in config order, such as the stages for "stage"."""
         return [label.split(":", 1)[1] for label in self.labels if label.startswith(f"{name}:")]
 
 
-def load_config(path: Path) -> Config:
-    """Parse config/factory.yaml. Raises Error when it does not match the lifecycle."""
+def load_config(path: Path, content: Path = CONTENT) -> Config:
+    """Parse config/factory.yaml, plus the content kinds from config/content.yaml. Raises Error when invalid."""
     data = yaml.safe_load(path.read_text()) or {}
     prefixes, labels = data.get("prefixes"), data.get("labels")
     if not isinstance(prefixes, dict) or not isinstance(labels, dict):
@@ -94,6 +96,10 @@ def load_config(path: Path) -> Config:
     for name in ("needs:owner", "claimed", KIND):
         if name not in parsed:
             raise Error(f"{path.name}: missing label {name!r}")
+    content_labels = (yaml.safe_load(content.read_text()) or {}).get("labels")
+    if not isinstance(content_labels, dict):
+        raise Error(f"{content.name}: needs a 'labels' mapping")
+    config.content_kinds = [str(name) for name in content_labels if str(name).startswith("kind:")]
     return config
 
 
@@ -399,6 +405,10 @@ def cmd_intake(gh: GitHub, config: Config, args: argparse.Namespace) -> int:
         issue = gh.issue(args.issue)
         if label_values(issue["labels"], config)["stage"]:
             raise Refused(f"#{args.issue} is already a factory issue")
+        for kind in config.content_kinds:
+            if kind in issue["labels"]:
+                run = f"run-{kind.split(':', 1)[1]}"
+                raise Refused(f"#{args.issue} is a content issue (`{kind}`); use `{run} <channel> #{args.issue}`")
         gh.edit(args.issue, body=render_body({"Request": quote(issue["body"])}), add=["stage:triage", KIND])
         gh.comment(args.issue, "Factory: adopted as a factory issue; stage `triage`.")
         print(f"adopted #{args.issue}")
@@ -675,10 +685,12 @@ COMMANDS = {
 }
 
 
-def main(argv: list[str] | None = None, gh: GitHub | None = None, config: Path = CONFIG) -> int:
+def main(
+    argv: list[str] | None = None, gh: GitHub | None = None, config: Path = CONFIG, content: Path = CONTENT
+) -> int:
     args = parser().parse_args(argv)
     try:
-        return COMMANDS[args.command](gh or GitHub(), load_config(config), args)
+        return COMMANDS[args.command](gh or GitHub(), load_config(config, content), args)
     except BadInput as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
