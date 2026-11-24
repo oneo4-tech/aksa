@@ -22,22 +22,38 @@ channel.yaml, the machine values every content script reads:
   labels: {channel: "channel:example-lab"}
   pronunciation: {pytest: "pie test"}    # word -> spoken respelling; may be empty
   banned_phrases: ["in this video"]      # may be empty
+  narration_avoid_names: ["Jane Doe"]    # optional: people narration never names (authors, researchers,
+                                         # creators); the description's References credit them
   title_max: 60                          # longest title, characters
   demos: {repo: example-org/example-demos, path: example-demos}
                                          # the public demo repository (owner/name) and its
                                          # local clone, a folder of .projects/content/ that is
                                          # not a channel workspace (yt-*)
-  thumbnail: {art_style: "3D clay render, soft studio lighting"}
-                                         # the style every thumbnail's art is asked in
+  thumbnail: {art_style: "3D clay render, soft studio lighting", field: ["#4A4A4A", "#262626"]}
+                                         # the style every thumbnail's art is asked in; field,
+                                         # optional, the two colours of the thumbnail's background
+                                         # gradient (design-thumbnail's default when absent)
   branding: {wordmarks: [examplelab], tagline: "One line on the banner", subline: "a smaller second line"}
                                          # suffix words of the <oneo4/>word wordmarks made, the
-                                         # first on the banner, with the banner's two text lines
+                                         # first on the banner, with the banner's two text lines;
+                                         # backdrop_prompt, optional, the image brand-channel
+                                         # --backdrop asks for (its default when absent)
+  background: {image: branding/backdrop.jpg, opacity: 0.3, fit: cover}
+                                         # optional: an image of the workspace shown behind every
+                                         # rendered scene; fit, optional, cover (filling the frame,
+                                         # such as brand-channel's backdrop) or contain (centred,
+                                         # such as a wordmark; the default); opacity above 0 and at
+                                         # most BACKGROUND_OPACITY for its fit (0.35 cover, 0.15
+                                         # contain)
+
+A field marked optional may be absent; when present it is checked like the others.
 
 style-guide.md, the human rules every specialist reads, with one "## " section per
 heading in SECTIONS, spelled exactly.
 
 Content scripts import load(channel) and the pure writing checks banned_phrases(text, config)
-(whole words, any case) and title_ok(title, config) (at most title_max characters).
+(whole words, any case), phrases_in(text, phrases) (the same match for any list, such as
+narration_avoid_names), and title_ok(title, config) (at most title_max characters).
 
 Media (video, audio, images) is gitignored in the workspace; text artifacts and
 SVG branding sources stay trackable.
@@ -80,6 +96,10 @@ REPO = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
 SUFFIX = re.compile(r"[a-z]+")
 HEADING = re.compile(r"^## (.+?)\s*$", re.MULTILINE)
+# The most a background image may show, by fit: a centred image (contain) stays faint; a dim photo-like backdrop
+# filling the frame (cover) may show more, its own darkness keeping text contrast; never competing with the scene.
+BACKGROUND_OPACITY = {"contain": 0.15, "cover": 0.35}
+BACKGROUND_FIT = "contain"  # when fit is absent
 
 
 class ChannelError(Exception):
@@ -152,11 +172,46 @@ def _suffixes(value) -> str | None:
     return None if ok else "must be a non-empty list of lowercase words, such as [testlab]"
 
 
+def _colours(value) -> str | None:
+    ok = isinstance(value, list) and len(value) == 2 and all(isinstance(c, str) and COLOUR.fullmatch(c) for c in value)
+    return None if ok else "must be two colours like [#4A4A4A, #262626]"
+
+
+IMAGE_TYPES = (".svg", ".png", ".jpg", ".jpeg")  # the background image types render-video embeds
+
+
+def _image(value) -> str | None:
+    ok = isinstance(value, str) and value.strip() and not value.startswith("/") and ".." not in Path(value).parts
+    ok = ok and Path(value).suffix.lower() in IMAGE_TYPES
+    return (
+        None
+        if ok
+        else f"must be an image ({', '.join(IMAGE_TYPES)}) inside the workspace, such as branding/wordmark.svg"
+    )
+
+
+def _opacity(value) -> str | None:
+    """Above 0; its limit depends on fit, so background_problems checks it."""
+    limits = " or ".join(f"{limit} (fit {fit})" for fit, limit in BACKGROUND_OPACITY.items())
+    return None if _positive(value) is None else f"must be a number above 0 and at most {limits}"
+
+
+def _fit(value) -> str | None:
+    return None if value in BACKGROUND_OPACITY else f"must be {' or '.join(BACKGROUND_OPACITY)}"
+
+
 def _phrases(value) -> str | None:
     return None if isinstance(value, list) and all(isinstance(p, str) for p in value) else "must be a list of strings"
 
 
-# Field -> its check, or a nested mapping of fields.
+@dataclass
+class Optional:
+    """A field that may be absent: its check, or nested mapping, applies only when present."""
+
+    rule: object
+
+
+# Field -> its check, or a nested mapping of fields; Optional(...) for a field that may be absent.
 SCHEMA: dict = {
     "name": _text,
     "url": _url,
@@ -168,10 +223,12 @@ SCHEMA: dict = {
     "labels": {"channel": _label},
     "pronunciation": _words,
     "banned_phrases": _phrases,
+    "narration_avoid_names": Optional(_phrases),
     "title_max": _length,
     "demos": {"repo": _repo, "path": _folder},
-    "thumbnail": {"art_style": _text},
-    "branding": {"wordmarks": _suffixes, "tagline": _text, "subline": _text},
+    "thumbnail": {"art_style": _text, "field": Optional(_colours)},
+    "branding": {"wordmarks": _suffixes, "tagline": _text, "subline": _text, "backdrop_prompt": Optional(_text)},
+    "background": Optional({"image": _image, "opacity": _opacity, "fit": Optional(_fit)}),
 }
 
 
@@ -180,6 +237,10 @@ def config_problems(data, schema: dict = SCHEMA, prefix: str = "") -> list[str]:
     problems = []
     for key, rule in schema.items():
         field = prefix + key
+        optional = isinstance(rule, Optional)
+        rule = rule.rule if optional else rule
+        if optional and isinstance(data, dict) and key not in data:
+            continue
         if not isinstance(data, dict) or key not in data:
             problems.append(f"{field}: missing")
         elif isinstance(rule, dict):
@@ -189,6 +250,24 @@ def config_problems(data, schema: dict = SCHEMA, prefix: str = "") -> list[str]:
                 problems.append(f"{field}: must be a mapping of {', '.join(rule)}")
         elif problem := rule(data[key]):
             problems.append(f"{field}: {problem}")
+    return problems
+
+
+def background_problems(config, path: Path) -> list[str]:
+    """The optional background, once its fields are valid: its image a file of the workspace at path, and its
+    opacity at most its fit's limit."""
+    background = config.get("background") if isinstance(config, dict) else None
+    if not isinstance(background, dict):
+        return []
+    problems = []
+    image, opacity = background.get("image"), background.get("opacity")
+    fit = background.get("fit", BACKGROUND_FIT)
+    if image is not None and not _image(image) and not (path / image).is_file():
+        problems.append(
+            f"background.image: {image} is not a file in the workspace; brand-channel makes the channel's branding"
+        )
+    if not _fit(fit) and not _opacity(opacity) and opacity > (limit := BACKGROUND_OPACITY[fit]):
+        problems.append(f"background.opacity: must be a number above 0 and at most {limit} for fit {fit}")
     return problems
 
 
@@ -205,9 +284,14 @@ def _plain(text: str) -> str:
 
 def banned_phrases(text: str, config: dict) -> list[str]:
     """The channel's banned phrases in text, as listed in config: whole words, any case or spacing."""
+    return phrases_in(text, config["banned_phrases"])
+
+
+def phrases_in(text: str, phrases: list[str]) -> list[str]:
+    """Each of phrases found in text, as listed: whole words, any case or spacing."""
     text = _plain(text)
     found = []
-    for phrase in config["banned_phrases"]:
+    for phrase in phrases:
         words = r"\s+".join(re.escape(word) for word in _plain(phrase).split())
         if words and re.search(rf"(?<!\w){words}(?!\w)", text, re.IGNORECASE):
             found.append(phrase)
@@ -233,6 +317,7 @@ def load(channel: str, root: Path = REPO_ROOT) -> Channel:
     try:
         config = yaml.safe_load((path / "channel.yaml").read_text())
         problems += [f"channel.yaml: {p}" for p in config_problems(config)]
+        problems += [f"channel.yaml: {p}" for p in background_problems(config, path)]
     except FileNotFoundError:
         problems.append("channel.yaml: missing")
     except yaml.YAMLError as error:

@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- Scene kind "split": two code panels, the left and right files, each under its label and with its file path in
+     its bar, side by side (stacked on a Short). The cold open shows both whole from the first frame; a later split
+     slides each panel in at its label's cue word. An optional hook shows big over a veil from the first frame until the
+     narration's first sentence ends, then fades as the panels come forward. Each side's marks focus its line with a callout note
+     (codeView in scene.js). render.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+.side { position: absolute; top: calc(220 * var(--u)); bottom: calc(70 * var(--u)); width: calc(50% - var(--pad) - 20 * var(--u)); }
+#left { left: var(--pad); }
+#right { right: var(--pad); }
+.label { height: calc(56 * var(--u)); font-size: calc(34 * var(--u)); font-weight: 600; color: var(--accent); }
+.side .panel { left: 0; right: 0; top: calc(56 * var(--u)); bottom: 0; }
+[data-shape="tall"] .side { left: var(--pad); right: var(--pad); width: auto; }
+/* Stacked on a Short: the two sides share the room from 400u down to the caption band's floor, 24u apart. */
+[data-shape="tall"] #left { top: calc(400 * var(--u)); bottom: calc(50% + var(--floor) / 2 - 188 * var(--u)); }
+[data-shape="tall"] #right { top: calc(50% - var(--floor) / 2 + 212 * var(--u)); bottom: var(--floor); }
+[data-shape="tall"] .side .panel { top: calc(56 * var(--u)); bottom: 0; }
+/* The optional hook: big text over a veil of the background, from the first frame until the first sentence ends. */
+.veil { position: absolute; inset: 0; background: var(--bg); opacity: 0.8; }
+.hook { position: absolute; left: var(--pad); right: var(--pad); top: 0; bottom: var(--floor); display: flex;
+  align-items: center; justify-content: center; text-align: center; font-size: calc(120 * var(--u)); font-weight: 700;
+  line-height: 1.1; letter-spacing: -2px; text-shadow: 0 0 calc(60 * var(--u)) color-mix(in srgb, var(--accent) 35%, transparent); }
+[data-shape="tall"] .hook { font-size: calc(104 * var(--u)); }
+</style>
+<body data-kind="split">
+<div id="stage"><div id="camera">
+  <div class="grid"></div>
+  <div class="brand" id="brand"></div>
+  <h1 id="heading"></h1>
+  <div class="side" id="left"><div class="label"></div><div class="panel">
+    <div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+    <div class="code mono"></div>
+  </div></div>
+  <div class="side" id="right"><div class="label"></div><div class="panel">
+    <div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+    <div class="code mono"></div>
+  </div></div>
+</div></div>
+<script>
+/*{{cues}}*/
+/*{{js}}*/
+function build() {
+  const hook = CUES.hook;
+  ['left', 'right'].forEach(side => {
+    const view = CUES[side], box = $(side);
+    box.querySelector('.label').textContent = view.label;
+    codeView(box.querySelector('.panel'), view, CUES.lead, 26);
+    if (view.at !== undefined) enter(box, view.at, 'up');
+    // Under a hook, a panel already in sits back, then comes forward as the hook leaves.
+    else if (hook) at(box, [{ transform: 'scale(0.96)' }, { transform: 'none' }], hook.until, M.enter);
+  });
+  if (hook) {
+    // The hook from the first frame, fading with its veil as the first sentence ends.
+    const veil = make('div', 'veil', undefined, $('camera')), text = make('div', 'hook', hook.text, $('camera'));
+    [veil, text].forEach(node => at(node, [{ opacity: getComputedStyle(node).opacity }, { opacity: 0 }], hook.until, M.enter,
+      { fill: 'forwards' }));
+  }
+}
+</script>
+</body>

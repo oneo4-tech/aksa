@@ -4,5 +4,17 @@
     "tests"
   ],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
+  // Ollama + Continue (local code assistant on qwen2.5-coder:3b)
+  "continue.enableAutocomplete": true,
+  "continue.autocompleteTrigger": "onType",
+  "continue.autocompleteTriggerLength": 2,
+  "continue.allowInlineEdit": true,
+  "continue.enableTabAutocomplete": true,
+  "continue.enableNewChat": true,
+  "continue.showModelPicker": false,
+  "continue.baseUrl": "http://127.0.0.1:11434",
+  "continue.model": "qwen2.5-coder:3b",
+  "continue.temperature": 0.2,
+  "continue.numCtx": 32768
 }

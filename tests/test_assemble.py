@@ -26,6 +26,8 @@ FIRST_PASS = {
     "normalization_type": "linear",
     "target_offset": "0.10",
 }
+# loudnorm measuring the written final.mp4: its input values are the output's loudness.
+OUTPUT_PASS = FIRST_PASS | {"input_i": "-14.30", "input_tp": "-1.04"}
 
 
 def files(root, kind="long-form", says=SAYS, seconds=(2.0, 1.5), frames=(90, 75), music=True, scenes=True):
@@ -66,9 +68,9 @@ def files(root, kind="long-form", says=SAYS, seconds=(2.0, 1.5), frames=(90, 75)
 class Fakes:
     """whisper hearing the given words, Chrome recording each caption page, ffmpeg answering each command."""
 
-    def __init__(self, heard=None, first_pass=FIRST_PASS):
+    def __init__(self, heard=None, first_pass=FIRST_PASS, output_pass=OUTPUT_PASS):
         self.heard = heard or {}  # scene number -> [(word, start, end)]
-        self.first_pass, self.pages, self.commands, self.lists = first_pass, [], [], {}
+        self.first_pass, self.output_pass, self.pages, self.commands, self.lists = first_pass, output_pass, [], [], {}
 
     def transcribe(self, wav):
         return whisper_json(self.heard.get(int(Path(wav).stem), []))
@@ -82,7 +84,11 @@ class Fakes:
             if arg == "-i" and command[index + 1].endswith(".txt"):
                 self.lists[Path(command[index + 1]).name] = Path(command[index + 1]).read_text()
         if command[-1] == "-":
-            return "[Parsed_loudnorm_0 @ 0x1] \n" + json.dumps(self.first_pass, indent=1) + "\n"
+            source = command[command.index("-i") + 1]
+            if Path(source).name == "final.mp4" and not Path(source).is_file():
+                raise AssertionError("measured final.mp4 before writing it")
+            values = self.output_pass if Path(source).name == "final.mp4" else self.first_pass
+            return "[Parsed_loudnorm_0 @ 0x1] \n" + json.dumps(values, indent=1) + "\n"
         Path(command[-1]).write_bytes(b"out")
         return ""
 
@@ -160,19 +166,31 @@ def test_music_bed_loops_under_the_voice_at_the_channels_level(tmp_path, fonts, 
 
 
 def test_second_pass_normalises_linearly_from_the_first_pass_measurements_below_the_peak_limit(tmp_path, fonts, capsys):
-    """Both passes aim AAC_HEADROOM (0.5 dB) under CONFIG true_peak -1, since AAC encoding lifts peaks."""
+    """Both passes aim AAC_HEADROOM (1.5 dB) under CONFIG true_peak -1: AAC lifted #39's peak 1.01 dB, past a 1 dB margin."""
     files(tmp_path)
     fakes = Fakes()
     _, out, _ = run(tmp_path, fakes, capsys)
     first = next(c for c in fakes.commands if c[-1] == "-")
-    assert first[first.index("-af") + 1] == "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json"
+    assert first[first.index("-af") + 1] == "loudnorm=I=-14:TP=-2.5:LRA=11:print_format=json"
     final = by_output(fakes, "final.mp4")
     assert (
-        "loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=-21.4:measured_TP=-6.2:measured_LRA=3.1:"
+        "loudnorm=I=-14:TP=-2.5:LRA=11:measured_I=-21.4:measured_TP=-6.2:measured_LRA=3.1:"
         "measured_thresh=-31.9:offset=0.1:linear=true" in filters(final)
     )
     assert final[final.index("-ar") + 1] == "48000"
-    assert json.loads(out)["measured"] == {"lufs": -21.4, "true_peak": -6.2}
+    assert json.loads(out)["mix_before"] == {"lufs": -21.4, "true_peak": -6.2}
+
+
+def test_report_gives_the_loudness_measured_on_the_written_final_video(tmp_path, fonts, capsys):
+    """Not the first pass's mix: a pass over render/final.mp4 after it is written (content issue #38)."""
+    folder = files(tmp_path)
+    fakes = Fakes()
+    code, out, _ = run(tmp_path, fakes, capsys)
+    assert code == 0
+    final = str(folder / "render" / "final.mp4")
+    check = fakes.commands[-1]
+    assert check[-1] == "-" and check[check.index("-i") + 1] == final
+    assert json.loads(out)["measured"] == {"lufs": -14.3, "true_peak": -1.04}
 
 
 def test_a_silent_mix_is_refused_naming_the_narration(tmp_path, fonts, capsys):
@@ -206,6 +224,18 @@ def test_srt_cues_start_at_the_heard_word_in_the_videos_time(tmp_path, fonts, ca
     assert found[0] == (0.5, 1.7, "Mocks replace code.")
     assert found[1][0] == 1.7
     assert found[-1] == (3.6, 4.9, "Run it and watch it pass.")
+
+
+def test_a_spoken_number_heard_as_digits_starts_its_cue_at_its_heard_time(tmp_path, fonts, capsys):
+    folder = files(tmp_path, says=["Fourteen tests pass. Minus one hundred and one fails.", "Run it."])
+    heard = {1: [("14", 0.6, 0.9), ("tests", 0.9, 1.2), ("pass.", 1.2, 1.4), ("-101", 1.5, 2.1), ("fails.", 2.1, 2.4)]}
+    run(tmp_path, Fakes(heard=heard), capsys)
+    found = cues((folder / "render" / "final.srt").read_text())
+    # Scene 1's voice starts at 0.4 s: whisper's "14" and "-101" time the script's words.
+    assert [(start, text) for start, _, text in found[:2]] == [
+        (1.0, "Fourteen tests pass."),
+        (1.9, "Minus one hundred and one fails."),
+    ]
 
 
 def test_words_not_heard_take_their_share_of_the_time_between_heard_words():

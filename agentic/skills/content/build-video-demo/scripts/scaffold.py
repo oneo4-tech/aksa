@@ -1,6 +1,7 @@
 """Create a video's demo folder in the channel's local clone of its public demo repository.
 
 Usage: uv run agentic/skills/content/build-video-demo/scripts/scaffold.py CHANNEL N --slug SLUG --proves TEXT
+         --skill VERB-OBJECT --rule RULE [--rule RULE ...]
 
 Reads channel.yaml's demos: {repo, path}: the public repository (owner/name) and its local
 clone at .projects/content/<path>/, and the video's verified citations, videos/<N>/citations.json
@@ -10,10 +11,20 @@ from research-video. Creates <clone>/<N>-<SLUG>/ with:
                (the line VIDEO_PENDING, which package-video fills with the published video's
                link, the channel's link from channel.yaml url, and the folder's own link) and
                a Sources section (each claim, its quoted line, and its text-fragment link),
+               a "Use it with your AI agent" section with the kit's link and copy commands,
                and the MIT note; never a link to the content issue, whose tracker is private
-  demo/        the code the video shows (empty, with .gitkeep)
+  demo/        the code the video shows, a slice of a realistic service with a real collaborator,
+               never a toy function (empty, with .gitkeep)
   tests/       the tests that prove the claim (empty, with .gitkeep)
-  demo.tape    the VHS tape recording the terminal demo, from references/demo.tape
+  demo.tape    the VHS tape recording the terminal demo, from references/demo.tape: its setup
+               prints a blank line before each "# comment" step and none between a comment and its
+               command, so each step reads as a group; a code-changing step prints the change
+  ai-kit/      what the viewer gives their AI coding agent, the video's tester questions as rules:
+    AGENTS.md                  each RULE as a bullet, to paste into AGENTS.md, CLAUDE.md, Cursor
+                               or Copilot instructions, from references/kit-agents.md
+    skills/<SKILL>/SKILL.md    an Agent Skill (name, description) that answers each rule
+                               before the agent accepts its work, from references/kit-skill.md
+    scripts/                   the helpers the skill runs (empty, with .gitkeep)
   .gitignore   the recorded media, which stays out of git
 
 and prints the folder, then the description link https://github.com/<repo>/tree/main/<N>-<SLUG>.
@@ -23,7 +34,8 @@ repository, a repository that does not exist on GitHub (the owner creates it onc
 it), and citations missing or not all verified (research-video's evidence.py). It only reads GitHub; it never creates a repository, commits, or pushes.
 
 Exit codes: 0 created, 1 a GitHub or file error, 2 bad input (an invalid channel, slug, or an
-issue that is not this channel's), 3 refused.
+issue that is not this channel's, a SKILL not lowercase verb-object such as check-test-can-fail,
+a blank RULE), 3 refused.
 """
 
 import argparse
@@ -48,7 +60,7 @@ SOURCES_INTRO = "The video's claims, each with the line quoted from its source; 
 
 
 class BadInput(Exception):
-    """An invalid slug or an issue of another channel: exit 2."""
+    """An invalid slug, kit skill, or rule, or an issue of another channel: exit 2."""
 
 
 class Refused(Exception):
@@ -111,11 +123,18 @@ def with_video(readme: str, url: str, claims: list[dict]) -> str:
     return "\n".join(lines[:start]) + "\n" + sources(claims) + tail
 
 
-def scaffold(channel: str, number: int, slug: str, proves: str, root: Path, gh) -> tuple[Path, str]:
-    """Create the demo folder; return it and its description link."""
+def scaffold(
+    channel: str, number: int, slug: str, proves: str, kit: tuple[str, list[str]], root: Path, gh
+) -> tuple[Path, str]:
+    """Create the demo folder with its AI kit (skill name, rules); return it and its description link."""
     config = youtube_channel.load(channel, root).config
     if not youtube_channel.NAME.fullmatch(slug):
         raise BadInput(f"slug {slug!r} must be lowercase words joined by hyphens, such as mocked-tests")
+    skill, rules = kit[0], [rule.strip() for rule in kit[1]]
+    if not (youtube_channel.NAME.fullmatch(skill) and "-" in skill):
+        raise BadInput(f"kit skill {skill!r} must be lowercase verb-object words, such as check-test-can-fail")
+    if not all(rules):
+        raise BadInput("kit rule: each --rule must be a non-empty sentence an agent follows")
     repo, clone = config["demos"]["repo"], root / ".projects" / "content" / config["demos"]["path"]
     folder = clone / f"{number}-{slug}"
     if not clone.is_dir():
@@ -141,13 +160,24 @@ def scaffold(channel: str, number: int, slug: str, proves: str, root: Path, gh) 
         "link": link,
         "folder": folder.name,
         "prompt": channel,
+        "raw": f"https://raw.githubusercontent.com/{repo}/main/{folder.name}",
+        "repo_name": repo.split("/")[-1],
+        "skill": skill,
+        "skill_title": skill.replace("-", " ").capitalize(),
     }
     references = SKILL / "references"
     readme = fill((references / "readme-template.md").read_text(), values)
     tape = fill((references / "demo.tape").read_text(), values)
-    for part in ("demo", "tests"):
+    agents = fill((references / "kit-agents.md").read_text(), values | {"rules": "\n".join(f"- {r}" for r in rules)})
+    kit_skill = fill(
+        (references / "kit-skill.md").read_text(), values | {"rules": "\n".join(f"   - {r}" for r in rules)}
+    )
+    for part in ("demo", "tests", "ai-kit/scripts"):
         (folder / part).mkdir(parents=True)
         (folder / part / ".gitkeep").write_text("")
+    (folder / "ai-kit" / "AGENTS.md").write_text(agents)
+    (folder / "ai-kit" / "skills" / skill).mkdir(parents=True)
+    (folder / "ai-kit" / "skills" / skill / "SKILL.md").write_text(kit_skill)
     (folder / "README.md").write_text(readme)
     (folder / "demo.tape").write_text(tape)
     (folder / ".gitignore").write_text(MEDIA_IGNORE)
@@ -160,9 +190,14 @@ def main(argv: list[str] | None = None, root: Path = REPO_ROOT, gh=None) -> int:
     parser.add_argument("number", type=int)
     parser.add_argument("--slug", required=True)
     parser.add_argument("--proves", required=True, help="what the demo proves, in one sentence")
+    parser.add_argument(
+        "--skill", required=True, help="the AI kit's skill name, verb-object, such as check-test-can-fail"
+    )
+    parser.add_argument("--rule", required=True, action="append", help="a kit rule an agent follows; repeat per rule")
     args = parser.parse_args(argv)
     try:
-        folder, link = scaffold(args.channel, args.number, args.slug, args.proves, root, gh or GitHub())
+        kit = (args.skill, args.rule)
+        folder, link = scaffold(args.channel, args.number, args.slug, args.proves, kit, root, gh or GitHub())
     except (youtube_channel.ChannelError, BadInput) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2

@@ -34,7 +34,7 @@ function build() {
       const n = line.text.length;
       at(row, [{ width: '0ch' }, { width: (n + 1) + 'ch' }], line.at, Math.min(n * 0.04, 1.2), { easing: `steps(${n})` });
     } else {
-      at(make('div', 'out', line.text, $('term')), [{ opacity: 0 }, { opacity: 1 }], line.at, 0.15);
+      enter(make('div', 'out', line.text, $('term')), line.at, 'up');
     }
   });
 }

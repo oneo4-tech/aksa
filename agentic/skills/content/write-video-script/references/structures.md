@@ -1,6 +1,55 @@
 # Script structures
 
-Three structures for a long-form video (five to ten minutes), and one for a Short (thirty to sixty seconds). Times are shares of a long-form video of about seven and a half minutes; scale them to the length the research supports. Every structure opens on the problem within five seconds, makes the topic clear by fifteen, answers the title's promise at the climax, and ends on a next-step bridge with one comment question.
+Three structures for a long-form video (five to ten minutes), and one for a Short (thirty to sixty seconds). Times are shares of a long-form video of about seven and a half minutes; scale them to the length the research supports. Every long-form opens on an intro of who it is for and what the viewer will do; every structure then opens on the problem within five seconds, makes the topic clear by fifteen, gives each concept its reason before it, answers the title's promise at the climax, hands the viewer's AI agent the video's kit in a "Take it to your agent" beat, bridges to the next step with one comment question, and (a long-form) ends on a short like, share, subscribe, and notification cta. Every scene after the first opens on a sentence bridging from the one before, every line on screen and every narrated sentence is grammatical English, and narration never names a person. No screen is ever blank for more than a second.
+
+## The intro (every long-form; never a Short)
+
+- **Scene 1 is an `intro` scene,** before the cold open: the `heading` (such as "Is this challenge for you?"), two or three `roles` lines naming who the video is for (such as "Developers who let AI write their tests", "Testers who review AI-written code"), the `activity`, one line of what the viewer will do (such as "Spot the bug in two AI-written unit tests"), and the `stake`, one line of why it matters (such as "They pass in CI, and would still pass if checkout overcharged").
+- **Create interest:** `say` asks the audience a question they recognise, names each role and the activity in plain words, and ends on the stake, such as "Do you let an AI assistant write your unit tests? ... Today you spot the bug in two AI-written unit tests."
+- **[checked]** a long-form whose scene 1 is not an `intro`, an intro elsewhere or in a Short, and an intro whose `say` shares no key word with a `roles` line or the `activity`; the interest it creates is judged at gate 2.
+- A Short has no intro: its first three seconds are the split's hook, a curiosity line (see "Short").
+
+## The cold open (every structure, Shorts too)
+
+- **Show the real artifact:** right after a long-form's intro (scene 2), or as a Short's first scene, a code challenge (`challenge-first`, and every Short) opens on a `split` scene, the code under test on the left and its tests on the right, so the viewer has both and can find the bug; an incident story or myth buster may open on a `code`, `terminal`, or `points` scene with the code, output, or failing case. Never a title slide or an abstract slogan such as "Zero protection".
+- **Screen and voice agree:** the on-screen text says what the narration says at that moment; the viewer never reads one thing and hears another.
+- **A concrete stake first:** the first sentence (in a Short, the one after its hook) says, in plain words, what breaks and who pays, such as "This discount code charges customers more, and both tests stay green."
+- **An explicit challenge:** say what the viewer must do, such as "Find the line that lets this bug through."
+- `check_script.py` refuses a code challenge or Short whose cold open is not `split`, a `title` cold open, and a `points` or `terminal` cold open whose `visual` words are mostly not in its `say`; the stake and the challenge are judged at gate 2.
+
+## Scene rules (every structure, Shorts too)
+
+`check_script.py` refuses each rule marked **[checked]**; gate 2 judges the rest.
+
+- **Reveal in the code:** a reveal about code is a `code` or `split` scene with `marks` on the lines it names, each with a short `note` and the `at` word of `say` where it lights up; never a `points` slide quoting code **[checked]**: a points line with a bracket, `=`, a backtick, or a dot between identifiers.
+- **Compare side by side:** a comparison (a heading with "versus" or "vs" **[checked]**, or narration comparing two named things) is a `compare` scene: each side a heading and items, first what it is, then at least one example **[checked: two items a side]**, such as a check `assert total_cents == 1080` against the test question "what if the tax client times out?".
+- **The reason before the concept:** before a concept (a comparison such as checking versus testing, or a new term such as mutation testing), say why the video needs it, in the concept scene's first sentence or the previous scene's last, such as "So why do these tests pass when they prove nothing?" or "So how do we know, quickly, whether a test can fail?" **[checked: a `compare` scene, and a `points` scene whose heading is a bare term of one to four words with a word not said before, needs a reason cue (why, so, because, to know, how do we, how can) in that sentence]**. Other headings, such as a code scene's "Bug two: it checks the type", name what is shown and need no reason; gate 2 judges the rest.
+- **The narrator names a term first:** each heading term is said in that scene's `say` or earlier **[checked]**, and the renderer shows the heading from the first of its words the narrator says; a term such as "mutation testing" never reaches the screen before the voice introduces it.
+- **Show what changed:** a step that changes the code, such as a mutation, shows the line before and after (the demo prints both, or a `code` scene marks the mutated line); the viewer never hears about a change they cannot see.
+- **Real-world examples:** code, values, and examples are what a viewer would ship: a checkout, coupon, pricing, or payment service, prices in integer cents with a currency, a tax or payment client worth mocking; never a toy function such as `add(a, b)`.
+- **Cue words:** every `at` (a mark's, a kit file's), `link_at`, and `takeaways_at` is a word of the scene's `say` **[checked]**.
+- **Bridge every scene:** each scene after the first opens its `say` with a sentence that links back to the scene before or points ahead, such as "Now that we have seen the bug, let us look at the fix." or "So why does this matter?"; it also names what the new scene shows, so the screen is never blank **[checked: the first sentence of every scene after scene 1, Shorts too, has a transition cue: now that, now, next, so, but, here, with that, let us, let's, we have seen, first, then, finally, one more, before, after, also, because, instead, or again]**; whether the bridge truly links the two scenes is judged at gate 2.
+- **Grammatical, natural English:** every on-screen line (heading, visual lines, split labels, mark notes, roles, activity, stake, compare headings and items, kit use lines, takeaways, the cta heading) and every narrated sentence is a grammatical English phrase or sentence: full noun phrases with the articles English needs, no reduced relative clause such as "Review code an AI wrote" (write "Review code written by AI"), and no telegraphic fragment except a short label such as "The tests". The writer reads every line in a grammar pass before running `check_script.py` (`SKILL.md` step 5) **[checked, conservatively: a doubled word such as "the the"; a narrated sentence not starting with a capital letter; an on-screen line ending on an article, conjunction, "of", or a possessive; and the reduced relative "<code noun> a(n) <noun> wrote, made, built, generated, or created"]**; everything else, such as a missing article or an unnatural phrase, is the grammar pass's and gate 2's.
+- **No names in narration:** narration never names a person (an author, researcher, or creator, such as the people behind a testing concept); it explains the concept in our own words, and the description's References credit the concept and its source (`package-video`) **[checked: a `say` naming a person in `channel.yaml` `narration_avoid_names`, whole words in any case; list each name as it may be said, such as a surname alone]**. On-screen text names no person either, judged at gate 2.
+- **Never a blank screen:** no slide or screen stays empty for more than a second. Every scene has a `heading` and something to show by kind **[checked: the fields are required]**, and its first sentence names what is shown, so its visual elements start with its first words; never open a scene's `say` with a pause (`//`) or a long lead-in. The renderer times each element from the words and holds the previous picture until the next appears; a gap over a second is a gate 3 failure.
+
+## Introduce the AI kit (every long-form)
+
+Before the first scene that uses the AI kit (a `terminal` scene whose heading or `say` names the kit, or the `kit` scene), a `repo` scene introduces it **[checked]**: the GitHub `repo` (`owner/name`, the channel's `demos.repo`), the `path` of the kit's folder (`<n>-<slug>/ai-kit`), and one to eight `files` lines (such as `AGENTS.md`, `skills/<skill>/SKILL.md`, `scripts/<name>`), drawn as a GitHub folder card; `link_at` (default `description`) is the word at which it says where the link is **[checked: a word of say; once `demo.json` exists, the folder is the demo's]**. `say` says the kit is yours, what problem it is for, that it is on GitHub, and that the link is in the description, such as "I have built an AI kit for exactly this problem. It is on my GitHub, and the link is in the description."
+
+A Short has no repo card: its kit scene's link is the introduction.
+
+## Take it to your agent (every structure, Shorts too)
+
+The scene before the bridge, or the bridge itself in a Short, is a `kit` scene (a closing cta not counted); `check_script.py` refuses a script without one in its last two scenes, the old `"kit": true` flag, and the old `link` and `snippet` fields.
+
+- **The same GitHub card:** the kit scene replays the repo card's GitHub animation: the `repo` (`owner/name`) and `path` (`<n>-<slug>/ai-kit`) as the repo card, and one to eight `files`, each `{path, use, at}`: the file in `ai-kit/` (such as `AGENTS.md`, `skills/<skill>/SKILL.md`, `scripts/<name>`), one line on how the viewer uses it (such as "Paste into your AGENTS.md, CLAUDE.md, or Copilot instructions"), and the `at` word where that line appears; the link at `link_at` (default `description`); then two to four `takeaways` from `takeaways_at` **[checked: count, cue words, and, once `demo.json` exists, the card's folder is the demo's `ai-kit/` and each file is in it]**.
+- **Explain, never repeat:** `say` walks the files in order, saying what each is for and how the viewer uses it in their own project (paste the rules, copy the skill, run the script on a test file), says the link is in the description, and names the takeaways. No `use` line or takeaway repeats a line an earlier scene showed (its on-screen text, compare items, or mark notes) **[checked: word for word]**; the takeaways are what the viewer keeps, said in new words. `build-video-demo` builds each file the card lists.
+
+## Like, share, subscribe (every long-form; a Short may)
+
+- **A `cta` scene** with the `heading` and `actions` (`like`, `share`, `subscribe`, `notify`) shows each action's graphic as the narrator names it. A long-form ends on one, its very last scene, after the bridge and its comment question, showing all four **[checked]**; a Short may end on one naming `subscribe`, as its last scene **[checked]**. A cta is never earlier **[checked]**.
+- **Short and natural:** `say` is at most two sentences, about eight seconds at the channel's pace in a long-form and about four in a Short (estimated as the length) **[checked]**, opens on a bridge like every scene, and names each action's cue word (like, share, subscribe, notification or bell) **[checked]**, such as "Before you go, like and share this with a tester. // Subscribe, and turn on the bell for notifications." (a Short: "Next, subscribe for a new challenge every week."). Never a banned phrase such as "smash that like button" or "make sure to subscribe" **[checked]**.
 
 ## Choosing
 
@@ -14,46 +63,59 @@ Three structures for a long-form video (five to ten minutes), and one for a Shor
 
 | Beat | Share | Content |
 |---|---|---|
-| Cold open | first 10 s | The failing case on screen, and the challenge: "spot the bug". |
-| Pause prompt | to 25 s | The code or output on screen, with a prompt to pause and look. |
+| Intro | first 15 s | An `intro` scene: who it is for, the activity, and the stake. |
+| Cold open | next 10 s | The code under test and its tests side by side (`split`), the stake in the first sentence, and the challenge: "spot the bug". |
+| Pause prompt | to 40 s | The same split on screen, with a prompt to pause and look. |
 | Context | to 1 min | What the code under test should do. |
-| Reveals | about a third | Each problem in turn, one per scene group, with focus lines. |
-| Proof | about a sixth | The demo run that shows the problem (the title's promise kept). |
+| Reveals | about a third | Each problem in turn, one per scene group, as `marks` on the lines in the code or split. |
+| Proof | about a sixth | The demo run that shows the problem, each code change shown before and after (the title's promise kept). |
 | Fix | about a sixth | The better version, and why each part can fail for one reason. |
 | Principle | about a tenth | The tester's question the case teaches. |
-| Bridge | last 25 s | One comment question and the next challenge. |
+| Introduce the kit | about 10 s | A `repo` scene: the kit on GitHub, its files, and "the link is in the description". |
+| Take it to your agent | about 25 s | A `kit` scene: the same GitHub card, each file and how to use it, the link, and the takeaways, each as it is said. |
+| Bridge | about 25 s | One comment question and the next challenge. |
+| Like, share, subscribe | last 8 s | A `cta` scene, the last: each action's graphic as it is said, in two sentences. |
 
 ## Incident story (`incident-story`)
 
 | Beat | Share | Content |
 |---|---|---|
-| Cold open | first 12 s | The incident in one line, with its stakes. |
+| Intro | first 15 s | An `intro` scene: who it is for, the activity, and the stake. |
+| Cold open | next 12 s | The evidence of the incident on screen (the log, output, or code), its stakes in one line. |
 | Stakes | to 45 s | What broke, who noticed, why the checks did not. |
 | Investigation | about a third | Walk the evidence like a tester: what does each check really check? |
 | Root cause | about a fifth | The cause, shown on screen (the title's promise kept). |
 | Proof | about a seventh | Reproduce it with the demo. |
 | Fix and guardrail | about a fifth | The fix, and the check that stops it coming back. |
-| Lesson and bridge | last 40 s | The human question that was skipped, one comment question, the next video. |
+| Introduce the kit | about 10 s | A `repo` scene: the kit on GitHub, its files, and "the link is in the description". |
+| Take it to your agent | about 25 s | A `kit` scene: the same GitHub card, each file and how to use it, the link, and the takeaways, each as it is said. |
+| Lesson and bridge | about 40 s | The human question that was skipped, one comment question, the next video. |
+| Like, share, subscribe | last 8 s | A `cta` scene, the last: each action's graphic as it is said, in two sentences. |
 
 ## Myth buster (`myth-buster`)
 
 | Beat | Share | Content |
 |---|---|---|
-| Claim | first 10 s | The belief, stated plainly, and the promise to test it. |
+| Intro | first 15 s | An `intro` scene: who it is for, the activity, and the stake. |
+| Claim | next 10 s | The belief, shown in a real artifact (a quote, code, or output), and the promise to test it. |
 | Method | to 50 s | The experiment, set up so the viewer could repeat it. |
 | Run | about a third | The demo run, step by step. |
 | Results | about a fifth | What held and what did not, on screen. |
 | Why | about a fifth | The patterns behind the results. |
 | Verdict | about a tenth | A nuanced verdict and a checklist the viewer can apply (the title's promise kept). |
-| Bridge | last 20 s | "Which claim should I test next?" and the next video. |
+| Introduce the kit | about 10 s | A `repo` scene: the kit on GitHub, its files, and "the link is in the description". |
+| Take it to your agent | about 25 s | A `kit` scene: the same GitHub card, each file and how to use it, the link, and the takeaways, each as it is said. |
+| Bridge | about 20 s | "Which claim should I test next?" and the next video. |
+| Like, share, subscribe | last 8 s | A `cta` scene, the last: each action's graphic as it is said, in two sentences. |
 
 ## Short (`challenge-first`)
 
-A Short is a standalone challenge, thirty to sixty seconds, that makes sense without its long-form video and ends by pointing to it.
+A Short is a standalone challenge, thirty to sixty seconds, that makes sense without its long-form video. It never starts abruptly and never jumps: it flows from interest to challenge to why to takeaway, then drives to the long-form for the full breakdown, each beat joined to the next by one bridging sentence: every scene after the first opens on a transition cue **[checked]**, as in "Scene rules".
 
 | Beat | Time | Content |
 |---|---|---|
-| Hook | first 3 s | The failing case and the challenge, in one line. |
-| Look | to 15 s | The code or output, large enough for a phone screen. |
-| Reveal | to 40 s | The one problem, shown. |
-| Bridge | last 10 s | One comment question, and the related long-form video for the full story. |
+| Hook | first 3 s | No intro: a `split` of the code and its tests with a `hook`, two to eight words of curiosity shown large, such as "This test has never failed", said in the first sentence of `say`, at most three seconds **[checked]**. A question or surprise the viewer wants answered, never a slogan. Bridge: "Here is a checkout, and a test written for it by AI. Can you spot the bug?" |
+| Challenge | to 20 s | The code, large enough for a phone, the bug's line marked (`marks`) at its word **[checked: marks before the kit]**. Bridge: a sentence that turns to the stake, such as "So why does this matter?" |
+| Why it matters | to 30 s | The stake: what breaks and who pays, in a sentence with a reason cue (why, so, because) **[checked: between the challenge and the kit]**; never a bare title slide **[checked: no `title` scene before the kit]**. Bridge: "So take it to your agent." |
+| Takeaway | to 45 s | A `kit` scene: the same GitHub card, one or two files and how to use each, the link ("the kit link is below"), and the takeaways. Its card introduces the kit, so no repo card. |
+| Drive to the long video | last 10 s | The last scene's `say` names the full video or the full breakdown, and what more it shows, such as "Watch the full breakdown next: a second bug, two mutants, and the fix, in the linked video." **[checked]**; it may be the kit scene's last sentences, or a scene after it. A closing `cta` naming `subscribe`, at most about four seconds, may follow **[checked]**. |

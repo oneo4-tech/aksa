@@ -16,7 +16,7 @@ description: Use at a video's research stage, from youtube-producer, or when the
 ## Procedure
 
 1. **Check the stage:** `C status <n> --channel <channel>` must show stage `research`, or for a recheck `script` or `demo` with gate 2 not in `approved`; else stop and report the stage.
-2. **List the claims.** From the brief and idea card, write each fact the video will state as one short, atomic claim: what a tool does, which version added it, what a specification or RST author says. A claim that needs two facts becomes two claims.
+2. **List the claims.** From the brief and idea card, write each fact the video will state as one short, atomic claim: what a tool does, which version added it, what a specification or RST author says. A claim that needs two facts becomes two claims. Each key concept the video teaches, such as mutation testing or testing versus checking, gets at least one claim from its primary source page: `package-video` links only those pages, or their site roots, under the description's `References:`.
 3. **Find primary sources, Knowledge Base first.** Run `get-kb` for each claim, then search the web for the rest. Allowed: the web sources `research-topic` allows (official documentation, specifications, source repositories, release notes, changelogs), primary sources first, plus the RST authors' own sites (satisfice.com, developsense.com, rapid-software-testing.com) for RST concepts; everything `research-topic` bans stays banned. Open each page, note its version or date, and drop any source outside the list.
 4. **Write `W/videos/<n>/citations.json`:** a JSON list, one object per claim with `id` (`C1`, `C2`, ...), `claim` (as the script will say it), `url`, and `quote`, the shortest full line of the rendered page that states the claim, copied from the page, never retyped or paraphrased. The format is in `scripts/evidence.py`.
 5. **Check the evidence:** `E <channel> <n>`. It loads each page in Chrome, checks each quote exactly (only whitespace normalised), and writes `link`, `found`, and `checked` into the file.
@@ -41,6 +41,7 @@ The `YouTube: research` comment's link, the claim count (all found), the claims 
 ## Done when
 
 - `E <channel> <n>` exited 0 on the final `citations.json`: every claim found on its page.
+- Every key concept the video teaches has a claim from its primary source page.
 - Every source in `research.md` is on the allowed list, and every claim row in it matches an entry of `citations.json` by id, claim, and link.
 - `research.md` has no placeholder left and no em dash.
 - The `YouTube: research` comment is on the issue.

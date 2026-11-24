@@ -1,6 +1,7 @@
 """Generate a channel's branding from the oneo4 logo spec (v0.4) geometry and the channel palette.
 
 Usage: uv run agentic/skills/content/brand-channel/scripts/branding.py CHANNEL
+       uv run --env-file .env agentic/skills/content/brand-channel/scripts/branding.py CHANNEL --backdrop [--yes]
 
 Reads channel.yaml palette (background, syntax, name, suffix) and branding (wordmarks,
 tagline, subline), and writes, in the channel workspace's branding/ folder, each asset as
@@ -10,7 +11,8 @@ an SVG source (tracked) and a PNG render (ignored by the workspace .gitignore):
                              crops to, with one x-height of clear space; under 15 MB
   banner          2048x1152  the first wordmark, tagline, and subline inside the centred
                              1235x338 safe area; under 6 MB
-  watermark       150x150    the <4/> icon at stroke 20 on transparency; under 1 MB
+  watermark       150x150    the <4/> icon at stroke 20 on the background, its strokes
+                             WATERMARK_MARGIN clear of the edge; under 1 MB
   wordmark-<word> 2400 wide  <oneo4/><word> for each branding.wordmarks word, on the
                              background, height from the spec's 132-unit artboard
 
@@ -26,8 +28,20 @@ home folder; nothing loads from the network). Every render is checked for its si
 YouTube's file limit before any file is written. Prints a JSON report of each asset:
 name, svg, png, width, height, bytes, limit.
 
-Exit codes: 0 written, 1 a Chrome, font, or file error, or a render of the wrong size or
-over its limit, 2 bad input (an invalid channel, a letter without a glyph, a line too wide).
+--backdrop: instead of the assets above, the slide backdrop render-video shows behind every
+scene (channel.yaml background, fit cover): one Gemini generateContent request (design-thumbnail's
+MODEL, Gemini 3.1 Flash Image, aspect ratio 16:9) for channel.yaml branding.backdrop_prompt, else
+BACKDROP_PROMPT (a dim, photo-like test lab, no people, text, or logos). It costs about USD 0.07
+(design-thumbnail's PRICE_USD); before calling, stderr names the cost, and only --yes pays: without
+it the call is refused (exit 3). The key is GEMINI_API_KEY, read from .env by uv run --env-file
+.env, never printed. ffmpeg turns the image into branding/backdrop.jpg (BACKDROP_SIZE, cropped to
+fill), and branding/backdrop.json records the model, prompt, and file: a backdrop made from the
+same prompt is reused with no call and no --yes. Prints a JSON report: backdrop {jpg, prompt,
+image (cached or generated), cost_usd, bytes}.
+
+Exit codes: 0 written, 1 a Chrome, font, Gemini, ffmpeg, or file error, a missing key, or a render
+of the wrong size or over its limit, 2 bad input (an invalid channel, a letter without a glyph, a
+line too wide), 3 refused (a paid backdrop without --yes).
 """
 
 import argparse
@@ -36,7 +50,9 @@ import html
 import json
 import os
 import struct
+import subprocess
 import sys
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +60,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[5]
 sys.path.insert(0, str(REPO_ROOT / "agentic" / "scripts"))
 import youtube_channel
+
+# The Gemini image call and its price are design-thumbnail's, read through its script.
+sys.path.insert(0, str(REPO_ROOT / "agentic" / "skills" / "content" / "design-thumbnail" / "scripts"))
+import thumbnail
 
 # Logo spec v0.4 geometry, in SVG units. The tag <oneo4/>: name strokes, then syntax strokes.
 NAME = (
@@ -78,9 +98,9 @@ SUFFIX_X, ADVANCE = 500, 68
 ARTBOARD = (-10, 16, 132)  # wordmark viewBox x, y, and height; width 68 per glyph + 514 (testlab: 990)
 INK = (21, 143)  # the tag's top and bottom, the 4/ stroke with its round caps
 X_HEIGHT = 60  # the clear space around the logo
-ICON_BOX = "2 -18 200 200"
 ICON_WEIGHT, WATERMARK_WEIGHT = 16, 20  # the spec suggests 18-20 where the icon shows small
-ICON_CENTRE, ICON_REACH = (102, 82), 99  # the icon's centre and the farthest its ink reaches from it
+ICON_CENTRE, ICON_REACH = (102, 82), 99  # the icon's centre and the farthest its ink reaches from it at ICON_WEIGHT
+WATERMARK_MARGIN = 10  # spec units of clear space around the watermark's strokes, so none touches the edge
 FONTS = {"Space Grotesk": "SpaceGrotesk.ttf", "Fira Code": "FiraCode.ttf"}
 FONTS_VARIABLE = "RENDER_FONTS"  # the same fonts render-video and design-thumbnail use
 FONTS_DIR = Path.home() / ".cache" / "fonts"
@@ -97,12 +117,24 @@ ASCENT, DESCENT = 0.75, 0.25  # of the font size, above and below the baseline
 CHAR_EM = 0.62  # widest average character advance of the two fonts, of the font size
 
 
+BACKDROP_PROMPT = (
+    "A dim, photo-like test lab: rows of curved monitors showing code, server racks in soft blue light, "
+    "shallow depth of field, no people, no text, no logos."
+)
+BACKDROP_SIZE = (1920, 1080)
+BACKDROP_RATIO = "16:9"
+
+
 class BadInput(Exception):
     """A letter without a glyph or a line too wide for the safe area: exit 2."""
 
 
 class ToolError(Exception):
     """Chrome or a font failing, or a render of the wrong size or over its limit: exit 1."""
+
+
+class Refused(Exception):
+    """A paid backdrop without --yes: exit 3."""
 
 
 @dataclass
@@ -147,10 +179,10 @@ def icon(palette: dict, weight: int) -> str:
     )
 
 
-def svg(size: tuple[int, int], view: str, body: str, background: str | None) -> str:
-    style = f' style="background:{background}"' if background else ""
+def svg(size: tuple[int, int], view: str, body: str, background: str) -> str:
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size[0]}" height="{size[1]}" viewBox="{view}"{style}>'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size[0]}" height="{size[1]}" viewBox="{view}" '
+        f'style="background:{background}">'
         f"{body}</svg>"
     )
 
@@ -160,6 +192,15 @@ def avatar(palette: dict) -> str:
     side = 2 * (ICON_REACH + X_HEIGHT)
     x, y = ICON_CENTRE[0] - side / 2, ICON_CENTRE[1] - side / 2
     return svg(AVATAR, f"{num(x)} {num(y)} {side} {side}", icon(palette, ICON_WEIGHT), palette["background"])
+
+
+def watermark(palette: dict) -> str:
+    """The icon at the watermark weight, centred on the background, WATERMARK_MARGIN clear of the edge."""
+    reach = ICON_REACH + (WATERMARK_WEIGHT - ICON_WEIGHT) / 2  # the wider round caps reach further
+    side = 2 * (reach + WATERMARK_MARGIN)
+    x, y = ICON_CENTRE[0] - side / 2, ICON_CENTRE[1] - side / 2
+    view = f"{num(x)} {num(y)} {num(side)} {num(side)}"
+    return svg(WATERMARK, view, icon(palette, WATERMARK_WEIGHT), palette["background"])
 
 
 def line_problems(branding: dict) -> list[str]:
@@ -213,9 +254,7 @@ def assets(config: dict) -> list[Asset]:
     built = [
         Asset("avatar", avatar(palette), AVATAR, LIMITS["avatar"]),
         Asset("banner", banner(palette, branding), BANNER, LIMITS["banner"]),
-        Asset(
-            "watermark", svg(WATERMARK, ICON_BOX, icon(palette, WATERMARK_WEIGHT), None), WATERMARK, LIMITS["watermark"]
-        ),
+        Asset("watermark", watermark(palette), WATERMARK, LIMITS["watermark"]),
     ]
     for word in branding["wordmarks"]:
         width = artboard_width(word)
@@ -295,12 +334,76 @@ def chrome(svg_text: str, size: tuple[int, int]) -> bytes:
             browser.close()
 
 
-def main(argv: list[str] | None = None, root: Path = REPO_ROOT, shoot: Shoot = chrome) -> int:
+def ffmpeg_jpeg(image: bytes) -> bytes:
+    """The image as a BACKDROP_SIZE JPEG, scaled and cropped to fill, by ffmpeg."""
+    width, height = BACKDROP_SIZE
+    fill = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
+    with tempfile.TemporaryDirectory() as scratch:
+        out = Path(scratch) / "backdrop.jpg"
+        command = ["ffmpeg", "-v", "error", "-i", "pipe:0", "-vf", fill, "-frames:v", "1", "-q:v", "3", str(out)]
+        try:
+            done = subprocess.run(command, input=image, capture_output=True, timeout=120, check=False)
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ToolError(f"ffmpeg did not run; install it (README, Setup) ({error})") from None
+        if done.returncode != 0 or not out.is_file():
+            raise ToolError(f"ffmpeg failed on the backdrop: {done.stderr.decode(errors='replace').strip()}")
+        return out.read_bytes()
+
+
+def make_backdrop(channel: youtube_channel.Channel, yes: bool, post, to_jpeg) -> dict:
+    """branding/backdrop.jpg for the channel's prompt: reused when backdrop.json holds that prompt, else paid
+    for once with --yes."""
+    folder = channel.workspace / "branding"
+    wanted = channel.config["branding"].get("backdrop_prompt", BACKDROP_PROMPT)
+    jpg, record_path = folder / "backdrop.jpg", folder / "backdrop.json"
+    try:
+        cached = json.loads(record_path.read_text()).get("prompt") == wanted and jpg.is_file()
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
+        cached = False
+    report = {"jpg": "branding/backdrop.jpg", "prompt": wanted, "image": "cached", "cost_usd": 0}
+    if not cached:
+        print(f"backdrop: one Gemini image ({thumbnail.MODEL}), about USD {thumbnail.PRICE_USD}", file=sys.stderr)
+        if not yes:
+            raise Refused(
+                f"a new backdrop costs about USD {thumbnail.PRICE_USD}; ask the owner, then run again with --yes"
+            )
+        key = os.environ.get(thumbnail.KEY_VARIABLE)
+        if not key:
+            raise thumbnail.ApiError(
+                f"{thumbnail.KEY_VARIABLE} is not set: put it in .env and run with uv run --env-file .env"
+            )
+        try:
+            image, _ = thumbnail.image_from(post(thumbnail.request_body(wanted, BACKDROP_RATIO), key))
+        except thumbnail.ApiError as error:
+            raise thumbnail.ApiError(f"Gemini: {error}") from None
+        data = to_jpeg(image)
+        if data[:2] != b"\xff\xd8":
+            raise ToolError("the backdrop is not a JPEG after ffmpeg")
+        folder.mkdir(exist_ok=True)
+        jpg.write_bytes(data)
+        record = {"model": thumbnail.MODEL, "prompt": wanted, "file": jpg.name}
+        record_path.write_text(json.dumps(record, indent=1) + "\n")
+        report |= {"image": "generated", "cost_usd": thumbnail.PRICE_USD}
+    return report | {"bytes": jpg.stat().st_size}
+
+
+def main(
+    argv: list[str] | None = None,
+    root: Path = REPO_ROOT,
+    shoot: Shoot = chrome,
+    post=thumbnail.gemini,
+    to_jpeg: Callable[[bytes], bytes] = ffmpeg_jpeg,
+) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("channel")
+    parser.add_argument("--backdrop", action="store_true", help="generate the slide backdrop with Gemini (paid)")
+    parser.add_argument("--yes", action="store_true", help="the owner agreed to pay for a new backdrop")
     args = parser.parse_args(argv)
     try:
         channel = youtube_channel.load(args.channel, root)
+        if args.backdrop:
+            print(json.dumps({"backdrop": make_backdrop(channel, args.yes, post, to_jpeg)}, indent=1))
+            return 0
         built = assets(channel.config)
         renders = [checked(asset, shoot(asset.svg, asset.size)) for asset in built]
         folder = channel.workspace / "branding"
@@ -323,7 +426,10 @@ def main(argv: list[str] | None = None, root: Path = REPO_ROOT, shoot: Shoot = c
     except (BadInput, youtube_channel.ChannelError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
-    except (ToolError, OSError) as error:
+    except Refused as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 3
+    except (ToolError, thumbnail.ApiError, OSError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     print(json.dumps({"assets": report}, indent=1))

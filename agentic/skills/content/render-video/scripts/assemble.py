@@ -13,8 +13,9 @@ Reads, in the channel workspace:
 
 and channel.yaml loudness (lufs, true_peak) and music_db. It writes render/final.mp4 (H.264,
 AAC 48 kHz) and, for a long-form, render/final.srt, and prints a report: type, width,
-height, seconds, file, captions (the SRT file, or burned), and measured (the mix's
-loudness before normalising).
+height, seconds, file, captions (the SRT file, or burned), measured (lufs and true_peak of
+the written final.mp4, from one more loudnorm pass over it), and mix_before (the mix's
+loudness before normalising). The report only states the loudness; it never refuses a miss.
 
 Sound: the scene clips play in order; each narration starts at its scene's start plus its
 lead. The music bed loops under the voice at music_db dB, fading out over the last
@@ -28,6 +29,8 @@ Captions show the script's words, never the transcript's: say with its // pauses
 hesitations removed, so captions show real words (the pronunciation respelling is only in
 the narration). whisper-cli word timestamps (as render.py) time them: each script word
 matched to a heard word starts there, the others share the time between matched words.
+Both sides are compared as narrate-video's leak check compares them (narrate.py spoken_split
+and comparable), so a script's "fourteen" or "minus one" matches whisper's "14" or "-1".
 A long-form gets an SRT file, a cue per sentence of at most CUE_WORDS words and CUE_CHARS
 characters. A Short gets burned word-highlight captions: groups of GROUP words in the
 lower area clear of the Shorts buttons, the word being said in the accent colour, drawn
@@ -52,14 +55,18 @@ from collections.abc import Callable
 from pathlib import Path
 
 import render
-from render import FPS, SIZES, WORD, BadInput, ToolError, youtube_channel
+from render import FPS, SIZES, BadInput, ToolError, youtube_channel
+
+# Script and heard words are compared as the leak check compares them: through narrate.py.
+sys.path.insert(0, str(render.REPO_ROOT / "agentic" / "skills" / "content" / "narrate-video" / "scripts"))
+import narrate
 
 MUSIC = Path("music") / "bed.mp3"
 MUSIC_FADE = 2.0  # seconds the bed fades out at the end
 LRA = 11  # loudnorm loudness range target, as the prototype
-# The AAC encoder lifts true peaks a little (0.1 dB in the media test); loudnorm aims this far below
-# true_peak so the final file still meets it.
-AAC_HEADROOM = 0.5
+# The AAC encoder lifts true peaks (0.1 dB in the media test, 0.52 dB on #38's long-form, 1.01 dB on #39's Short);
+# loudnorm aims this far below true_peak so the final file still meets it.
+AAC_HEADROOM = 1.5
 AUDIO_RATE = 48000
 AUDIO_BITRATE = "192k"
 CUE_WORDS = 7
@@ -75,17 +82,23 @@ def caption_words(say: str) -> list[str]:
     return PAUSES.sub(" ", say).split()
 
 
-def _key(word: str) -> str:
-    return "".join(WORD.findall(word.lower()))
+def _keys(pieces: list[str]) -> list[tuple[str, int]]:
+    """Comparable words of pieces (narrate.py), each with the index of the piece it came from."""
+    tokens = [(token, index) for index, piece in enumerate(pieces) for token in narrate.spoken_split(piece)]
+    keys = narrate.comparable([token for token, _ in tokens])
+    return [(key, index) for key, (_, index) in zip(keys, tokens) if key]
 
 
 def word_starts(words: list[str], heard: list[dict], narration: float) -> list[float]:
     """Each script word's start, seconds into its narration: its heard word's, else its share between them."""
-    matcher = difflib.SequenceMatcher(None, [_key(w) for w in words], [h["word"] for h in heard], autojunk=False)
+    said, spoken = _keys(words), _keys([h["word"] for h in heard])
+    matcher = difflib.SequenceMatcher(None, [k for k, _ in said], [k for k, _ in spoken], autojunk=False)
     starts: list[float | None] = [None] * len(words)
     for block in matcher.get_matching_blocks():
         for k in range(block.size):
-            starts[block.a + k] = heard[block.b + k]["start"]
+            word = said[block.a + k][1]
+            if starts[word] is None:
+                starts[word] = heard[spoken[block.b + k][1]]["start"]
     if words and starts[0] is None:
         starts[0] = 0.0
     known = [(i, s) for i, s in enumerate(starts) if s is not None] + [(len(words), narration)]
@@ -204,9 +217,9 @@ def _target(loudness: dict) -> str:
     return f"I={loudness['lufs']}:TP={round(loudness['true_peak'] - AAC_HEADROOM, 2)}:LRA={LRA}"
 
 
-def measure_command(mix: Path, loudness: dict) -> list[str]:
-    """loudnorm's first pass: measure the mix and print the values as JSON on stderr."""
-    return ["ffmpeg", "-hide_banner", "-nostats", "-i", str(mix),
+def measure_command(audio: Path, loudness: dict) -> list[str]:
+    """loudnorm measuring a file's audio (the mix, or final.mp4) and printing the values as JSON on stderr."""
+    return ["ffmpeg", "-hide_banner", "-nostats", "-i", str(audio),
             "-af", f"loudnorm={_target(loudness)}:print_format=json", "-f", "null", "-"]  # fmt: skip
 
 
@@ -251,7 +264,8 @@ def caption_page(states: list[dict], size, config: dict, fonts_css: str, referen
     html = (references / "captions.html").read_text()
     if missing := [p for p in PLACEHOLDERS if p not in html]:
         raise ToolError(f"references/captions.html lacks {', '.join(missing)}")
-    cues = {"width": size[0], "height": size[1], "palette": render.palette(config), "states": states}
+    cues = {"width": size[0], "height": size[1], "top": render.CAPTION_TOP, "palette": render.palette(config)}
+    cues["states"] = states
     data = json.dumps(cues, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
     return html.replace("/*{{fonts}}*/", fonts_css).replace("/*{{cues}}*/", f"const CUES = {data};\n")
 
@@ -315,7 +329,7 @@ def assemble(video: Path, workspace: Path, script: dict, scenes: list[dict], con
         raise BadInput(f"{', '.join(missing)}: missing; render the scenes again (render.py)")
     wavs = [video / scene["narration"] for scene in scenes]
     narrations = [render.narration_seconds(wav) for wav in wavs]
-    heard = [render.words_from(transcribe(wav)) for wav in wavs]
+    heard = [render.words_from(transcribe(wav), narrate.spoken_split) for wav in wavs]
     parts = timeline(scenes, [s["say"] for s in script["scenes"]], heard, narrations)
     frames = sum(scene["frames"] for scene in scenes)
     seconds, size = frames / FPS, SIZES[script["type"]]
@@ -336,6 +350,7 @@ def assemble(video: Path, workspace: Path, script: dict, scenes: list[dict], con
             captions.write_text(concat_list([f"{state:04d}.png" for state, _ in shown], [n for _, n in shown]))
         loudnorm = loudnorm_filter(values, config["loudness"])
         run(final_command(listing, mix, captions, loudnorm, seconds, out / "final.mp4"))
+    final = measured(run(measure_command(out / "final.mp4", config["loudness"])))
     if captions is None:
         (out / "final.srt").write_text(srt(parts))
     return {
@@ -345,7 +360,8 @@ def assemble(video: Path, workspace: Path, script: dict, scenes: list[dict], con
         "seconds": round(seconds, 3),
         "file": "render/final.mp4",
         "captions": "render/final.srt" if captions is None else "burned",
-        "measured": {"lufs": values["input_i"], "true_peak": values["input_tp"]},
+        "measured": {"lufs": final["input_i"], "true_peak": final["input_tp"]},
+        "mix_before": {"lufs": values["input_i"], "true_peak": values["input_tp"]},
     }
 
 

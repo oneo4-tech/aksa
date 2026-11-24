@@ -6,6 +6,8 @@
     "github.vscode-github-actions",
     // Gemini CLI integration
     "google.gemini-cli-vscode-ide-companion",
+    // Local Ollama code assistant (chat + tab autocomplete)
+    "Continue.continue",
     // Python debugging support
     "ms-python.debugpy",
     // Python language support

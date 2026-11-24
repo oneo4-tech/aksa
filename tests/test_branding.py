@@ -1,5 +1,6 @@
 """Tests for the brand-channel skill's scripts/branding.py, through main with a fake Chrome."""
 
+import base64
 import json
 import struct
 import sys
@@ -105,6 +106,16 @@ def test_a_palette_change_changes_every_asset(tmp_path, capsys):
         assert CONFIG["palette"]["syntax"] not in after[name]
 
 
+def test_the_watermark_sits_on_the_background_with_clear_space_around_its_strokes(tmp_path, capsys):
+    run(tmp_path, Chrome(), capsys)
+    root = ET.fromstring(svgs(tmp_path)["watermark"])
+    assert CONFIG["palette"]["background"] in root.get("style")
+    x, y, w, h = (float(v) for v in root.get("viewBox").split())
+    assert w == h and (x + w / 2, y + h / 2) == pytest.approx(branding.ICON_CENTRE)
+    ink = branding.ICON_REACH + (branding.WATERMARK_WEIGHT - branding.ICON_WEIGHT) / 2  # wider caps reach further
+    assert w / 2 - ink >= 8  # spec units of clear space between the strokes and the edge
+
+
 def strokes(svg):
     """The stroke colour of each stroked group, in document (drawing) order."""
     return [g.get("stroke") for g in ET.fromstring(svg).iter(f"{SVG}g") if g.get("stroke")]
@@ -158,3 +169,108 @@ def test_a_render_at_the_wrong_size_is_an_error(tmp_path, capsys):
 def test_an_invalid_channel_is_refused(tmp_path, capsys):
     code, _, err = run(tmp_path, Chrome(), capsys, config=edited(CONFIG, "branding"))
     assert code == 2 and "branding: missing" in err
+
+
+# The slide backdrop (owner, fourth gate 3 of #38): a dim test lab scene, generated once with Gemini and cached.
+
+KEY = "test-key-never-printed"
+JPEG = b"\xff\xd8\xff\xe0" + b"\0" * 64
+
+
+class Gemini:
+    """Records each request and answers with one PNG image, or raises an API error."""
+
+    def __init__(self, error=None):
+        self.bodies, self.error = [], error
+
+    def __call__(self, body, key):
+        self.bodies.append((body, key))
+        if self.error:
+            raise branding.thumbnail.ApiError(self.error)
+        data = base64.b64encode(png_of(1376, 768)).decode()
+        return {"candidates": [{"content": {"parts": [{"inlineData": {"mimeType": "image/png", "data": data}}]}}]}
+
+
+class Jpeg:
+    def __init__(self):
+        self.inputs = []
+
+    def __call__(self, image):
+        self.inputs.append(image)
+        return JPEG
+
+
+def backdrop(root, capsys, *flags, gemini=None, jpeg=None, config=CONFIG, chrome=None):
+    workspace(root, config=config)
+    code = branding.main(
+        ["example", "--backdrop", *flags], root=root, shoot=chrome or Chrome(), post=gemini, to_jpeg=jpeg or Jpeg()
+    )
+    out, err = capsys.readouterr()
+    return code, out, err
+
+
+@pytest.fixture
+def key(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", KEY)
+
+
+def test_the_backdrop_names_its_cost_and_needs_yes_before_paying(tmp_path, capsys, key):
+    gemini = Gemini()
+    code, _, err = backdrop(tmp_path, capsys, gemini=gemini)
+    assert code == 3
+    assert "USD 0.07" in err and "--yes" in err
+    assert gemini.bodies == [] and not (folder(tmp_path) / "backdrop.jpg").exists()
+
+
+def test_the_backdrop_with_yes_writes_a_16_9_jpeg_and_its_prompt_record(tmp_path, capsys, key):
+    gemini, jpeg, chrome = Gemini(), Jpeg(), Chrome()
+    code, out, err = backdrop(tmp_path, capsys, "--yes", gemini=gemini, jpeg=jpeg, chrome=chrome)
+    assert code == 0 and "USD 0.07" in err
+    ((body, sent_key),) = gemini.bodies
+    assert sent_key == KEY and KEY not in out + err
+    assert body["generationConfig"]["imageConfig"]["aspectRatio"] == "16:9"
+    assert body["contents"][0]["parts"][0]["text"] == branding.BACKDROP_PROMPT
+    assert "monitors" in branding.BACKDROP_PROMPT and "no text" in branding.BACKDROP_PROMPT
+    assert jpeg.inputs == [png_of(1376, 768)] and chrome.shots == []
+    assert (folder(tmp_path) / "backdrop.jpg").read_bytes() == JPEG
+    record = json.loads((folder(tmp_path) / "backdrop.json").read_text())
+    assert record == {"model": branding.thumbnail.MODEL, "prompt": branding.BACKDROP_PROMPT, "file": "backdrop.jpg"}
+    report = json.loads(out)["backdrop"]
+    assert report["image"] == "generated" and report["cost_usd"] == 0.07 and report["jpg"] == "branding/backdrop.jpg"
+
+
+def test_a_backdrop_for_the_same_prompt_is_reused_without_paying(tmp_path, capsys, key):
+    backdrop(tmp_path, capsys, "--yes", gemini=Gemini())
+    gemini = Gemini()
+    code, out, _ = backdrop(tmp_path, capsys, gemini=gemini)
+    assert code == 0 and gemini.bodies == []
+    assert json.loads(out)["backdrop"] | {"bytes": 0} == {
+        "jpg": "branding/backdrop.jpg",
+        "prompt": branding.BACKDROP_PROMPT,
+        "image": "cached",
+        "cost_usd": 0,
+        "bytes": 0,
+    }
+
+
+def test_the_channel_backdrop_prompt_is_asked_and_a_new_prompt_pays_again(tmp_path, capsys, key):
+    backdrop(tmp_path, capsys, "--yes", gemini=Gemini())
+    config = edited(CONFIG, "branding.backdrop_prompt", "A dim server room with code on screens, no text")
+    gemini = Gemini()
+    assert backdrop(tmp_path, capsys, gemini=gemini, config=config)[0] == 3
+    assert backdrop(tmp_path, capsys, "--yes", gemini=gemini, config=config)[0] == 0
+    assert [body["contents"][0]["parts"][0]["text"] for body, _ in gemini.bodies] == [
+        "A dim server room with code on screens, no text"
+    ]
+
+
+def test_a_backdrop_without_the_key_is_an_error(tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    code, _, err = backdrop(tmp_path, capsys, "--yes", gemini=Gemini())
+    assert code == 1 and "GEMINI_API_KEY is not set" in err
+
+
+def test_a_failed_gemini_call_writes_no_backdrop(tmp_path, capsys, key):
+    code, _, err = backdrop(tmp_path, capsys, "--yes", gemini=Gemini(error="HTTP 429: quota"))
+    assert code == 1 and "Gemini: HTTP 429: quota" in err
+    assert not (folder(tmp_path) / "backdrop.jpg").exists()

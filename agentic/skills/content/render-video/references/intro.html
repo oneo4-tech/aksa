@@ -1,0 +1,89 @@
+<!doctype html>
+<!-- Scene kind "intro", the long-form hook before the challenge: who it is for as role cards, each with a drawn
+     person glyph and a badge (code, lens, check), the activity as a large challenge line, and the stake as a
+     callout, each entering as the narrator names it. Stacked on a Short, above the caption band. render.py fills
+     the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+.intro { position: absolute; left: var(--pad); right: var(--pad); top: calc(250 * var(--u)); bottom: var(--floor);
+  display: flex; flex-direction: column; justify-content: center; gap: calc(48 * var(--u)); font-size: calc(44 * var(--u));
+  overflow: hidden; }
+.roles { display: flex; gap: calc(36 * var(--u)); }
+.role { flex: 1; display: flex; align-items: center; gap: calc(28 * var(--u)); padding: calc(26 * var(--u)) calc(30 * var(--u));
+  background: var(--panel); border: 2px solid var(--line); border-radius: calc(18 * var(--u)); opacity: 0; }
+.role svg { flex: none; width: 2.6em; height: 2.6em; overflow: visible; }
+.role div { font-weight: 600; line-height: 1.25; }
+.activity { opacity: 0; }
+.activity small { display: block; font: 700 0.6em 'Fira Code', monospace; color: var(--accent); letter-spacing: 0.12em;
+  margin-bottom: 0.3em; }
+.activity div { font-size: 1.75em; font-weight: 700; line-height: 1.12; letter-spacing: -1px; }
+.activity svg { display: block; width: 100%; height: 0.4em; overflow: visible; }
+.stake { display: flex; align-items: center; gap: calc(24 * var(--u)); padding: calc(22 * var(--u)) calc(28 * var(--u));
+  border-left: calc(8 * var(--u)) solid var(--hot); background: color-mix(in srgb, var(--hot) 10%, var(--panel));
+  border-radius: calc(10 * var(--u)); font-weight: 600; line-height: 1.3; opacity: 0; }
+.stake b { flex: none; width: 1.5em; height: 1.5em; border-radius: 50%; display: inline-flex; align-items: center;
+  justify-content: center; background: var(--hot); color: var(--bg); font-weight: 700; }
+[data-shape="tall"] .intro { top: calc(400 * var(--u)); gap: calc(40 * var(--u)); font-size: calc(40 * var(--u)); }
+[data-shape="tall"] .roles { flex-direction: column; gap: calc(20 * var(--u)); }
+[data-shape="tall"] .role { padding: calc(18 * var(--u)) calc(26 * var(--u)); }
+[data-shape="tall"] .role svg { width: 2.2em; height: 2.2em; }
+[data-shape="tall"] .activity div { font-size: 1.5em; }
+</style>
+<body data-kind="intro">
+<div id="stage"><div id="camera">
+  <div class="grid"></div>
+  <div class="brand" id="brand"></div>
+  <h1 id="heading"></h1>
+  <div class="intro" id="intro">
+    <div class="roles" id="roles"></div>
+    <div class="activity" id="activity"><small>THE CHALLENGE</small><div></div><svg id="underline"></svg></div>
+    <div class="stake" id="stake"><b>!</b><span></span></div>
+  </div>
+</div></div>
+<script>
+/*{{cues}}*/
+/*{{js}}*/
+// A flat person glyph, head and shoulders, with a badge in its lower right: code brackets, a lens, or a check.
+const BADGES = ['M55 59 L48 66 L55 73 M65 59 L72 66 L65 73', 'M51 64 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M63 69 L69 75',
+  'M51 66 L57 72 L69 60'];
+function glyph(parent, badge) {
+  const svg = svgIn(parent);
+  svg.setAttribute('viewBox', '0 0 80 80');
+  const p = CUES.palette, draw = (d, colour, width) => {
+    const path = document.createElementNS(SVG, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'draw');
+    Object.assign(path.style, { stroke: colour, strokeWidth: width });
+    svg.appendChild(path);
+  };
+  draw('M30 12 a12 12 0 1 0 0.01 0 M8 62 C8 46 18 38 30 38 C42 38 52 46 52 62', p.text, 5);
+  const disc = document.createElementNS(SVG, 'circle');
+  disc.setAttribute('cx', 60); disc.setAttribute('cy', 66); disc.setAttribute('r', 18);
+  disc.style.fill = getComputedStyle(document.documentElement).getPropertyValue('--panel');
+  disc.style.stroke = p.accent; disc.style.strokeWidth = 4;
+  svg.appendChild(disc);
+  draw(BADGES[badge % BADGES.length], p.accent, 4);
+}
+
+function build() {
+  const u = Math.min(CUES.width, CUES.height) / 1080, box = $('intro');
+  CUES.roles.forEach((role, i) => {
+    const card = make('div', 'role', undefined, $('roles'));
+    glyph(card, i);
+    make('div', '', role.text, card);
+    enter(card, role.at, 'up');
+  });
+  $('activity').querySelector('div').textContent = CUES.activity.text;
+  enter($('activity'), CUES.activity.at, 'scale');
+  $('stake').querySelector('span').textContent = CUES.stake.text;
+  enter($('stake'), CUES.stake.at, 'left');
+  // Fit: long roles or lines shrink the text until it all fits above the floor.
+  for (let size = parseFloat(getComputedStyle(box).fontSize) / u; box.scrollHeight > box.clientHeight && size > 22; size -= 1) box.style.fontSize = size * u + 'px';
+  // The challenge line's underline draws in under it once it has entered, sized after the fit.
+  const line = $('underline'), y = line.clientHeight / 2;
+  stroke(line, `M0 ${y} H${line.clientWidth * 0.4}`, CUES.palette.accent, 6 * u, CUES.activity.at + 0.15);
+}
+</script>
+</body>

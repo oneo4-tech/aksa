@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- Layout "spot-the-bug", the channel's signature challenge: the demo's code lines (6 to 10) in a panel at the left
+     under a chip naming who wrote them ("Written by AI"), the buggy line marked by the chosen marker (data-marker:
+     highlight, squiggle, or underline) with a small bug glyph in the gutter; the challenge text stacked a word a
+     line at the right, the key word last in the accent; the optional character art square below it.
+     thumbnail.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+/*{{palette}}*/
+.panel { position: absolute; left: 32px; width: 712px; padding: 20px 28px 22px; border-radius: 22px;
+  top: calc((720px - var(--lines) * 56px - 42px - var(--head)) / 2);
+  background: var(--panel); border: 3px solid #ffffff22; box-shadow: 0 18px 50px #000c; }
+.chip { display: inline-flex; align-items: center; gap: 10px; height: 48px; margin-bottom: 14px; padding: 0 20px 0 14px;
+  border-radius: 24px; background: var(--accent); color: var(--panel); font: 700 30px/1 'Space Grotesk', sans-serif; }
+.chip svg { width: 28px; height: 28px; fill: var(--panel); }
+.code { font: 600 36px/56px 'Fira Code', monospace; white-space: pre; color: color-mix(in srgb, var(--fg) 62%, transparent); }
+.code-line { display: block; }
+.code-line.marked { position: relative; margin: 0 -28px; padding: 0 28px; color: var(--fg); }
+/* The markers: soft and on-brand, red only in the small bug glyph and the squiggle. */
+[data-marker="highlight"] .marked { background: var(--bar); box-shadow: inset -10px 0 0 var(--accent); }
+[data-marker="squiggle"] .bad { text-decoration: underline wavy var(--red) 4px; text-underline-offset: 5px;
+  text-decoration-skip-ink: none; }
+[data-marker="underline"] .bad { text-decoration: underline solid var(--accent) 7px; text-underline-offset: 5px;
+  text-decoration-skip-ink: none; }
+.bug { position: absolute; left: -31px; top: 50%; width: 58px; height: 58px; transform: translateY(-50%) rotate(-12deg);
+  filter: drop-shadow(0 4px 6px #000a); }
+.bug .legs { stroke: var(--fg); stroke-width: 4; stroke-linecap: round; fill: none; }
+.bug .head { fill: var(--panel); stroke: var(--fg); stroke-width: 4; }
+.bug .body { fill: var(--red); stroke: var(--fg); stroke-width: 4; }
+.bug .seam { stroke: var(--fg); stroke-width: 3; }
+.bug .spot { fill: var(--panel); }
+.art { left: 800px; top: 396px; width: 440px; height: 316px; }
+#text { left: 776px; top: 30px; width: 484px; height: 660px; }
+.art ~ #text { top: 20px; height: 370px; }
+</style>
+<body data-layout="spot-the-bug" data-marker="{{marker}}">
+<div class="panel"><!--{{chip}}--><div class="code"><!--{{code}}--></div></div>
+<!--{{art}}-->
+<div class="fit" id="text" data-size="210"><!--{{text}}--></div>
+<script>
+/*{{js}}*/
+</script>
+</body>

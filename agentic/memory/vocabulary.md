@@ -5,6 +5,7 @@ Agreed terms, alphabetical. Use them as defined. Add or change a term only after
 | Term | Meaning |
 |------|---------|
 | Agent | A component: an operator with a goal and role that owns an outcome and uses rules and skills. Lives in `agentic/agents/`. |
+| Agent eval | A versioned set of real tasks with owner-labeled expected results, run on an agent or skill to catch regressions (D-045). |
 | AI slop | Agent output that breaks rules, decisions, or owner preferences, makes unverified claims, adds speculative scope, or wastes tokens. Found by the `retrospect-session` skill. |
 | Channel workspace | A channel's text-only git repository at `.projects/content/yt-<channel>/` holding its `channel.yaml`, style guide, and per-video folders `videos/<issue-number>/`; generated media is ignored. |
 | Claim | A session's hold on a factory issue while it works on the run: the `claimed` label and a `Factory:` comment naming the session. Taken over only on the owner's yes (D-033). |
@@ -23,6 +24,7 @@ Agreed terms, alphabetical. Use them as defined. Add or change a term only after
 | Prototype | Throwaway code that answers one design question by clicking, kept on a never-merged `prototype/<name>` branch. Built by the `build-prototype` skill. |
 | Re-pitch | A re-explanation of an earlier agent message: the same claims with the missing context added, in Simplified Technical English. Written by the `clarify-response` skill. |
 | Requirement | The agreed what and why of a run: problem, outcome, acceptance criteria each with its test, out of scope, and constraints. The `## Requirement` section of its factory issue, approved at G1. |
+| RALPH loop | An agent's working loop: receive and reason, act, learn, plan, and handle failures, until its acceptance criteria are met or it stops for the owner. Described in `agentic/rules/agentic-system-design.md`. |
 | Rule | A component: persistent behaviour or constraints that shape how an agent works. `AGENTS.md` is the root rule, always loaded, holding repository-wide rules and the index of conditional rules in `agentic/rules/`. |
 | Run | One work request's way through the Software Factory from triage to close: one factory issue and at most one merged pull request into `main` (D-025). |
 | Script | A component: deterministic executable work or common enablement that agents or skills run. Shared scripts live in `agentic/scripts/` and read repository settings from `config/`. |

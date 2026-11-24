@@ -66,3 +66,27 @@ def test_banner_lines_measured_in_chrome_sit_inside_the_safe_area(tmp_path, tool
     for x, y, width, height in boxes:
         assert left <= x and x + width <= left + 1235
         assert top <= y and y + height <= top + 338
+
+
+def test_ffmpeg_turns_a_gemini_png_into_a_full_hd_backdrop_jpeg(tmp_path):
+    """The real ffmpeg on a 1376x768 PNG (Gemini's 16:9 size): a 1920x1080 JPEG, cropped to fill."""
+    import shutil
+    import subprocess
+
+    if not shutil.which("ffmpeg"):
+        pytest.skip("ffmpeg is not installed (README, Setup)")
+    png = tmp_path / "art.png"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=navy:s=1376x768", "-frames:v", "1", str(png)],
+        check=True,
+    )
+    data = branding.ffmpeg_jpeg(png.read_bytes())
+    assert data[:2] == b"\xff\xd8"
+    (tmp_path / "out.jpg").write_bytes(data)
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(tmp_path / "out.jpg")],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert probe.stdout.strip() == "1920,1080"

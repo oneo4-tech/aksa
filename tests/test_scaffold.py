@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from test_youtube_channel import CONFIG, edited, workspace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "agentic/skills/content/build-video-demo/scripts"))
@@ -19,7 +20,13 @@ REPO = CONFIG["demos"]["repo"]
 ISSUE_URL = "https://github.com/example-org/aksa/issues/42"
 LINK = f"https://github.com/{REPO}/tree/main/42-mocked-tests"
 PROVES = "A test that mocks the function under test passes even when the code is broken."
-ARGV = ["example", "42", "--slug", "mocked-tests", "--proves", PROVES]
+SKILL = "check-test-can-fail"
+RULES = [
+    "Before you call a test done, name the change to the code that would make it fail.",
+    "Never mock the unit under test; mock only what it talks to.",
+]
+KIT = ["--skill", SKILL, "--rule", RULES[0], "--rule", RULES[1]]
+ARGV = ["example", "42", "--slug", "mocked-tests", "--proves", PROVES, *KIT]
 
 
 def claim(number, found=True):
@@ -122,14 +129,90 @@ def test_citations_missing_or_not_verified_are_refused(root, capsys, claims):
     assert not (path / "42-mocked-tests").exists()
 
 
+def test_scaffold_creates_the_ai_kit_with_the_rules_a_skill_and_a_scripts_folder(root):
+    kit = clone(root) / "42-mocked-tests" / "ai-kit"
+    assert scaffold.main(ARGV, root=root, gh=FakeGitHub()) == 0
+    rules = (kit / "AGENTS.md").read_text()
+    assert all(f"- {rule}" in rules for rule in RULES)
+    assert "Your AI tests pass. Are they testing anything?" in rules and "CLAUDE.md" in rules
+    skill = (kit / "skills" / SKILL / "SKILL.md").read_text()
+    assert skill.startswith(f"---\nname: {SKILL}\ndescription: Use ")
+    assert all(rule in skill for rule in RULES)
+    assert (kit / "scripts" / ".gitkeep").is_file()
+    assert "{{" not in rules + skill
+
+
+def test_the_kit_skill_frontmatter_is_valid_yaml_for_a_title_with_a_colon(root):
+    kit = clone(root) / "42-mocked-tests" / "ai-kit"
+    gh = FakeGitHub()
+    gh.issue_link = lambda number: {"title": "Spot the Bug: This AI Test Passes", "labels": gh.labels}
+    assert scaffold.main(ARGV, root=root, gh=gh) == 0
+    front = (kit / "skills" / SKILL / "SKILL.md").read_text().split("---\n")[1]
+    data = yaml.safe_load(front)
+    assert data["name"] == SKILL and data["description"].startswith("Use after")
+
+
+def test_the_readme_shows_how_to_use_the_kit_with_an_ai_agent(root):
+    folder = clone(root) / "42-mocked-tests"
+    scaffold.main(ARGV, root=root, gh=FakeGitHub())
+    readme = (folder / "README.md").read_text()
+    assert "## Use it with your AI agent" in readme
+    assert f"{LINK}/ai-kit" in readme
+    assert f"https://raw.githubusercontent.com/{REPO}/main/42-mocked-tests/ai-kit/AGENTS.md" in readme
+    assert f"cp -r ai-kit/skills/{SKILL} .claude/skills/" in readme
+
+
+@pytest.mark.parametrize(
+    "kit",
+    [
+        ["--skill", "check", "--rule", "A rule."],
+        ["--skill", "Check_Tests", "--rule", "A rule."],
+        ["--skill", SKILL, "--rule", "  "],
+    ],
+)
+def test_a_kit_skill_not_verb_object_or_a_blank_rule_is_refused(root, capsys, kit):
+    path = clone(root)
+    argv = ["example", "42", "--slug", "mocked-tests", "--proves", PROVES, *kit]
+    assert scaffold.main(argv, root=root, gh=FakeGitHub()) == 2
+    err = capsys.readouterr().err
+    assert "skill" in err or "rule" in err
+    assert not (path / "42-mocked-tests").exists()
+
+
 def test_the_tape_records_the_folder_at_the_channel_terminal_size(root):
     folder = clone(root) / "42-mocked-tests"
     scaffold.main(ARGV, root=root, gh=FakeGitHub())
     tape = (folder / "demo.tape").read_text()
-    for line in ["Output demo.mp4", 'Set FontFamily "Menlo"', "Set FontSize 30", "Set Width 1920", "Set Height 1080"]:
+    for line in [
+        "Output demo.mp4",
+        "# scene",
+        'Set FontFamily "Menlo"',
+        "Set FontSize 30",
+        "Set Width 1920",
+        "Set Height 1080",
+    ]:
         assert line in tape, line
     assert "{{" not in tape
     assert "*.mp4" in (folder / ".gitignore").read_text().splitlines()
+
+
+def test_the_tape_spaces_its_steps_and_shows_each_code_change(root):
+    # Owner, second gate 3 of #38: a blank line between terminal steps; a mutation shows its changed line. Third
+    # gate 3: the blank line comes before each "# comment" step, none between a comment and its command.
+    folder = clone(root) / "42-mocked-tests"
+    scaffold.main(ARGV, root=root, gh=FakeGitHub())
+    tape = (folder / "demo.tape").read_text()
+    setup = next(line for line in tape.splitlines() if line.startswith('Type "setopt'))
+    assert "c=1 && zshaddhistory() { [[ $1 == '#'* ]] && c=1 || c=0; }" in setup
+    assert "precmd() { (( c )) || echo; }" in setup
+    assert "prints the line before and after" in tape
+
+
+def test_the_readme_says_the_demo_is_realistic_code(root):
+    # Owner, second gate 3 of #38: examples close to real-world code, not a toy function.
+    folder = clone(root) / "42-mocked-tests"
+    scaffold.main(ARGV, root=root, gh=FakeGitHub())
+    assert "a slice of a real service" in (folder / "README.md").read_text()
 
 
 def test_scaffold_prints_the_description_link(root, capsys):
@@ -175,7 +258,7 @@ def test_an_issue_of_another_channel_is_refused(root):
 @pytest.mark.parametrize("slug", ["Mocked_Tests", "../escape", "mocked tests"])
 def test_a_bad_slug_is_refused(root, slug):
     clone(root)
-    assert scaffold.main(["example", "42", "--slug", slug, "--proves", PROVES], root=root, gh=FakeGitHub()) == 2
+    assert scaffold.main(["example", "42", "--slug", slug, "--proves", PROVES, *KIT], root=root, gh=FakeGitHub()) == 2
 
 
 def test_a_channel_without_demo_settings_is_refused(tmp_path, capsys):

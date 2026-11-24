@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from test_scaffold import CITATIONS, FakeGitHub, claim, clone
+from test_scaffold import CITATIONS, KIT, FakeGitHub, claim, clone
 from test_youtube_channel import CONFIG, workspace
 
 # A script serving one skill stays in the skill (components.md), outside the pytest pythonpath.
@@ -15,12 +15,28 @@ import package
 import scaffold
 
 LONG, SHORT = 14, 15
+# The first three show above the title; eight to fifteen reach the AI and testing audience.
+HASHTAGS = [
+    "#softwaretesting",
+    "#aitesting",
+    "#unittesting",
+    "#ai",
+    "#qa",
+    "#pytest",
+    "#testautomation",
+    "#aicoding",
+]
 FPS = 30
 DEMO = "https://github.com/example-org/example-demos/tree/main/14-mocked-tests"
 LONG_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 SHORT_URL = "https://www.youtube.com/shorts/abcDEF12345"
 # Scene starts 0, 25, 60, 150, and 225 s; the video ends at 300 s.
 SECONDS = [25, 35, 90, 75, 75]
+# Key concepts only, each linked to a cited source page or its site root (owner, second gate 3 of #38).
+REFERENCES = [
+    {"concept": "Mutation testing", "url": "https://example.com/source-1"},
+    {"concept": "Testing versus checking", "url": "https://example.com/"},
+]
 CHAPTERS = [
     {"scene": 1, "title": "Two green tests"},
     {"scene": 2, "title": "The code"},
@@ -36,14 +52,26 @@ def no_outer_git(monkeypatch):
         monkeypatch.delenv(name)
 
 
+# What the video is about and what the viewer takes away (owner, fourth gate 3 of #38).
+ABOUT = "Two AI-written tests guard a checkout. This challenge shows why neither can fail, for testers and developers."
+TAKEAWAYS = ["Why mocking the code under test hides bugs", "How to prove a test can fail", "An AI kit for your agent"]
+ABOUT_TEXT = (
+    f"{ABOUT}\n\nWhat you will take away:\n- Why mocking the code under test hides bugs\n"
+    "- How to prove a test can fail\n- An AI kit for your agent"
+)
+
+
 def metadata(**fields):
     base = {
         "title": "Spot the Bug: This AI Test Passes and Tests Nothing",
         "hook": "Two AI-written unit tests pass, and neither can fail.",
+        "about": ABOUT,
+        "takeaways": TAKEAWAYS,
         "chapters": CHAPTERS,
         "tags": ["software testing", "ai testing", "pytest", "unit tests", "mutation testing"],
-        "hashtags": ["#softwaretesting", "#ai", "#pytest"],
+        "hashtags": HASHTAGS,
         "paid_promotion": None,
+        "references": REFERENCES,
     }
     return base | fields
 
@@ -82,17 +110,18 @@ def packaged(folder):
     return json.loads((folder / "packaging.json").read_text())
 
 
-def test_a_long_form_description_has_hook_chapters_demo_sources_disclosure_and_hashtags(tmp_path):
+def test_a_long_form_description_has_hook_chapters_demo_kit_references_disclosure_and_hashtags(tmp_path):
     folder = video(tmp_path)
     assert run(tmp_path) == 0
-    sources = "\n".join(f"- {c['claim']} {c['link']}" for c in CITATIONS)
     assert (folder / "description.md").read_text() == (
         "Two AI-written unit tests pass, and neither can fail.\n\n"
+        f"{ABOUT_TEXT}\n\n"
         "00:00 Two green tests\n00:25 The code\n01:00 Testing the mock\n03:45 Break the code\n\n"
-        f"Code: {DEMO}\n\n"
-        f"Sources:\n{sources}\n\n"
-        "Narration uses a synthetic AI voice.\nNo paid promotion.\n\n"
-        "#softwaretesting #ai #pytest\n"
+        f"Code: {DEMO}\n\nAI kit: {DEMO}/ai-kit\n\n"
+        "References:\n- Mutation testing: https://example.com/source-1\n"
+        "- Testing versus checking: https://example.com/\n\n"
+        "Narration uses a synthetic AI voice.\nMusic: an AI-generated ambient bed.\nNo paid promotion.\n\n"
+        "#softwaretesting #aitesting #unittesting #ai #qa #pytest #testautomation #aicoding\n"
     )
     data = packaged(folder)
     assert data["title"] == metadata()["title"]
@@ -100,6 +129,29 @@ def test_a_long_form_description_has_hook_chapters_demo_sources_disclosure_and_h
     assert data["tags"] == metadata()["tags"]
     assert data["chapters"][1] == {"at": "00:25", "title": "The code"}
     assert data["paid_promotion"] is False and data["video_url"] is None
+
+
+@pytest.mark.parametrize("count", [1, 6])
+def test_references_outside_two_to_five_are_refused(tmp_path, capsys, count):
+    video(tmp_path, meta=metadata(references=[REFERENCES[0] | {"concept": f"C {i}"} for i in range(count)]))
+    assert run(tmp_path) == 3
+    assert f"references: {count}, need 2 to 5 key concepts" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("url", ["https://other.example/mutation", "https://example.com/source-9"])
+def test_a_reference_not_on_a_cited_page_or_its_root_is_refused(tmp_path, capsys, url):
+    video(tmp_path, meta=metadata(references=[REFERENCES[0], {"concept": "Satisfice", "url": url}]))
+    assert run(tmp_path) == 3
+    assert f"references: 'Satisfice' {url} is not a citations.json source page or its site root" in (
+        capsys.readouterr().err
+    )
+
+
+def test_per_claim_sources_stay_out_of_the_description(tmp_path):
+    folder = video(tmp_path)
+    assert run(tmp_path) == 0
+    text = (folder / "description.md").read_text()
+    assert "Sources:" not in text and CITATIONS[0]["link"] not in text
 
 
 def test_chapters_past_an_hour_show_hours(tmp_path):
@@ -180,15 +232,29 @@ def test_five_to_eight_tags_pass(tmp_path, count):
     assert len(packaged(folder)["tags"]) == count
 
 
-def test_more_than_three_hashtags_are_refused(tmp_path, capsys):
-    video(tmp_path, meta=metadata(hashtags=["#a", "#b", "#c", "#d"]))
+@pytest.mark.parametrize("count", [7, 16])
+def test_hashtags_outside_eight_to_fifteen_are_refused(tmp_path, capsys, count):
+    video(tmp_path, meta=metadata(hashtags=[f"#tag{i}" for i in range(count)]))
     assert run(tmp_path) == 3
-    assert "hashtags: 4, at most 3" in capsys.readouterr().err
+    assert f"hashtags: {count}, need 8 to 15" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("count", [8, 15])
+def test_eight_to_fifteen_hashtags_pass(tmp_path, count):
+    folder = video(tmp_path, meta=metadata(hashtags=[f"#tag{i}" for i in range(count)]))
+    assert run(tmp_path) == 0
+    assert packaged(folder)["hashtags"][:3] == ["#tag0", "#tag1", "#tag2"]
+
+
+def test_a_repeated_hashtag_is_refused(tmp_path, capsys):
+    video(tmp_path, meta=metadata(hashtags=[*HASHTAGS[:7], "#SoftwareTesting"]))
+    assert run(tmp_path) == 3
+    assert "hashtag '#SoftwareTesting': repeated" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("tag", ["software testing", "#two words", "#"])
 def test_a_hashtag_that_is_not_one_word_is_refused(tmp_path, capsys, tag):
-    video(tmp_path, meta=metadata(hashtags=["#ai", tag]))
+    video(tmp_path, meta=metadata(hashtags=[*HASHTAGS[:7], tag]))
     assert run(tmp_path) == 3
     assert f"hashtag {tag!r}" in capsys.readouterr().err
 
@@ -209,7 +275,10 @@ def test_paid_promotion_is_disclosed_with_its_sponsor(tmp_path):
     folder = video(tmp_path, meta=metadata(paid_promotion="Example Tools sponsors this video"))
     assert run(tmp_path) == 0
     text = (folder / "description.md").read_text()
-    assert "Narration uses a synthetic AI voice.\nIncludes paid promotion: Example Tools sponsors this video.\n" in text
+    assert (
+        "Narration uses a synthetic AI voice.\nMusic: an AI-generated ambient bed.\n"
+        "Includes paid promotion: Example Tools sponsors this video.\n"
+    ) in text
     assert "No paid promotion." not in text
     assert packaged(folder)["paid_promotion"] is True
 
@@ -235,7 +304,36 @@ def test_every_problem_is_named_at_once(tmp_path, capsys):
         assert text in err, text
 
 
-@pytest.mark.parametrize("field", ["hook", "tags", "paid_promotion"])
+@pytest.mark.parametrize(
+    ("about", "problem"),
+    [
+        ("A checkout.", "about: 1 sentences; need 2 to 4: what the video covers, and for whom"),
+        ("One. Two. Three. Four. Five.", "about: 5 sentences; need 2 to 4"),
+        ("In this video we test. For testers.", "about: banned phrase 'in this video'"),
+    ],
+)
+def test_an_about_outside_two_to_four_sentences_or_with_a_banned_phrase_is_refused(tmp_path, capsys, about, problem):
+    video(tmp_path, meta=metadata(about=about))
+    assert run(tmp_path) == 3
+    assert problem in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("takeaways", "problem"),
+    [
+        (TAKEAWAYS[:2], "takeaways: 2, need 3 to 5"),
+        (TAKEAWAYS * 2, "takeaways: 6, need 3 to 5"),
+        ([*TAKEAWAYS[:2], " "], "takeaways: a line is empty"),
+        ([*TAKEAWAYS[:2], "What in this video means"], "takeaway 'What in this video means': banned phrase"),
+    ],
+)
+def test_takeaways_outside_three_to_five_lines_are_refused(tmp_path, capsys, takeaways, problem):
+    video(tmp_path, meta=metadata(takeaways=takeaways))
+    assert run(tmp_path) == 3
+    assert problem in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("field", ["hook", "about", "takeaways", "tags", "paid_promotion", "references"])
 def test_a_metadata_file_missing_a_field_is_bad_input(tmp_path, capsys, field):
     meta = metadata()
     del meta[field]
@@ -244,11 +342,28 @@ def test_a_metadata_file_missing_a_field_is_bad_input(tmp_path, capsys, field):
     assert field in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(("field", "value"), [("about", ["a"]), ("takeaways", "one line"), ("takeaways", [1])])
+def test_an_about_or_takeaways_of_the_wrong_type_is_bad_input(tmp_path, capsys, field, value):
+    video(tmp_path, meta=metadata(**{field: value}))
+    assert run(tmp_path) == 2
+    assert field in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("references", ["https://example.com/", [{"concept": "Mutation testing"}], [{"url": 1}]])
+def test_references_that_are_not_concept_and_url_are_bad_input(tmp_path, capsys, references):
+    video(tmp_path, meta=metadata(references=references))
+    assert run(tmp_path) == 2
+    assert "references: must be a list of {concept, url}" in capsys.readouterr().err
+
+
 def test_a_short_links_its_related_long_form_and_has_no_chapters(tmp_path):
     folder = short(tmp_path)
     assert run(tmp_path, SHORT) == 0
     text = (folder / "description.md").read_text()
-    assert text.startswith(f"Two AI-written unit tests pass, and neither can fail.\n\nFull video: {LONG_URL}\n\nCode: ")
+    assert text.startswith(
+        f"Two AI-written unit tests pass, and neither can fail.\n\n{ABOUT_TEXT}\n\nFull video: {LONG_URL}\n\nCode: "
+    )
+    assert f"AI kit: {DEMO}/ai-kit\n" in text
     assert "00:00" not in text
     assert packaged(folder)["related_video"] == LONG_URL
 
@@ -279,7 +394,9 @@ def published(root):
     folder = video(root)
     readme = clone(root) / "14-mocked-tests" / "README.md"
     assert (
-        scaffold.main(["example", "14", "--slug", "mocked-tests", "--proves", "It passes."], root=root, gh=FakeGitHub())
+        scaffold.main(
+            ["example", "14", "--slug", "mocked-tests", "--proves", "It passes.", *KIT], root=root, gh=FakeGitHub()
+        )
         == 0
     )
     assert run(root) == 0

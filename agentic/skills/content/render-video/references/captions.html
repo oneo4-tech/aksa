@@ -7,7 +7,7 @@
 /*{{fonts}}*/
 * { margin: 0; box-sizing: border-box; }
 html, body { overflow: hidden; background: transparent; }
-#line { position: absolute; left: 8%; right: 16%; top: 64%; text-align: center; color: var(--fg);
+#line { position: absolute; left: 8%; right: 16%; top: calc(var(--top) * 100%); text-align: center; color: var(--fg);
   font: 700 calc(84 * var(--u)) 'Space Grotesk', sans-serif; line-height: 1.2; letter-spacing: -1px;
   font-variant-ligatures: none; -webkit-font-smoothing: antialiased; }
 #line span { margin: 0 calc(10 * var(--u)); paint-order: stroke fill;
@@ -36,6 +36,7 @@ window.ready = document.fonts.load('700 16px "Space Grotesk"').then(set => {
   root.setProperty('--bg', p.background);
   root.setProperty('--fg', p.text);
   root.setProperty('--accent', p.accent);
+  root.setProperty('--top', CUES.top);  // render.py CAPTION_TOP: scenes draw nothing from here down
   root.setProperty('--u', Math.min(CUES.width, CUES.height) / 1080 + 'px');
   Object.assign(document.body.style, { width: CUES.width + 'px', height: CUES.height + 'px' });
   return set.length > 0;

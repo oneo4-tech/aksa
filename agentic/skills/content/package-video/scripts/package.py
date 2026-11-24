@@ -5,9 +5,12 @@ Usage: uv run agentic/skills/content/package-video/scripts/package.py CHANNEL N 
 Reads, in the channel workspace's videos/<N>/:
 
   metadata.json        written by package-video: title, hook (the description's first line),
-                       chapters (a list of {scene, title}; empty for a Short), tags, hashtags,
-                       paid_promotion (null, or the sponsor sentence), and for a Short related,
-                       the number of its long-form video
+                       about (ABOUT sentences: what the video covers, and for whom), takeaways
+                       (TAKEAWAYS lines: what the viewer takes away), chapters (a list of {scene, title}; empty for a Short), tags, hashtags,
+                       paid_promotion (null, or the sponsor sentence), references (REFERENCES
+                       key concepts as {concept, url}, such as {"concept": "Mutation testing",
+                       "url": "https://pitest.org/"}, each url a citations.json source url or its
+                       site root), and for a Short related, the number of its long-form video
   script.json          from write-video-script: type (long-form or short)
   render/scenes.json   from render.py: fps and per scene its frames; scenes play end to end,
                        so a chapter starts where its scene starts
@@ -19,17 +22,23 @@ videos/<N>/packaging.json (title, description, chapters as {at, title}, tags, ha
 paid_promotion true or false, video_url, and for a Short related_video), the values the
 owner pastes into YouTube Studio.
 
-The description: the hook; for a long-form its chapters, for a Short "Full video: <URL>"
-(the long-form's video_url from its packaging.json); "Code: <demo link>"; "Sources:" with
-each claim and its text-fragment link; the disclosure lines (the synthetic narration voice,
-and the paid promotion or "No paid promotion."); the hashtags.
+The description: the hook; the about paragraph, then "What you will take away:" with each
+takeaway as a "- " line; for a long-form its chapters, for a Short "Full video: <URL>"
+(the long-form's video_url from its packaging.json); "Code: <demo link>", then after a blank
+line "AI kit: <demo link>/ai-kit", the rules, skill, and scripts build-video-demo puts there;
+"References:" with each key concept and its link (per-claim sources stay in the demo README,
+not the description); the disclosure lines (the synthetic narration voice,
+and the paid promotion or "No paid promotion."); the hashtags, the first three most important,
+since YouTube shows the first three above the title.
 
 Refuses (exit 3), naming every problem at once: a blank title or hook, one over title_max, or a
-banned phrase in the title, hook, or a chapter title; a long-form's chapters not starting
+banned phrase in the title, hook, about, a takeaway, or a chapter title; an about outside ABOUT
+sentences; takeaways outside TAKEAWAYS lines, or one empty; a long-form's chapters not starting
 at scene 1 (00:00), fewer than MIN_CHAPTERS, not ascending, naming a scene not rendered, or
 shorter than MIN_CHAPTER_SECONDS; a Short with chapters, or whose long-form has no
-video_url yet; tags outside TAGS; more than MAX_HASHTAGS hashtags, or one not # and one
-word; angle brackets anywhere (YouTube rejects them); a description over DESCRIPTION_MAX
+video_url yet; references outside REFERENCES, or one whose url is not a citations.json
+source url or that url's site root (scheme and host); tags outside TAGS; hashtags outside HASHTAGS (YouTube ignores them all past
+fifteen), one not # and one word, or one repeated; angle brackets anywhere (YouTube rejects them); a description over DESCRIPTION_MAX
 characters; demo.json without a link; citations missing or not all verified.
 
 --video-url URL, once the video is published (a youtube.com/watch, youtube.com/shorts, or
@@ -49,6 +58,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 sys.path.insert(0, str(REPO_ROOT / "agentic" / "scripts"))
@@ -63,14 +73,19 @@ import youtube_channel
 MIN_CHAPTERS = 3
 MIN_CHAPTER_SECONDS = 10
 TAGS = (5, 8)
-MAX_HASHTAGS = 3
+HASHTAGS = (8, 15)
+REFERENCES = (2, 5)
+ABOUT = (2, 4)  # sentences of the about paragraph
+TAKEAWAYS = (3, 5)  # lines the viewer takes away
+TAKE_AWAY = "What you will take away:"
 DESCRIPTION_MAX = 5000
 VOICE = "Narration uses a synthetic AI voice."
+MUSIC = "Music: an AI-generated ambient bed."
 NO_PROMOTION = "No paid promotion."
 HASHTAG = re.compile(r"#\w+")
 VIDEO_ID = r"[A-Za-z0-9_-]{11}"
 VIDEO_URL = re.compile(rf"https://(www\.)?youtube\.com/(watch\?v=|shorts/){VIDEO_ID}|https://youtu\.be/{VIDEO_ID}")
-FIELDS = ["title", "hook", "chapters", "tags", "hashtags", "paid_promotion"]
+FIELDS = ["title", "hook", "about", "takeaways", "chapters", "tags", "hashtags", "paid_promotion", "references"]
 
 
 class BadInput(Exception):
@@ -96,9 +111,9 @@ def metadata_problems(meta, kind: str) -> list[str]:
         return ["must be a JSON object"]
     fields = FIELDS + (["related"] if kind == "short" else [])
     problems = [f"{field}: missing" for field in fields if field not in meta]
-    texts = {"title": meta.get("title", ""), "hook": meta.get("hook", "")}
+    texts = {"title": meta.get("title", ""), "hook": meta.get("hook", ""), "about": meta.get("about", "")}
     problems += [f"{field}: must be a string" for field, value in texts.items() if not isinstance(value, str)]
-    for field in ["tags", "hashtags"]:
+    for field in ["takeaways", "tags", "hashtags"]:
         value = meta.get(field, [])
         if not (isinstance(value, list) and all(isinstance(item, str) for item in value)):
             problems.append(f"{field}: must be a list of strings")
@@ -108,6 +123,12 @@ def metadata_problems(meta, kind: str) -> list[str]:
     )
     if not ok:
         problems.append("chapters: must be a list of {scene: number, title: text}")
+    references = meta.get("references", [])
+    ok = isinstance(references, list) and all(
+        isinstance(r, dict) and isinstance(r.get("concept"), str) and isinstance(r.get("url"), str) for r in references
+    )
+    if not ok:
+        problems.append("references: must be a list of {concept, url}, the key concepts and their links")
     promotion = meta.get("paid_promotion")
     if promotion is not None and not (isinstance(promotion, str) and promotion.strip()):
         problems.append("paid_promotion: must be null or the sponsor sentence")
@@ -160,6 +181,26 @@ def chapter_times(chapters: list[dict], rendered: dict) -> tuple[list[dict], lis
     return [{"at": timestamp(t), "title": c["title"]} for c, t in zip(chapters, times, strict=True)], problems
 
 
+def site_root(url: str) -> str:
+    """A url's scheme and host with a trailing slash, such as https://www.satisfice.com/."""
+    parts = urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}/"
+
+
+def reference_problems(references: list[dict], claims: list[dict]) -> list[str]:
+    """Every rule the key-concept references break: their count, and links to pages the research cited."""
+    problems = []
+    if not REFERENCES[0] <= len(references) <= REFERENCES[1]:
+        problems.append(f"references: {len(references)}, need {REFERENCES[0]} to {REFERENCES[1]} key concepts")
+    allowed = {c["url"].rstrip("/") for c in claims} | {site_root(c["url"]).rstrip("/") for c in claims}
+    for ref in references:
+        if ref["url"].rstrip("/") not in allowed:
+            problems.append(
+                f"references: '{ref['concept']}' {ref['url']} is not a citations.json source page or its site root"
+            )
+    return problems
+
+
 def package(meta: dict, kind: str, rendered: dict, demo, claims, related_url, config: dict) -> tuple[dict, list[str]]:
     """The packaging record, and every rule it breaks (pure)."""
     problems = []
@@ -170,9 +211,17 @@ def package(meta: dict, kind: str, rendered: dict, demo, claims, related_url, co
         problems.append(f"title: over {config['title_max']} characters ({len(title)})")
     if not meta["hook"].strip():
         problems.append("hook: empty")
-    named = [("title", title), ("hook", meta["hook"])] + [
-        (f"chapter '{c['title']}'", c["title"]) for c in meta["chapters"]
-    ]
+    about = meta["about"].strip()
+    if not ABOUT[0] <= (count := len(re.findall(r"[^.!?]+[.!?]", about))) <= ABOUT[1]:
+        problems.append(f"about: {count} sentences; need {ABOUT[0]} to {ABOUT[1]}: what the video covers, and for whom")
+    takeaways = [line.strip() for line in meta["takeaways"]]
+    if not TAKEAWAYS[0] <= len(takeaways) <= TAKEAWAYS[1]:
+        problems.append(f"takeaways: {len(takeaways)}, need {TAKEAWAYS[0]} to {TAKEAWAYS[1]}")
+    if not all(takeaways):
+        problems.append("takeaways: a line is empty")
+    named = [("title", title), ("hook", meta["hook"]), ("about", about)]
+    named += [(f"takeaway '{line}'", line) for line in takeaways]
+    named += [(f"chapter '{c['title']}'", c["title"]) for c in meta["chapters"]]
     for field, text in named:
         problems += [f"{field}: banned phrase '{p}'" for p in youtube_channel.banned_phrases(text, config)]
     if kind == "short":
@@ -190,9 +239,14 @@ def package(meta: dict, kind: str, rendered: dict, demo, claims, related_url, co
     tags, hashtags = meta["tags"], meta["hashtags"]
     if not TAGS[0] <= len(tags) <= TAGS[1]:
         problems.append(f"tags: {len(tags)}, need {TAGS[0]} to {TAGS[1]}")
-    if len(hashtags) > MAX_HASHTAGS:
-        problems.append(f"hashtags: {len(hashtags)}, at most {MAX_HASHTAGS}")
+    if not HASHTAGS[0] <= len(hashtags) <= HASHTAGS[1]:
+        problems.append(f"hashtags: {len(hashtags)}, need {HASHTAGS[0]} to {HASHTAGS[1]}")
     problems += [f"hashtag {tag!r}: must be # and one word" for tag in hashtags if not HASHTAG.fullmatch(tag)]
+    seen = set()
+    for tag in hashtags:
+        if tag.lower() in seen:
+            problems.append(f"hashtag {tag!r}: repeated")
+        seen.add(tag.lower())
     link = demo.get("link") if isinstance(demo, dict) else None
     if not link:
         problems.append("demo.json: missing or without a link; build-video-demo writes it")
@@ -202,18 +256,25 @@ def package(meta: dict, kind: str, rendered: dict, demo, claims, related_url, co
         problems += [f"citations: {p}" for p in evidence.gate_problems(claims)]
     if any(problem.startswith("citations") for problem in problems):
         claims = []
+    else:
+        problems += reference_problems(meta["references"], claims)
 
     promotion = meta["paid_promotion"]
     disclosure = (
-        VOICE + "\n" + (f"Includes paid promotion: {promotion.strip().rstrip('.')}." if promotion else NO_PROMOTION)
+        VOICE
+        + "\n"
+        + MUSIC
+        + "\n"
+        + (f"Includes paid promotion: {promotion.strip().rstrip('.')}." if promotion else NO_PROMOTION)
     )
-    parts = [meta["hook"].strip()]
+    parts = [meta["hook"].strip(), about, "\n".join([TAKE_AWAY, *(f"- {line}" for line in takeaways)])]
     if kind == "short":
         parts.append(f"Full video: {related_url}")
     else:
         parts.append("\n".join(f"{c['at']} {c['title']}" for c in chapters))
     parts.append(f"Code: {link}")
-    parts.append("Sources:\n" + "\n".join(f"- {c['claim']} {c['link']}" for c in claims))
+    parts.append(f"AI kit: {link}/ai-kit")
+    parts.append("References:\n" + "\n".join(f"- {r['concept']}: {r['url']}" for r in meta["references"]))
     parts.append(disclosure)
     if hashtags:
         parts.append(" ".join(hashtags))

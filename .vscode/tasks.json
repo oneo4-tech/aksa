@@ -18,7 +18,7 @@
       "command": "claude",
       "icon": { "id": "sparkle", "color": "terminal.ansiGreen" },
       "presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": false, "close": false },
-      "runOptions": { "runOn": "folderOpen" },
+      "runOptions": { "runOn": "default" },
       "problemMatcher": []
     },
     {
@@ -58,13 +58,41 @@
       "problemMatcher": []
     },
     {
+      "label": "DeepSeek",
+      "detail": "Deep Code CLI with DeepSeek key from .env",
+      "type": "shell",
+      "command": "set -a && . ./.env && set +a && DEEPCODE_API_KEY=\"$DEEPSEEK_API_KEY\" deepcode",
+      "icon": { "id": "sparkle", "color": "terminal.ansiBlue" },
+      "presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": false, "close": false },
+      "problemMatcher": []
+    },
+    {
+      "label": "Hermes - Local LLM",
+      "detail": "Hermes Agent interactive chat with local LLM",
+      "type": "shell",
+      "command": "hermes chat",
+      "icon": { "id": "sparkle", "color": "terminal.ansiCyan" },
+      "presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": false, "close": false },
+      "runOptions": { "runOn": "default" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Pi - NMI",
+      "detail": "PI Agent Harness CLI with NVIDIA API key",
+      "type": "shell",
+      "command": "pi --model nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "icon": { "id": "sparkle", "color": "terminal.ansiWhite" },
+      "presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": false, "close": false },
+      "problemMatcher": []
+    },
+    {
       "label": "Terminal",
       "detail": "Launch terminal with venv activated, show Python version, and keep open",
       "type": "shell",
       "command": "source .venv/bin/activate && python --version && exec zsh",
       "icon": { "id": "terminal", "color": "terminal.ansiYellow" },
       "presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": false, "close": false },
-      "runOptions": { "runOn": "folderOpen" },
+      "runOptions": { "runOn": "default" },
       "problemMatcher": []
     }
   ]

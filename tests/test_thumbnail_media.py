@@ -8,7 +8,7 @@ import zlib
 from pathlib import Path
 
 import pytest
-from test_thumbnail import SUBJECT, TEXT, answer, thumbnail, video
+from test_thumbnail import SUBJECT, TEXTS, answer, code_args, layout_args, thumbnail, video
 
 ISSUE = "https://github.com/oneo4-tech/aksa/issues/28"
 pytestmark = [
@@ -69,7 +69,7 @@ def pixels(data):
 def test_each_layout_composes_at_the_youtube_size_under_the_upload_limit(tmp_path, tools, monkeypatch, capsys, layout):
     folder = video(tmp_path)
     monkeypatch.setenv(thumbnail.KEY_VARIABLE, "fake-key-not-real")
-    argv = ["example", "14", "--text", TEXT, "--subject", SUBJECT, "--layout", layout]
+    argv = ["example", "14", "--text", "Mocks lie?", "--subject", SUBJECT, *layout_args(tmp_path, layout)]
     assert thumbnail.main(argv, post=lambda body, key: answer(disc()), root=tmp_path) == 0
     report = json.loads(capsys.readouterr().out)
     data = (folder / report["file"]).read_bytes()
@@ -77,3 +77,28 @@ def test_each_layout_composes_at_the_youtube_size_under_the_upload_limit(tmp_pat
     assert len(data) == report["bytes"] <= thumbnail.LIMIT
     if out := os.environ.get("THUMBNAIL_OUT"):  # keep the result to look at
         Path(out, f"{layout}{Path(report['file']).suffix}").write_bytes(data)
+
+
+def test_text_too_long_for_the_least_cap_height_is_refused(tmp_path, tools, monkeypatch, capsys):
+    folder = video(tmp_path)
+    monkeypatch.setenv(thumbnail.KEY_VARIABLE, "fake-key-not-real")
+    argv = ["example", "14", "--text", "Unbelievably Overcomplicated?", "--subject", SUBJECT, "--layout", "split"]
+    assert thumbnail.main(argv, post=lambda body, key: answer(disc()), root=tmp_path) == 2
+    assert "cap height" in capsys.readouterr().err
+    assert not (folder / "thumbnail.png").exists() and not (folder / "thumbnail.jpg").exists()
+
+
+def test_free_candidates_compose_each_marker_and_the_contact_sheet(tmp_path, tools, capsys):
+    folder = video(tmp_path)
+    texts = [a for t in TEXTS for a in ("--text", t)]
+    markers = [a for m in thumbnail.MARKERS for a in ("--marker", m)]
+    argv = ["example", "14", *texts, *markers, *code_args(tmp_path), "--candidates", "3"]
+    assert thumbnail.main(argv, post=None, root=tmp_path) == 0
+    report = json.loads(capsys.readouterr().out)
+    for entry in report["candidates"]:
+        assert pixels((folder / entry["file"]).read_bytes()) == (3840, 2160)
+    width, height = pixels((folder / report["contact_sheet"]).read_bytes())
+    assert width == 3840 and height < 2160
+    if out := os.environ.get("THUMBNAIL_OUT"):  # keep the results to look at
+        for name in [e["file"] for e in report["candidates"]] + [report["contact_sheet"]]:
+            Path(out, name).write_bytes((folder / name).read_bytes())

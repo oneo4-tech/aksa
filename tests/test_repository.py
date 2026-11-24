@@ -2,6 +2,7 @@
 
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -198,3 +199,26 @@ def test_decision_areas_are_listed():
     allowed = set(re.findall(r"`([a-z-]+)`", header.split("- Areas:", 1)[1].split("\n", 1)[0]))
     used = {area.strip() for row in decision_rows(DECISIONS) for area in row[3].split(",")}
     assert used <= allowed, f"unlisted areas: {used - allowed}"
+
+
+def command_scripts() -> list[Path]:
+    """Scripts that define main(); library modules without one are exempt."""
+    scripts = [*(ROOT / "agentic" / "scripts").glob("*.py"), *(ROOT / "agentic" / "skills").glob("**/scripts/*.py")]
+    return sorted(path for path in scripts if re.search(r"^def main\(", path.read_text(), re.MULTILINE))
+
+
+@pytest.mark.parametrize("script", command_scripts(), ids=lambda path: path.name)
+def test_command_script_runs_main(script):
+    # Without the guard, `uv run <script>` imports it, checks nothing, and exits 0.
+    assert re.search(r'^if __name__ == "__main__":\n    sys\.exit\(main\(', script.read_text(), re.MULTILINE), (
+        f"{script.relative_to(ROOT)} defines main() but never calls it when run as a command"
+    )
+
+
+def test_evidence_help_prints_usage():
+    script = ROOT / "agentic" / "skills" / "content" / "research-video" / "scripts" / "evidence.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"], check=False, capture_output=True, text=True, timeout=60
+    )
+    assert result.returncode == 0, result.stderr
+    assert "usage:" in result.stdout and "citations.json" in result.stdout

@@ -224,3 +224,7 @@ def main(
     for claim in missing:
         print(f"refused: {claim['id']}: quote not found on {claim['url']}", file=sys.stderr)
     return 1 if failed else 3 if missing else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

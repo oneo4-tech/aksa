@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- Scene kind "compare": two columns, left and right (stacked on a Short), joined by a divider that draws in as
+     the first column heading arrives. Each column heading and item enters at its own cue, so the sides build as the
+     narration alternates; text in `backticks` shows as code in Fira Code. render.py fills the placeholders. -->
+<meta charset="utf-8">
+<style>
+/*{{fonts}}*/
+/*{{css}}*/
+.column { position: absolute; top: calc(260 * var(--u)); bottom: var(--floor); width: calc(50% - var(--pad) - 50 * var(--u));
+  display: flex; flex-direction: column; gap: calc(34 * var(--u)); overflow: hidden; font-size: calc(42 * var(--u)); }
+#left { left: var(--pad); }
+#right { right: var(--pad); }
+[data-shape="tall"] .column { left: var(--pad); right: var(--pad); width: auto; }
+/* Stacked on a Short: the two columns share the room from 420u down to the caption band's floor, 40u apart. */
+[data-shape="tall"] #left { top: calc(420 * var(--u)); bottom: calc(50% + var(--floor) / 2 - 190 * var(--u)); }
+[data-shape="tall"] #right { top: calc(50% - var(--floor) / 2 + 230 * var(--u)); bottom: var(--floor); }
+.column h2 { font-size: 1.45em; font-weight: 700; color: var(--accent); opacity: 0; }
+.item { display: flex; gap: calc(22 * var(--u)); align-items: baseline; font-weight: 600; line-height: 1.3; opacity: 0; }
+.item::before { content: ''; flex: none; width: calc(14 * var(--u)); height: calc(14 * var(--u)); border-radius: 50%;
+  background: var(--accent); transform: translateY(-0.15em); }
+.item code { font-family: 'Fira Code', monospace; font-weight: 400; font-size: 0.9em; color: var(--warn);
+  background: var(--panel); border: 2px solid var(--line); border-radius: calc(8 * var(--u)); padding: 0 0.3em; }
+.divider { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+</style>
+<body data-kind="compare">
+<div id="stage"><div id="camera">
+  <div class="grid"></div>
+  <div class="brand" id="brand"></div>
+  <h1 id="heading"></h1>
+  <div class="column" id="left"></div>
+  <div class="column" id="right"></div>
+</div></div>
+<script>
+/*{{cues}}*/
+/*{{js}}*/
+// Text with `code` spans: built with textContent only.
+function rich(text, parent) {
+  text.split('`').forEach((part, i) => { if (part) make(i % 2 ? 'code' : 'span', '', part, parent); });
+}
+
+function build() {
+  const u = Math.min(CUES.width, CUES.height) / 1080, wide = CUES.width > CUES.height;
+  ['left', 'right'].forEach(side => {
+    const box = $(side), column = CUES[side];
+    enter(make('h2', '', column.heading.text, box), column.heading.at, 'up');
+    column.items.forEach(item => {
+      const row = make('div', 'item', undefined, box);
+      rich(item.text, row);
+      enter(row, item.at, 'up');
+    });
+    // Fit: a long column shrinks its text until it fits its box.
+    for (let size = 42 * u; box.scrollHeight > box.clientHeight && size > 22 * u; size -= u) box.style.fontSize = size + 'px';
+  });
+  const svg = svgIn($('camera'), 'divider'), l = $('left').getBoundingClientRect(), r = $('right').getBoundingClientRect();
+  const first = Math.min(CUES.left.heading.at, CUES.right.heading.at);
+  const d = wide ? `M${(l.right + r.left) / 2} ${l.top} V${l.bottom}` : `M${l.left} ${(l.bottom + r.top) / 2} H${l.right}`;
+  stroke(svg, d, CUES.palette.accent, 3 * u, first, M.wipe * 2).style.opacity = 0.6;
+}
+</script>
+</body>

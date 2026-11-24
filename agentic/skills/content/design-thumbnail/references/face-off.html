@@ -1,20 +1,24 @@
 <!doctype html>
-<!-- Layout "face-off": the art left, a deep red divider, the text right one word per line, alternating
-     colours. thumbnail.py fills the placeholders. -->
+<!-- Layout "face-off": the 16:9 art fills the frame with two characters facing each other, one filling each half;
+     the text's first half over the left, its second (the key) over the right, along the top over a field-coloured
+     scrim, with a warm white VS on the red marker disc between them. thumbnail.py fills the placeholders. -->
 <meta charset="utf-8">
 <style>
 /*{{fonts}}*/
 /*{{css}}*/
 /*{{palette}}*/
-.art { left: 10px; top: 50px; width: 640px; height: 640px; }
-.divider { left: 650px; top: -40px; width: 18px; height: 800px; transform: rotate(4deg); }
-#text { left: 710px; top: 50px; width: 520px; height: 620px; }
+.scrim { background: linear-gradient(180deg, var(--field-2) 0%, color-mix(in srgb, var(--field-2) 70%, transparent) 22%, transparent 40%); }
+#text { left: 36px; top: 16px; width: 1208px; height: 220px; display: grid; grid-template-columns: 1fr 1fr;
+  align-items: center; column-gap: 120px; }
+#text .line:last-child { justify-self: end; }
+.marker { left: 588px; top: 78px; width: 104px; height: 104px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 700; font-size: 44px; letter-spacing: -0.02em; color: var(--fg); }
 </style>
-<body data-layout="face-off">
-<div class="grid"></div>
-<div class="art"><img src="{{art}}" alt=""></div>
-<div class="shape divider"></div>
-<div class="fit" id="text" data-size="150"><!--{{text}}--></div>
+<body data-layout="face-off" class="wide">
+<!--{{art}}-->
+<div class="scrim"></div>
+<div class="fit" id="text" data-size="200" data-cols="2"><!--{{text}}--></div>
+<div class="marker">VS</div>
 <script>
 /*{{js}}*/
 </script>

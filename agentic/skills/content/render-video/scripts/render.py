@@ -5,42 +5,114 @@ Usage: uv run agentic/skills/content/render-video/scripts/render.py CHANNEL N
 Reads, in the channel workspace's videos/<N>/:
 
   script.json        written by write-video-script: type (long-form or short) and scenes, each
-                     with kind (title, points, code, terminal), heading, and visual or code
+                     with kind and heading and its kind's fields (Scene kinds, below)
   narration/NN.wav   written by narrate-video, one per scene, NN from 01
-  demo.mp4           the VHS recording from build-video-demo, when the video has one
+  demo-K.mp4         the VHS recording of the K-th terminal scene, from build-video-demo's record.py
+  demo.mp4           a single VHS recording of every terminal scene, read only when no demo-K.mp4 exists
   demo.json          from build-video-demo: folder, the demo's folder in the demo repository
-                     clone (channel.yaml demos.path), read for the files code scenes show
+                     clone (channel.yaml demos.path), read for the files code and split scenes show
 
 and writes render/scenes/NN.mp4, one silent H.264 clip per scene at FPS frames a second,
 1920x1080 for a long-form and 1080x1920 for a Short, and render/scenes.json, which it also
 prints: type, width, height, fps, and per scene its kind, source (html or demo), file,
 narration, seconds, frames, and lead (where the narration starts in the clip).
 
+Scene kinds and their fields (marks, link_at, takeaways_at, a kit file's at optional; lines counted from 1):
+
+  title, points, terminal  visual: title words, point lines, or terminal lines
+  code     code: a demo file; marks: [{"line": 7, "note": "patches the unit", "at": "patch"}]
+  split    left, right: {"code": "demo/checkout.py", "label": "The code", "marks": [...]}, marks
+           inside their side; hook (optional, 2 to 8 words): "This test has never failed"
+  compare  left, right: {"heading": "Checking", "items": ["...", "`assert x == 1`"]}
+  kit      "Take it to your agent" on the repo scene's GitHub card: repo: "oneo4-tech/testlab-demos";
+           path: "38-ai-test-mutation/ai-kit"; files: [{"path": "AGENTS.md", "use": "Paste into your
+           AGENTS.md or CLAUDE.md", "at": "rules"}, ...]; link_at: "description"; takeaways: ["...", ...];
+           takeaways_at: "takeaways"
+  intro    the long-form hook before the challenge: roles: ["Developers who let AI write tests", "Testers
+           who review that code"] (one to three, drawn as role cards); activity: "Spot the bug in two
+           AI-written tests" (the challenge line); stake: "They pass in CI." (a callout)
+  repo     the GitHub card introducing the AI kit before it is used: repo: "oneo4-tech/testlab-demos";
+           path: "38-ai-test-mutation/ai-kit"; files: ["AGENTS.md", "scripts/find_self_mocks.py", ...];
+           link_at: "description"
+  cta      the like, share, subscribe, and notification beat before the end: actions: ["like", "share",
+           "subscribe", "notify"] (each at most once, drawn in that order)
+
 Timing: whisper-cli (-ml 1 -sow -ojf, the base.en model as narrate-video uses) gives each
 narration word its start time. A scene lasts LEAD + its narration + TAIL, rounded up to
-whole frames. Each on-screen item (a title word, a point, a terminal line) appears at the
-start of the first of its words heard after the previous item's; an item none of whose
-words is heard appears at its share of the narration (item i of n at i/n). A code scene
-types its file in, then focuses the line naming the word heard, dimming the rest, and
-holds each focus at least FOCUS_HOLD seconds.
+whole frames. A word names a key or code name when equal to it or sharing its first STEM letters, a
+numeral by its words ("90" as ninety). A scene's heading appears at the first word heard in its own
+narration naming one of its key words (3 letters or more, not STOP words), so it never shows before the
+narration names one ("Bug one: it mocks the coupon logic" at "bug"); with none heard, at HEADING_AT. No drawn
+scene is blank for over BLANK_MAX seconds: when nothing else enters by then, the heading shows at HEADING_AT
+(filled), and a scene that would still be empty is refused. Each on-screen item (a title word, a point, a terminal line, a split panel by its
+label, a compare column's heading or item, a kit takeaway) appears at the start of the
+first of its words (matched whole) heard after the previous item's in its list; an item none of whose words is heard
+appears at its share of the narration (item i of n at i/n). Compare columns are separate lists, so they
+build in the order narrated. An intro brings in its roles, then its activity, then its stake, each at its
+leading key word when heard ("Developers", not "let" in an earlier question), else at any of its words.
+A kit (kit_cues) lights each file, in order, at the first heard word naming its at after the previous file's
+(else at its share of the narration), wipes in its link at link_at (default LINK_AT; unheard: after the
+files), and shows its takeaways last, after both: the first at its takeaways_at word, else at its own word,
+each cued only by words the takeaway before it lacks, so none shows at a word read in an earlier one.
+A cta brings in each action at the first heard word naming it (CTA_WORDS: like or likes, share, subscribe or
+subscribed, notification, notifications, or bell) after the action before's, else at its share.
+
+A code scene types its file in within TYPE_MAX seconds (the first scene, the cold open, shows it whole
+from its first frame), so the code is whole as the narrator starts on it, and no focus or mark starts
+before typing ends; then it focuses the line naming the word heard, dimming the rest, and holds each focus at least FOCUS_HOLD
+seconds; a word naming several lines moves the focus only down, to the first at or after it, so a word
+heard again does not pull it back up. A code scene shows at most ROWS lines (style guide: 14, 10 on a
+Short); a longer file scrolls with the focus, so the focused line and a line of context round it stay
+in view. Every line has the same box; the focus band wipes over it and the arrow points at its last
+character. Marks replace that word-driven focus: each focuses its line at the first heard word naming
+its at word after the previous mark's (else at its share), with its note in a chip beside the line over
+no code; earlier notes stay, dimmed. A split scene shows its two files side by side (stacked on a
+Short), SPLIT_ROWS lines in view a side, scrolling as code does; only marks focus its lines. As the
+first scene both files are whole from its first frame; later, each panel enters at its label's cue and
+its marks no earlier. A split's hook shows big over a veil from the first frame until the narration's first
+sentence ends (split_hook, at most HOOK_MAX seconds), then fades while the panels come forward; the heading,
+panels, and marks enter no earlier. A kit draws the repo card (entering at the lead, every file dim), lights only the current
+file with its use in a callout beside it (below the card on a Short), and lists the numbered takeaways beside
+(below) the card. A cta draws flat icons of its own (a thumb up, a share arrow, a bell, and a subscribe pill in
+the palette's deep red, syntax, with "Subscribe" in warm white; no YouTube logo), in a row (two by two on a
+Short), each entering at its cue, then doing one short move: a press, one pulse, or one bell swing. A repo card
+enters at the lead, lists each
+file at the first heard word naming one of its path's words (else one MOTION enter after the file before),
+and wipes in https://github.com/<repo>/tree/main/<path> at link_at (default LINK_AT; unheard: after the
+files). `backticked` text in compare items and kit takeaways shows as code.
 
 Picture: references/<kind>.html, one template per scene kind, with references/scene.css and
-references/scene.js, the neon-terminal theme coloured from channel.yaml palette. The
+references/scene.js, the neon-terminal theme coloured from channel.yaml palette. Every drawn
+scene keeps the palette background colour; with channel.yaml background (image: a path in the channel workspace,
+such as branding/backdrop.jpg; opacity; fit: cover or contain, the default; all validated by youtube_channel.load),
+every drawn scene shows that image embedded as a data URI, still and behind everything (backdrop): contain centres
+it at 70% of the frame's width (a Short's width inside its padding); cover fills the frame, cropped, under a scrim,
+a gradient of the palette background whose least alpha (scrim) keeps the text and accent colours at CONTRAST over
+the image's brightest possible pixel, white, at its opacity; panels stay opaque. The
 scene's cues are inlined as JSON; every animation is a Web Animation, so window.seek(t)
-sets any frame exactly. The system Chrome, through Playwright with software raster
+sets any frame exactly. A Short's scenes draw nothing in its caption band, from CAPTION_TOP of its height
+down, where assemble.py burns the captions: their content ends FLOOR_GAP pixels above it. Motion is medium and purposeful, tuned only in MOTION: each element enters
+with one short eased-out move at its cue, focus bands and links wipe in, earlier elements dim, and
+entrances start at least MOTION stagger seconds apart (staggered). The system Chrome, through Playwright with software raster
 (CHROME_ARGS), seeks and screenshots each frame, and ffmpeg encodes them. Fonts are the local files FONTS in RENDER_FONTS, else
 .cache/fonts in the home folder (README, Setup), embedded in the page: nothing loads from
 the network, so two renders give identical frames.
 
-Terminal scenes play demo.mp4 when it exists: in script order, each from where the
-previous one ended, for its own length, fitted inside the frame on the palette background
-and fading in and out like the drawn scenes; past the recording's end it shows the last
-second, its final frame held. Without demo.mp4, terminal scenes are drawn from visual.
+Terminal scenes play their recordings, fitted inside the frame on the palette background and
+fading in and out like the drawn scenes. With demo-K.mp4 files, the K-th terminal scene plays
+demo-K.mp4 whole: a clip longer than its scene is sped up to fit, at most MAX_SPEED times
+(longer is refused, so the tape or the script is fixed), and a shorter one holds its final
+frame. Every terminal scene needs its clip once any exists. Else, with demo.mp4 (an older
+recording, or one plan-shorts copied into a cut Short), terminal scenes play it in script
+order, each from where the previous one ended, for its own length; past the recording's end
+it shows the last second, its final frame held. With neither, terminal scenes are drawn from
+visual.
 
 Needs Google Chrome, ffmpeg, ffprobe, whisper-cli with its model, and the fonts (README, Setup).
 
 Exit codes: 0 every scene rendered, 1 a tool or file error, 2 bad input (an invalid script
-or channel, or a missing narration or demo file).
+or channel (youtube_channel.load refuses a missing background image or an invalid opacity or fit), a missing narration or demo file, a terminal clip over MAX_SPEED times its scene, or a scene with nothing
+to show within BLANK_MAX seconds).
 """
 
 import argparse
@@ -60,16 +132,50 @@ REPO_ROOT = Path(__file__).resolve().parents[5]
 sys.path.insert(0, str(REPO_ROOT / "agentic" / "scripts"))
 import youtube_channel
 
+sys.path.insert(0, str(REPO_ROOT / "agentic" / "skills" / "content" / "narrate-video" / "scripts"))
+import narrate
+
 REFERENCES = Path(__file__).resolve().parents[1] / "references"
 FPS = 30
 SIZES = {"long-form": (1920, 1080), "short": (1080, 1920)}
-KINDS = ["title", "points", "code", "terminal"]
+# A Short's burned captions (assemble.py, references/captions.html) start this share of its height down; its scenes
+# draw nothing below FLOOR_GAP pixels above that band, nor does a long-form below FLOOR pixels from its bottom.
+CAPTION_TOP = 0.64
+FLOOR_GAP, FLOOR = 40, 90
+ROWS = {SIZES["long-form"]: 14, SIZES["short"]: 10}  # code lines in view (style guide: at most 14, 10 on a Short)
+SPLIT_ROWS = {SIZES["long-form"]: 16, SIZES["short"]: 10}  # code lines in view on each side of a split
+KINDS = ["title", "points", "code", "terminal", "split", "compare", "kit", "intro", "repo", "cta"]
+# A cta's actions, in the order a script lists them, each with the heard words that bring in its icon.
+CTA_WORDS = {"like": {"like", "likes"}, "share": {"share"}, "subscribe": {"subscribe", "subscribed"},
+             "notify": {"notification", "notifications", "bell"}}  # fmt: skip
+LINK_AT = "description"  # a kit or repo link appears at this word unless the scene names its own link_at
+REPO = re.compile(r"[\w.-]+/[\w.-]+")  # a repo card's repo: owner/name
+SIDES = ["left", "right"]
+TEXT_FIELDS = {"title": ["visual"], "points": ["visual"], "terminal": ["visual"], "code": ["code"], "kit": ["path"],
+               "intro": ["activity", "stake"], "repo": ["path"]}  # fmt: skip
 LEAD = 0.4  # seconds of picture before the narration starts
 TAIL = 0.6  # and after it ends
 FADE = 0.3  # every clip fades in and out (style guide: fade transitions)
 TYPE_PER_CHAR = 0.012  # code typing speed, seconds a character, as the prototype
 TYPE_SHARE = 0.4  # typing takes at most this share of the narration
+TYPE_MAX = 0.6  # and at most this long, so the code is whole as the narrator starts on it and no focus waits
+MAX_SPEED = 2.0  # a terminal clip plays at most this much faster to fit its scene
+# Motion, the one place its intensity is tuned (scene.js reads it as CUES.motion): an element enters over enter
+# seconds, eased out, from offset (a share of its size) off its place; a focus band or link wipes in over wipe;
+# an earlier element dims over dim; entrances start at least stagger seconds apart.
+MOTION = {"enter": 0.4, "offset": 0.08, "wipe": 0.4, "dim": 0.3, "stagger": 0.15}
+# The channel's background image (channel.yaml background, validated by youtube_channel.load), embedded by type so
+# nothing loads from a network. A cover image gets a scrim of the palette background (scrim()) so text keeps the
+# style guide's CONTRAST; the scrim is SCRIM_EDGE darker at the top and bottom edges, where heading and captions sit.
+BACKDROP_TYPES = {".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+CONTRAST = 4.5
+SCRIM_EDGE = 0.2
 FOCUS_HOLD = 1.2  # a code focus stays at least this long before it moves
+HEADING_AT = 0.1  # a heading none of whose key words is heard shows this early
+HOOK_MAX = 3.0  # a split's hook leaves by this many seconds into the clip (split_hook)
+HOOK_WORDS = (2, 8)  # and has this many words, fewest and most
+BLANK_MAX = 1.0  # something besides the background shows within this many seconds of a scene's start (filled)
+STEM = 5  # a heard word names a code name sharing its first STEM letters: "rounded" names round
 JPEG_QUALITY = 92
 # Software raster: GPU raster gave slightly different pixels run to run; sRGB keeps palette colours exact.
 CHROME_ARGS = ["--disable-gpu", "--force-color-profile=srgb"]
@@ -81,7 +187,6 @@ MODEL_VARIABLE = "WHISPER_MODEL"
 WHISPER_MODEL = Path.home() / ".cache" / "whisper" / "ggml-base.en.bin"
 PLACEHOLDERS = ["/*{{fonts}}*/", "/*{{css}}*/", "/*{{cues}}*/", "/*{{js}}*/"]
 WORD = re.compile(r"[a-z0-9]+(?:'[a-z0-9]+)*")
-NAME = re.compile(r"[a-z]+")
 STOP = {"the", "and", "for", "with", "that", "this", "are", "was", "you", "not", "but", "its", "has"}
 # Names too common in code to point at one line; a spoken "assert" still focuses its line.
 CODE_WORDS = {"return", "import", "from", "with", "self", "none", "true", "false", "lambda", "yield"}
@@ -95,14 +200,16 @@ class ToolError(Exception):
     """Chrome, ffmpeg, ffprobe, whisper-cli, its model, or a font missing or failing: exit 1."""
 
 
-def words_from(transcript) -> list[dict]:
-    """Each heard word, lowercased, with its start and end in seconds, from whisper-cli -ojf JSON."""
+def words_from(transcript, split: Callable[[str], list[str]] | None = None) -> list[dict]:
+    """Each heard word, lowercased (or as split gives a segment's words), with its start and end in seconds,
+    from whisper-cli -ojf JSON."""
+    split = split or (lambda text: WORD.findall(text.lower()))
     try:
         segments = transcript["transcription"]
         heard = []
         for segment in segments:
             start, end = segment["offsets"]["from"] / 1000, segment["offsets"]["to"] / 1000
-            heard += [{"word": w, "start": start, "end": end} for w in WORD.findall(segment["text"].lower())]
+            heard += [{"word": w, "start": start, "end": end} for w in split(segment["text"])]
         return heard
     except (KeyError, TypeError, AttributeError):
         raise ToolError("whisper-cli wrote JSON without transcription offsets and text") from None
@@ -127,30 +234,162 @@ def _keys(text: str) -> set[str]:
 
 def cue_times(items: list[str], words: list[dict], narration: float) -> list[float]:
     """When each item appears, in seconds from the clip's start: at its first heard word, else its share."""
-    times, position = [], 0
+    return _cues(items, words, narration)[0]
+
+
+def _cues(items, words, narration, position=0, start=LEAD, distinct=False, lead=False) -> tuple[list[float], int]:
+    """cue_times for a list that starts at heard word position and time start (an unheard item at its share of the
+    narration left after start), with the position after its last heard item. With distinct, an item is cued only
+    by its key words the item before it lacks (all of them when it has no other), so a word read in one item does
+    not bring in the next. With lead, an item is cued at its leading key word when heard, else at any of its keys."""
+    times, before = [], set()
     for index, item in enumerate(items):
         keys = _keys(item)
-        hit = next((j for j in range(position, len(words)) if words[j]["word"] in keys), None)
+        keys, before = (keys - before if distinct and keys - before else keys), keys
+        first = next((w for w in WORD.findall(item.lower()) if w in keys), None)
+        hit = next((j for j in range(position, len(words)) if lead and words[j]["word"] == first), None)
+        hit = next((j for j in range(position, len(words)) if words[j]["word"] in keys), None) if hit is None else hit
         if hit is None:
-            at = LEAD + narration * index / len(items)
+            at = start + (LEAD + narration - start) * index / len(items)
         else:
             at, position = LEAD + words[hit]["start"], hit + 1
-        times.append(round(max([at, *times[-1:]]), 3))
-    return times
+        times.append(round(max([at, start, *times[-1:]]), 3))
+    return times, position
+
+
+def kit_cues(scene: dict, words: list[dict], narration: float) -> dict:
+    """The "Take it to your agent" kit on the repo card: each file lit, with its use, at the first heard word naming
+    its at after the previous file's (else at its share of the narration); the link at its link_at word (default
+    LINK_AT; unheard: after the files); and the takeaways last, after both: the first at its takeaways_at word,
+    else at its own word, later ones at their own words (distinct, so no takeaway shows at a word of the one before)."""
+
+    def heard_from(cue: str, position: int) -> int | None:
+        names = narrate.spoken_split(cue)
+        return next((j for j in range(position, len(words)) if _heard(words[j], names)), None)
+
+    shown, times, position = scene["files"], [], 0
+    for index, file in enumerate(shown):
+        hit = heard_from(file["at"], position) if "at" in file else None
+        when = LEAD + narration * index / len(shown) if hit is None else LEAD + words[hit]["start"]
+        position = position if hit is None else hit + 1
+        times.append(round(max([when, *times[-1:]]), 3))
+    hit = heard_from(scene.get("link_at", LINK_AT), 0)
+    link = round(times[-1] + MOTION["enter"] if hit is None else LEAD + words[hit]["start"], 3)
+    start = max(times[-1], link)
+    position = max(position, next((j for j, w in enumerate(words) if LEAD + w["start"] >= start), len(words)))
+    cued = "takeaways_at" in scene and (hit := heard_from(scene["takeaways_at"], position)) is not None
+    if cued:
+        position, start = hit, max(start, round(LEAD + words[hit]["start"], 3))
+    takeaways = _cues(scene["takeaways"], words, narration, position, start, distinct=True)[0]
+    takeaways[0] = start if cued else takeaways[0]  # a cued list's first item shows at its cue word
+    return _card(scene, link) | {
+        "files": [{"text": f["path"], "use": f["use"], "at": at} for f, at in zip(shown, times)],
+        "takeaways": [{"text": t, "at": at} for t, at in zip(scene["takeaways"], takeaways)],
+    }
+
+
+def cta_cues(actions: list[str], words: list[dict], narration: float) -> list[dict]:
+    """Each action's icon at the first heard word after the previous action's that names it (CTA_WORDS), else at
+    its share of the narration, never before the action before it."""
+    times, position = [], 0
+    for index, name in enumerate(actions):
+        hit = next((j for j in range(position, len(words)) if words[j]["word"] in CTA_WORDS[name]), None)
+        when = LEAD + narration * index / len(actions) if hit is None else LEAD + words[hit]["start"]
+        position = position if hit is None else hit + 1
+        times.append(round(max([when, *times[-1:]]), 3))
+    return [{"name": name, "at": at} for name, at in zip(actions, times)]
+
+
+def _card(scene: dict, link: float) -> dict:
+    """A GitHub card's cues, shared by repo and kit: the card at the lead and its full link at link seconds."""
+    path = scene["path"].strip("/")
+    return {
+        "repo": scene["repo"],
+        "path": path,
+        "card": {"at": LEAD},
+        "link": {"text": f"https://github.com/{scene['repo']}/tree/main/{path}", "at": link},
+    }
+
+
+def repo_cues(scene: dict, words: list[dict]) -> dict:
+    """A repo card: the card at the lead, each file at the first heard word after the previous file's naming one of
+    its path's words the file before lacks (a name by its first STEM letters), else one entrance after the previous;
+    the link https://github.com/<repo>/tree/main/<path> at its link_at word (default LINK_AT), else after the files."""
+    times, position, before = [], 0, set()
+    for name in scene["files"]:
+        keys = _keys(name)
+        keys, before = (keys - before or keys), keys
+        hit = next((j for j in range(position, len(words)) if _heard(words[j], keys)), None)
+        if hit is None:
+            times.append(round((times[-1] if times else LEAD) + MOTION["enter"], 3))
+        else:
+            times.append(round(max([LEAD + words[hit]["start"], *times[-1:]]), 3))
+            position = hit + 1
+    names = narrate.spoken_split(scene.get("link_at", LINK_AT))
+    hit = next((w for w in words if _heard(w, names)), None)
+    link = round(times[-1] + MOTION["enter"] if hit is None else LEAD + hit["start"], 3)
+    return _card(scene, link) | {"files": [{"text": t, "at": at} for t, at in zip(scene["files"], times)]}
+
+
+def _names(heard: str, name: str) -> bool:
+    return heard == name or len(heard) >= STEM and heard[:STEM] == name[:STEM]
+
+
+def _heard(word: dict, names) -> bool:
+    return any(_names(h, n) for h in narrate.spoken_split(word["word"]) for n in names)
+
+
+def heading_time(heading: str, words: list[dict]) -> float:
+    """When the heading appears: at the first word heard in its scene naming one of its key words (a numeral by
+    its words, a name by its first STEM letters), so it never shows before the narration names one; at HEADING_AT
+    when none is heard."""
+    keys = [k for k in narrate.spoken_split(heading) if len(k) >= 3 and k not in STOP]
+    hit = next((w for w in words if _heard(w, keys)), None)
+    return HEADING_AT if hit is None else round(LEAD + hit["start"], 3)
 
 
 def focus_cues(lines: list[str], words: list[dict]) -> list[dict]:
-    """The code line to focus and when: the first line naming a heard word, held FOCUS_HOLD seconds."""
-    names = [{n for n in NAME.findall(line.lower()) if len(n) >= 4 and n not in CODE_WORDS} for line in lines]
+    """The code line to focus and when, held FOCUS_HOLD seconds: the line naming a heard word, a numeral by its
+    words (narrate.py), in reading order: of several, the first at or after the focus, else none."""
+    names = [{n for n in narrate.spoken_split(line) if len(n) >= 4 and n not in CODE_WORDS} for line in lines]
     focus, current, last = [], None, -math.inf
     for word in words:
-        line = next((i for i, found in enumerate(names) if word["word"] in found), None)
+        heard = [w for w in narrate.spoken_split(word["word"]) if len(w) >= 4]
+        found = [i for i, line in enumerate(names) if any(_names(h, n) for h in heard for n in line)]
+        ahead = [i for i in found if current is None or i >= current]
+        line = found[0] if len(found) == 1 else next(iter(ahead), None)
         at = LEAD + word["start"]
         if line is None or line == current or at - last < FOCUS_HOLD:
             continue
         focus.append({"line": line, "at": round(at, 3)})
         current, last = line, at
     return focus
+
+
+def mark_cues(marks: list[dict], words: list[dict], narration: float) -> list[dict]:
+    """Each mark's focus, in order: at the first heard word after the previous mark's naming its at word (as
+    code names, a numeral by its words), else at its share of the narration; line counted from 0."""
+    times, position = [], 0
+    for index, mark in enumerate(marks):
+        names = narrate.spoken_split(mark["at"])
+        hit = next((j for j in range(position, len(words)) if _heard(words[j], names)), None)
+        if hit is None:
+            when = LEAD + narration * index / len(marks)
+        else:
+            when, position = LEAD + words[hit]["start"], hit + 1
+        times.append(round(max([when, *times[-1:]]), 3))
+    return [{"line": m["line"] - 1, "at": t, "note": m["note"]} for m, t in zip(marks, times)]
+
+
+def scroll_tops(count: int, focus: list[dict], rows: int) -> list[int]:
+    """The first code line in view at each focus: the view scrolls only when the focused line, with a line of
+    context round it, would leave it, and never past the file's end."""
+    top, tops = 0, []
+    for cue in focus:
+        top = max(0, min(top, cue["line"] - 1), cue["line"] + 2 - rows)
+        top = min(top, max(count - rows, 0))
+        tops.append(top)
+    return tops
 
 
 def items(scene: dict) -> list[str]:
@@ -162,9 +401,10 @@ def items(scene: dict) -> list[str]:
 
 
 def palette(config: dict) -> dict:
-    """The theme colours from channel.yaml palette."""
+    """The theme colours from channel.yaml palette; syntax, the deep red, only fills large shapes (a cta's pill)."""
     colours = config["palette"]
-    return {"background": colours["background"], "text": colours["name"], "accent": colours["suffix"]}
+    return {"background": colours["background"], "text": colours["name"], "accent": colours["suffix"],
+            "syntax": colours["syntax"]}  # fmt: skip
 
 
 def scene_cues(scene: dict, index: int, words: list[dict], narration: float, size, config: dict, code: str | None):
@@ -181,37 +421,202 @@ def scene_cues(scene: dict, index: int, words: list[dict], narration: float, siz
         "narration": narration,
         "fade": FADE,
         "brand": config["name"],
-        "heading": scene["heading"],
+        "heading": {"text": scene["heading"], "at": heading_time(scene["heading"], words)},
         "palette": palette(config),
+        "motion": MOTION,
+        "floor": round(size[1] * (1 - CAPTION_TOP)) + FLOOR_GAP if size[1] > size[0] else FLOOR,
     }
+    if scene["kind"] == "kit":
+        return cues | kit_cues(scene, words, narration)
+    if scene["kind"] == "repo":
+        return cues | repo_cues(scene, words)
+    if scene["kind"] == "cta":
+        return cues | {"actions": cta_cues(scene["actions"], words, narration)}
+    if scene["kind"] == "intro":
+        # Roles, then the activity, then the stake, each at its leading key word as the narrator names it.
+        shown = [*scene["roles"], scene["activity"], scene["stake"]]
+        times = _cues(shown, words, narration, lead=True)[0]
+        timed = [{"text": t, "at": at} for t, at in zip(shown, times)]
+        return cues | {"roles": timed[:-2], "activity": timed[-2], "stake": timed[-1]}
+    if scene["kind"] == "compare":
+        # Each column on its own: its heading, then its items, each at its first heard word (cue_times), so the
+        # two sides alternate as the narration does.
+        for side in SIDES:
+            column = scene[side]
+            heading, *shown = cue_times([column["heading"], *column["items"]], words, narration)
+            cues[side] = {
+                "heading": {"text": column["heading"], "at": heading},
+                "items": [{"text": t, "at": at} for t, at in zip(column["items"], shown)],
+            }
+        return cues
+    if scene["kind"] == "split":
+        # The cold open shows both files whole from its first frame; a later split brings each panel in as the
+        # narration names its label. Only marks focus a split's lines, never before their panel is in.
+        # With a hook, nothing else enters before the hook leaves: the heading, the panels, and their marks wait.
+        hook = split_hook(scene, words) if "hook" in scene else 0.0
+        if "hook" in scene:
+            cues["hook"] = {"text": scene["hook"], "at": 0.0, "until": hook}
+            cues["heading"]["at"] = max(cues["heading"]["at"], hook)
+        enters = [None, None] if index == 1 else cue_times([scene[s]["label"] for s in SIDES], words, narration)
+        for side, enter in zip(SIDES, enters):
+            spec = scene[side]
+            view = code_view(spec["code"], code[side], spec.get("marks") or [], words, narration,
+                             rows=SPLIT_ROWS[tuple(size)], typed=False, scene=index)  # fmt: skip
+            enter = None if enter is None else max(enter, hook)
+            view["focus"] = [cue | {"at": max(cue["at"], enter or 0, hook)} for cue in view["focus"]]
+            cues[side] = {"label": spec["label"]} | view | ({} if enter is None else {"at": enter})
+        return cues
     if scene["kind"] == "code":
-        lines = code.expandtabs(4).rstrip("\n").splitlines()
-        typing = min(sum(len(line) for line in lines) * TYPE_PER_CHAR, narration * TYPE_SHARE)
-        return cues | {
-            "file": scene["code"],
-            "lines": lines,
-            "typing": round(typing, 3),
-            "focus": focus_cues(lines, words),
-        }
+        return cues | code_view(scene["code"], code, scene.get("marks"), words, narration, rows=ROWS[tuple(size)],
+                                typed=index != 1, scene=index)  # fmt: skip
     shown = items(scene)
     return cues | {"items": [{"text": t, "at": at} for t, at in zip(shown, cue_times(shown, words, narration))]}
 
 
-def plan(script: dict, narrations: list[float], heard: list[list[dict]], config: dict, codes: dict, demo):
-    """Each scene's clip: how long, drawn as HTML (with its cues) or cut from the demo (from where).
+def split_hook(scene: dict, words: list[dict]) -> float:
+    """When a split's hook leaves: as the narration's first sentence (of say, up to . ! ? or //) ends, its words
+    counted as whisper hears them, at most HOOK_MAX seconds into the clip (also when the sentence is unheard)."""
+    count = len(WORD.findall(re.split(r"[.!?]|//", scene.get("say", ""))[0].lower()))
+    end = LEAD + words[count - 1]["end"] if 0 < count <= len(words) else HOOK_MAX
+    return round(min(end, HOOK_MAX), 3)
 
-    demo is the recording's length in seconds, or None when the video has none.
+
+def code_view(name, code, marks, words, narration, rows, typed, scene) -> dict:
+    """A code view's cues: the file's lines, how long typing takes (0: whole from the first frame), the rows in
+    view, and each focus with the view's top line; marks, when given (a list, even empty), replace the
+    word-driven focus."""
+    lines = code.expandtabs(4).rstrip("\n").splitlines()
+    typing = min(sum(len(line) for line in lines) * TYPE_PER_CHAR, narration * TYPE_SHARE, TYPE_MAX) if typed else 0
+    typing = round(typing, 3)
+    if past := [m["line"] for m in marks or [] if m["line"] > len(lines)]:
+        raise BadInput(f"scene {scene}: marks: line {past[0]} is past the end of {name} ({len(lines)} lines)")
+    focus = focus_cues(lines, words) if marks is None else mark_cues(marks, words, narration)
+    # No band, arrow, or note before the code is whole: typing ends at LEAD + typing.
+    focus = [cue | {"at": round(max(cue["at"], LEAD + typing), 3)} for cue in focus]
+    tops = scroll_tops(len(lines), focus, rows)
+    return {
+        "file": name,
+        "lines": lines,
+        "typing": typing,
+        "rows": rows,
+        "focus": [cue | {"top": top} for cue, top in zip(focus, tops)],
+    }
+
+
+def _entrances(node) -> list[dict]:
+    """Every entrance in a scene's cues: each object with an at time (the heading, an item, a focus, a mark)."""
+    if isinstance(node, dict):
+        own = [node] if isinstance(node.get("at"), (int, float)) else []
+        return own + [e for value in node.values() for e in _entrances(value)]
+    return [e for value in node for e in _entrances(value)] if isinstance(node, list) else []
+
+
+def staggered(cues: dict) -> dict:
+    """The cues with every entrance starting at least MOTION stagger seconds after the one before it, in time
+    order, so only one element starts moving at a time."""
+    last = -math.inf
+    for entrance in sorted(_entrances(cues), key=lambda e: e["at"]):
+        entrance["at"] = last = round(max(entrance["at"], last + MOTION["stagger"]), 3)
+    return cues
+
+
+def filled(cues: dict, scene: int) -> dict:
+    """The cues with something on screen within BLANK_MAX seconds of the scene's start: when no entrance comes by
+    then, the heading shows at HEADING_AT (without heading text, the first entrance does). Refused when nothing
+    would still show by BLANK_MAX, such as a scene with no heading and no items."""
+    found = sorted(_entrances(cues), key=lambda e: e["at"])
+    if found and found[0]["at"] > BLANK_MAX:
+        heading = cues.get("heading")
+        (heading if heading and heading.get("text") else found[0])["at"] = HEADING_AT
+    if not found or min(e["at"] for e in found) > BLANK_MAX:
+        raise BadInput(
+            f"scene {scene}: nothing shows in its first {BLANK_MAX:g} s; give it a heading or an item"
+            " (write-video-script)"
+        )
+    return cues
+
+
+def _luminance(colour: list[float]) -> float:
+    """WCAG relative luminance of sRGB channels from 0 to 1."""
+    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in colour]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _rgb(colour: str) -> list[float]:
+    return [int(colour.lstrip("#")[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+
+
+def scrim(colours: dict, opacity: float) -> float:
+    """The least alpha of the palette background drawn over a cover image so the text and accent colours keep
+    CONTRAST over its brightest possible pixel, white. Browsers blend in sRGB, so under scrim alpha s each channel
+    of that pixel is b + (1 - s) * opacity * (1 - b), b the background's channel; s is the smallest step of 0.01
+    giving (L_text + 0.05) / (L_pixel + 0.05) >= CONTRAST for both colours (WCAG luminance L)."""
+    background = _rgb(colours["background"])
+    texts = [_luminance(_rgb(colours[c])) for c in ("text", "accent")]
+    for step in range(101):
+        s = step / 100
+        pixel = _luminance([b + (1 - s) * opacity * (1 - b) for b in background])
+        if all((t + 0.05) / (pixel + 0.05) >= CONTRAST for t in texts):
+            return s
+    return 1.0
+
+
+def backdrop(config: dict, workspace: Path) -> dict:
+    """The cues for the channel's background image behind every drawn scene, from channel.yaml background (image, a
+    path in the channel workspace, opacity, and fit, validated by youtube_channel.load): {"backdrop": {"image": a
+    data URI, "opacity", "fit"}}, or {} without one. fit "contain" (the default) centres the image; "cover" fills
+    the frame and adds "scrim": the palette background's alpha over it, at least scrim() in the middle and
+    SCRIM_EDGE more at the top and bottom edges, a gradient that keeps text at CONTRAST."""
+    spec = config.get("background")
+    if spec is None:
+        return {}
+    name = Path(spec["image"])
+    data = (workspace / name).read_bytes()
+    uri = f"data:{BACKDROP_TYPES[name.suffix.lower()]};base64,{base64.b64encode(data).decode()}"
+    shown = {"image": uri, "opacity": spec["opacity"], "fit": spec.get("fit", "contain")}
+    if shown["fit"] == "cover":
+        middle = scrim(palette(config), spec["opacity"])
+        shown["scrim"] = {"middle": middle, "edge": round(min(1.0, middle + SCRIM_EDGE), 3)}
+    return {"backdrop": shown}
+
+
+def fitted(clip: float, seconds: float, scene: int, name: str) -> float:
+    """How much faster a terminal clip plays to fit its scene: 1 when it fits, refused past MAX_SPEED."""
+    speed = clip / seconds
+    if speed > MAX_SPEED:
+        raise BadInput(
+            f"scene {scene}: {name} is {clip:.1f} s but the scene is {seconds:.1f} s, over {MAX_SPEED:g}x;"
+            " shorten the scene's section of demo.tape (build-video-demo) or lengthen its narration"
+            " (write-video-script)"
+        )
+    return round(speed, 3) if speed > 1 else 1.0
+
+
+def plan(script: dict, narrations: list[float], heard: list[list[dict]], config: dict, codes: dict, demo, clips=None):
+    """Each scene's clip: how long, drawn as HTML (with its cues), or played from a demo recording.
+
+    clips is the length in seconds of each terminal scene's own recording, demo-K.mp4, in order, or None;
+    demo is the single recording's length, or None when the video has none.
     """
-    size, scenes, demo_at = SIZES[script["type"]], [], 0.0
+    size, scenes, demo_at, terminal = SIZES[script["type"]], [], 0.0, 0
     for index, (scene, narration, words) in enumerate(zip(script["scenes"], narrations, heard), 1):
         frames = scene_frames(narration)
         entry = {"scene": index, "kind": scene["kind"], "frames": frames, "seconds": frames / FPS}
-        if scene["kind"] == "terminal" and demo is not None:
-            entry |= {"source": "demo", "start": round(min(demo_at, max(demo - 1.0, 0.0)), 3)}
+        if scene["kind"] == "terminal" and clips:
+            terminal += 1
+            name = f"demo-{terminal}.mp4"
+            speed = fitted(clips[terminal - 1], frames / FPS, index, name)
+            entry |= {"source": "demo", "clip": name, "start": 0.0, "speed": speed}
+        elif scene["kind"] == "terminal" and demo is not None:
+            start = round(min(demo_at, max(demo - 1.0, 0.0)), 3)
+            entry |= {"source": "demo", "clip": "demo.mp4", "start": start, "speed": 1.0}
             demo_at += frames / FPS
         else:
             code = codes.get(scene.get("code")) if scene["kind"] == "code" else None
-            entry |= {"source": "html", "cues": scene_cues(scene, index, words, narration, size, config, code)}
+            if scene["kind"] == "split":
+                code = {side: codes[scene[side]["code"]] for side in SIDES}
+            cues = scene_cues(scene, index, words, narration, size, config, code)
+            entry |= {"source": "html", "cues": staggered(filled(cues, index))}
         scenes.append(entry)
     return scenes
 
@@ -251,11 +656,15 @@ def encode_command(frames: Path, out: Path) -> list[str]:
     ]  # fmt: skip
 
 
-def clip_command(demo: Path, start: float, seconds: float, size, background: str, out: Path) -> list[str]:
-    """ffmpeg cutting seconds of the VHS recording from start, fitted into size, faded in and out."""
+def clip_command(
+    demo: Path, start: float, seconds: float, size, background: str, out: Path, speed: float = 1.0
+) -> list[str]:
+    """ffmpeg cutting seconds of the VHS recording from start, speed times faster, fitted into size, its final
+    frame held to the end, faded in and out."""
     width, height = size
     filters = ",".join(
-        [
+        [f"setpts=PTS/{speed:g}"] * (speed != 1)
+        + [
             f"fps={FPS}",
             f"scale={width}:{height}:force_original_aspect_ratio=decrease",
             f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=0x{background.lstrip('#')}",
@@ -282,11 +691,114 @@ def script_problems(script) -> list[str]:
         return problems + ["scenes: must be a non-empty list"]
     for index, scene in enumerate(scenes, 1):
         if not isinstance(scene, dict) or scene.get("kind") not in KINDS:
-            problems.append(f"scene {index}: kind: must be title, points, code, or terminal")
+            problems.append(f"scene {index}: kind: must be {', '.join(KINDS[:-1])}, or {KINDS[-1]}")
             continue
-        for field in ["heading", "code" if scene["kind"] == "code" else "visual"]:
-            if not (isinstance(scene.get(field), str) and scene[field].strip()):
+        for field in ["heading", *TEXT_FIELDS.get(scene["kind"], [])]:
+            if not _text(scene.get(field)):
                 problems.append(f"scene {index}: {field}: must be a non-empty string")
+        if scene["kind"] == "code":
+            problems += [f"scene {index}: {p}" for p in mark_problems(scene)]
+        if scene["kind"] == "split":
+            problems += [f"scene {index}: {p}" for p in split_problems(scene)]
+            hook = scene.get("hook")
+            if "hook" in scene and not (_text(hook) and HOOK_WORDS[0] <= len(hook.split()) <= HOOK_WORDS[1]):
+                problems.append(f"scene {index}: hook: must be {HOOK_WORDS[0]} to {HOOK_WORDS[1]} words")
+        if scene["kind"] == "compare":
+            problems += [f"scene {index}: {p}" for p in compare_problems(scene)]
+        if scene["kind"] == "intro" and not (_texts(scene.get("roles")) and len(scene["roles"]) <= 3):
+            problems.append(f"scene {index}: roles: must be a list of one to three non-empty strings")
+        if scene["kind"] in ("kit", "repo"):
+            if not (_text(scene.get("repo")) and REPO.fullmatch(scene["repo"])):
+                problems.append(f"scene {index}: repo: must be owner/name")
+            problems += [
+                f"scene {index}: {cue}: must be a non-empty string"
+                for cue in ["link_at", "takeaways_at"][: 2 if scene["kind"] == "kit" else 1]
+                if cue in scene and not _text(scene[cue])
+            ]
+        if scene["kind"] == "repo" and not _texts(scene.get("files")):
+            problems.append(f"scene {index}: files: must be a non-empty list of non-empty strings")
+        if scene["kind"] == "kit":
+            problems += [f"scene {index}: {p}" for p in kit_problems(scene)]
+        actions = scene.get("actions")
+        valid = isinstance(actions, list) and actions and all(isinstance(a, str) and a in CTA_WORDS for a in actions)
+        if scene["kind"] == "cta" and not (valid and len(set(actions)) == len(actions)):
+            problems.append(f"scene {index}: actions: must be a list of like, share, subscribe, or notify, each once")
+    return problems
+
+
+def kit_problems(scene: dict) -> list[str]:
+    """What is wrong with a kit's files (each path, use, and optional at) and takeaways."""
+    shown = scene.get("files")
+    if not (isinstance(shown, list) and shown):
+        problems = ["files: must be a non-empty list of path, use, and optional at"]
+    else:
+        problems = []
+        for number, file in enumerate(shown, 1):
+            if not isinstance(file, dict):
+                problems.append(f"files {number}: must be an object of path, use, and optional at")
+                continue
+            problems += [
+                f"files {number}: {f}: must be a non-empty string"
+                for f in ["path", "use", "at"]
+                if (f != "at" or f in file) and not _text(file.get(f))
+            ]
+    if not _texts(scene.get("takeaways")):
+        problems.append("takeaways: must be a non-empty list of non-empty strings")
+    return problems
+
+
+def split_problems(scene: dict) -> list[str]:
+    problems = []
+    for side in SIDES:
+        spec = scene.get(side)
+        if not isinstance(spec, dict):
+            problems.append(f"{side}: must be an object of code, label, and optional marks")
+            continue
+        problems += [f"{side}: {f}: must be a non-empty string" for f in ["code", "label"] if not _text(spec.get(f))]
+        problems += [f"{side}: {p}" for p in mark_problems(spec)]
+    return problems
+
+
+def compare_problems(scene: dict) -> list[str]:
+    problems = []
+    for side in SIDES:
+        column = scene.get(side)
+        if not isinstance(column, dict):
+            problems.append(f"{side}: must be an object of heading and items")
+            continue
+        if not _text(column.get("heading")):
+            problems.append(f"{side}: heading: must be a non-empty string")
+        if not _texts(column.get("items")):
+            problems.append(f"{side}: items: must be a non-empty list of non-empty strings")
+    return problems
+
+
+def _texts(value) -> bool:
+    return isinstance(value, list) and bool(value) and all(_text(v) for v in value)
+
+
+def _text(value) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def mark_problems(holder: dict, where: str = "marks") -> list[str]:
+    """What is wrong with the optional marks of a code scene or split side."""
+    marks = holder.get("marks")
+    if marks is None:
+        return []
+    if not isinstance(marks, list):
+        return [f"{where}: must be a list of line, note, and at"]
+    problems = []
+    for number, mark in enumerate(marks, 1):
+        if not isinstance(mark, dict):
+            problems.append(f"{where} {number}: must be an object of line, note, and at")
+            continue
+        line = mark.get("line")
+        if not (isinstance(line, int) and not isinstance(line, bool) and line >= 1):
+            problems.append(f"{where} {number}: line: must be a line number from 1")
+        problems += [
+            f"{where} {number}: {f}: must be a non-empty string" for f in ["note", "at"] if not _text(mark.get(f))
+        ]
     return problems
 
 
@@ -387,7 +899,8 @@ def read_fonts() -> dict[str, bytes]:
 
 def read_codes(script: dict, video: Path, config: dict, root: Path) -> dict[str, str]:
     """The text of each demo file a code scene shows, from the demo repository clone."""
-    shown = sorted({s["code"] for s in script["scenes"] if s["kind"] == "code"})
+    shown = {s["code"] for s in script["scenes"] if s["kind"] == "code"}
+    shown = sorted(shown | {s[side]["code"] for s in script["scenes"] if s["kind"] == "split" for side in SIDES})
     if not shown:
         return {}
     record = read_json(video / "demo.json", "missing; build-video-demo writes it")
@@ -409,10 +922,19 @@ def render(video: Path, script: dict, config: dict, root: Path, transcribe, shoo
     narrations = [narration_seconds(wav) for wav in wavs]
     codes = read_codes(script, video, config, root)
     fonts = font_css(read_fonts())
+    brand = backdrop(config, video.parents[1])
+    terminals = sum(scene["kind"] == "terminal" for scene in script["scenes"])
+    clips = [video / f"demo-{k}.mp4" for k in range(1, terminals + 1)]
+    if any(clip.is_file() for clip in clips) and (missing := [c.name for c in clips if not c.is_file()]):
+        raise BadInput(
+            f"{video}: {', '.join(missing)} missing, one recording per terminal scene; record them with"
+            " build-video-demo's record.py"
+        )
+    clip_seconds = [probe(clip) for clip in clips] if clips and clips[0].is_file() else None
     demo = video / "demo.mp4"
-    demo_seconds = probe(demo) if demo.is_file() else None
+    demo_seconds = probe(demo) if clip_seconds is None and demo.is_file() else None
     heard = [words_from(transcribe(wav)) for wav in wavs]
-    scenes = plan(script, narrations, heard, config, codes, demo_seconds)
+    scenes = plan(script, narrations, heard, config, codes, demo_seconds, clip_seconds)
     out = video / "render" / "scenes"
     out.mkdir(parents=True, exist_ok=True)
     size, background = SIZES[script["type"]], config["palette"]["background"]
@@ -420,10 +942,11 @@ def render(video: Path, script: dict, config: dict, root: Path, transcribe, shoo
     for scene in scenes:
         clip = out / f"{scene['scene']:02d}.mp4"
         if scene["source"] == "demo":
-            run(clip_command(demo, scene["start"], scene["seconds"], size, background, clip))
+            source = video / scene["clip"]
+            run(clip_command(source, scene["start"], scene["seconds"], size, background, clip, scene["speed"]))
         else:
             with tempfile.TemporaryDirectory() as frames:
-                shoot(page(scene["cues"], fonts), size, scene["frames"], Path(frames))
+                shoot(page(scene["cues"] | brand, fonts), size, scene["frames"], Path(frames))
                 run(encode_command(Path(frames), clip))
         report.append(
             {

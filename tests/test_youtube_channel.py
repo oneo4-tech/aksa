@@ -123,6 +123,8 @@ def test_load_names_a_missing_field(tmp_path, field):
         ("labels.channel", "example-lab"),
         ("pronunciation", ["pytest"]),
         ("banned_phrases", "in this video"),
+        ("narration_avoid_names", "James Bach"),
+        ("narration_avoid_names", ["James Bach", 7]),
         ("title_max", 0),
         ("demos.repo", "example-demos"),
         ("demos.repo", "https://github.com/example-org/example-demos"),
@@ -150,6 +152,90 @@ def test_load_names_every_bad_field_at_once(tmp_path):
     with pytest.raises(yc.ChannelError) as error:
         yc.load("example", root=tmp_path)
     assert "voice.id" in str(error.value) and "title_max" in str(error.value)
+
+
+# Optional settings (owner, third gate 3 of #38): a faint branded background, and the thumbnail field colours.
+
+BACKGROUND = {"image": "branding/wordmark-example.svg", "opacity": 0.08}
+
+
+def with_background(root, background=BACKGROUND, config=CONFIG):
+    path = workspace(root, config=config | {"background": background})
+    (path / "branding").mkdir(exist_ok=True)
+    (path / "branding" / "wordmark-example.svg").write_text("<svg/>")
+    return path
+
+
+def test_load_allows_the_optional_settings_absent_or_set(tmp_path):
+    workspace(tmp_path)
+    assert "background" not in yc.load("example", root=tmp_path).config
+    workspace(tmp_path, config=CONFIG | {"narration_avoid_names": ["James Bach", "Michael Bolton"]})
+    assert yc.load("example", root=tmp_path).config["narration_avoid_names"] == ["James Bach", "Michael Bolton"]
+    with_background(tmp_path, config=edited(CONFIG, "thumbnail.field", ["#4A4A4A", "#262626"]))
+    channel = yc.load("example", root=tmp_path)
+    assert channel.config["background"] == BACKGROUND
+    assert channel.config["thumbnail"]["field"] == ["#4A4A4A", "#262626"]
+
+
+# Round 4 of #38: a photo-like backdrop fills the frame (fit cover) and may show more than a centred wordmark.
+
+
+@pytest.mark.parametrize(
+    "background",
+    [
+        {"image": "branding/wordmark-example.svg", "opacity": 0.35, "fit": "cover"},
+        {"image": "branding/wordmark-example.svg", "opacity": 0.15, "fit": "contain"},
+        {"image": "branding/wordmark-example.svg", "opacity": 0.15},
+    ],
+)
+def test_load_allows_a_background_up_to_its_fit_opacity_limit(tmp_path, background):
+    with_background(tmp_path, background)
+    assert yc.load("example", root=tmp_path).config["background"] == background
+
+
+def test_load_allows_an_optional_backdrop_prompt(tmp_path):
+    workspace(tmp_path, config=edited(CONFIG, "branding.backdrop_prompt", "A dim test lab"))
+    assert yc.load("example", root=tmp_path).config["branding"]["backdrop_prompt"] == "A dim test lab"
+    workspace(tmp_path, config=edited(CONFIG, "branding.backdrop_prompt", " "))
+    with pytest.raises(yc.ChannelError, match=r"branding\.backdrop_prompt: must be a non-empty string"):
+        yc.load("example", root=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("background", "problem"),
+    [
+        ({"image": "branding/wordmark-example.svg", "opacity": 0}, "background.opacity"),
+        (
+            {"image": "branding/wordmark-example.svg", "opacity": 0.2},
+            "background.opacity: must be a number above 0 and at most 0.15 for fit contain",
+        ),
+        (
+            {"image": "branding/wordmark-example.svg", "opacity": 0.4, "fit": "cover"},
+            "background.opacity: must be a number above 0 and at most 0.35 for fit cover",
+        ),
+        ({"image": "branding/wordmark-example.svg", "opacity": 0.1, "fit": "stretch"}, "background.fit: must be"),
+        ({"image": "branding/wordmark-example.svg", "opacity": "faint"}, "background.opacity"),
+        ({"image": "branding/wordmark-example.svg"}, "background.opacity: missing"),
+        ({"image": "/abs/wordmark.svg", "opacity": 0.1}, "background.image"),
+        ({"image": "../outside.svg", "opacity": 0.1}, "background.image"),
+        (
+            {"image": "branding/missing.svg", "opacity": 0.1},
+            "background.image: branding/missing.svg is not a file in the workspace",
+        ),
+        ("faint", "background: must be a mapping"),
+    ],
+)
+def test_load_names_an_invalid_background(tmp_path, background, problem):
+    with_background(tmp_path, background)
+    with pytest.raises(yc.ChannelError, match=re.escape(problem)):
+        yc.load("example", root=tmp_path)
+
+
+@pytest.mark.parametrize("field", [["#4A4A4A"], ["#4A4A4A", "grey"], "#4A4A4A", ["#4A4A4A", "#262626", "#000000"]])
+def test_load_names_an_invalid_thumbnail_field(tmp_path, field):
+    workspace(tmp_path, config=edited(CONFIG, "thumbnail.field", field))
+    with pytest.raises(yc.ChannelError, match=r"thumbnail\.field: must be two colours"):
+        yc.load("example", root=tmp_path)
 
 
 def test_load_refuses_a_missing_config(tmp_path):
@@ -259,6 +345,12 @@ def test_banned_phrases_finds_each_phrase_ignoring_case_spacing_and_curly_quotes
 @pytest.mark.parametrize("text", ["The key unlocks nothing.", "Delvers dig.", "Video in this format.", ""])
 def test_banned_phrases_matches_whole_words_only(text):
     assert yc.banned_phrases(text, PHRASES) == []
+
+
+def test_phrases_in_matches_any_list_as_banned_phrases_does():
+    names = ["James Bach", "Bolton"]
+    assert yc.phrases_in("As james  BACH says, and Bolton too.", names) == names
+    assert yc.phrases_in("Bach music and Boltonville", names) == []
 
 
 @pytest.mark.parametrize(
