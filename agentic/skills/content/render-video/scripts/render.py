@@ -102,9 +102,9 @@ the network, so two renders give identical frames.
 
 Terminal scenes play their recordings, fitted inside the frame on the palette background and
 fading in and out like the drawn scenes. With demo-K.mp4 files, the K-th terminal scene plays
-demo-K.mp4 whole: a clip longer than its scene is sped up to fit, at most MAX_SPEED times
-(longer is refused, so the tape or the script is fixed), and a shorter one holds its final
-frame. Every terminal scene needs its clip once any exists. Else, with demo.mp4 (an older
+demo-K.mp4 whole at its own speed: a clip longer than its scene by more than one frame is
+refused, so the tape is timed from the narration or the narration lengthened, and a shorter
+one holds its final frame. Every terminal scene needs its clip once any exists. Else, with demo.mp4 (an older
 recording, or one plan-shorts copied into a cut Short), terminal scenes play it in script
 order, each from where the previous one ended, for its own length; past the recording's end
 it shows the last second, its final frame held. With neither, terminal scenes are drawn from
@@ -113,7 +113,7 @@ visual.
 Needs Google Chrome, ffmpeg, ffprobe, whisper-cli with its model, and the fonts (README, Setup).
 
 Exit codes: 0 every scene rendered, 1 a tool or file error, 2 bad input (an invalid script
-or channel (youtube_channel.load refuses a missing background image or an invalid opacity or fit), a missing narration or demo file, a terminal clip over MAX_SPEED times its scene, an item or heading whose
+or channel (youtube_channel.load refuses a missing background image or an invalid opacity or fit), a missing narration or demo file, a terminal clip longer than its scene, an item or heading whose
 words are never heard, or a scene with nothing to show within BLANK_MAX seconds).
 """
 
@@ -161,7 +161,6 @@ FADE = 0.3  # every clip fades in and out (style guide: fade transitions)
 TYPE_PER_CHAR = 0.012  # code typing speed, seconds a character, as the prototype
 TYPE_SHARE = 0.4  # typing takes at most this share of the narration
 TYPE_MAX = 0.6  # and at most this long, so the code is whole as the narrator starts on it and no focus waits
-MAX_SPEED = 2.0  # a terminal clip plays at most this much faster to fit its scene
 # Motion, the one place its intensity is tuned (scene.js reads it as CUES.motion): an element enters over enter
 # seconds, eased out, from offset (a share of its size) off its place; a focus band or link wipes in over wipe;
 # an earlier element dims over dim; entrances start at least stagger seconds apart.
@@ -613,16 +612,14 @@ def backdrop(config: dict, workspace: Path) -> dict:
     return {"backdrop": shown}
 
 
-def fitted(clip: float, seconds: float, scene: int, name: str) -> float:
-    """How much faster a terminal clip plays to fit its scene: 1 when it fits, refused past MAX_SPEED."""
-    speed = clip / seconds
-    if speed > MAX_SPEED:
+def fitted(clip: float, seconds: float, scene: int, name: str) -> None:
+    """Refuse a terminal clip longer than its scene by more than one frame: it is never sped up to fit."""
+    if clip > seconds + 1 / FPS:
         raise BadInput(
-            f"scene {scene}: {name} is {clip:.1f} s but the scene is {seconds:.1f} s, over {MAX_SPEED:g}x;"
-            " shorten the scene's section of demo.tape (build-video-demo) or lengthen its narration"
-            " (write-video-script)"
+            f"scene {scene}: {name} is {clip:.2f} s but the scene is {seconds:.2f} s;"
+            " time the scene's section of demo.tape from the narration (build-video-demo record.py)"
+            " or lengthen its narration (write-video-script)"
         )
-    return round(speed, 3) if speed > 1 else 1.0
 
 
 def plan(script: dict, narrations: list[float], heard: list[list[dict]], config: dict, codes: dict, demo, clips=None):
@@ -638,11 +635,11 @@ def plan(script: dict, narrations: list[float], heard: list[list[dict]], config:
         if scene["kind"] == "terminal" and clips:
             terminal += 1
             name = f"demo-{terminal}.mp4"
-            speed = fitted(clips[terminal - 1], frames / FPS, index, name)
-            entry |= {"source": "demo", "clip": name, "start": 0.0, "speed": speed}
+            fitted(clips[terminal - 1], frames / FPS, index, name)
+            entry |= {"source": "demo", "clip": name, "start": 0.0}
         elif scene["kind"] == "terminal" and demo is not None:
             start = round(min(demo_at, max(demo - 1.0, 0.0)), 3)
-            entry |= {"source": "demo", "clip": "demo.mp4", "start": start, "speed": 1.0}
+            entry |= {"source": "demo", "clip": "demo.mp4", "start": start}
             demo_at += frames / FPS
         else:
             code = codes.get(scene.get("code")) if scene["kind"] == "code" else None
@@ -692,15 +689,12 @@ def encode_command(frames: Path, out: Path) -> list[str]:
     ]  # fmt: skip
 
 
-def clip_command(
-    demo: Path, start: float, seconds: float, size, background: str, out: Path, speed: float = 1.0
-) -> list[str]:
-    """ffmpeg cutting seconds of the VHS recording from start, speed times faster, fitted into size, its final
-    frame held to the end, faded in and out."""
+def clip_command(demo: Path, start: float, seconds: float, size, background: str, out: Path) -> list[str]:
+    """ffmpeg cutting seconds of the VHS recording from start, fitted into size, its final frame held to the end,
+    faded in and out."""
     width, height = size
     filters = ",".join(
-        [f"setpts=PTS/{speed:g}"] * (speed != 1)
-        + [
+        [
             f"fps={FPS}",
             f"scale={width}:{height}:force_original_aspect_ratio=decrease",
             f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=0x{background.lstrip('#')}",
@@ -979,7 +973,7 @@ def render(video: Path, script: dict, config: dict, root: Path, transcribe, shoo
         clip = out / f"{scene['scene']:02d}.mp4"
         if scene["source"] == "demo":
             source = video / scene["clip"]
-            run(clip_command(source, scene["start"], scene["seconds"], size, background, clip, scene["speed"]))
+            run(clip_command(source, scene["start"], scene["seconds"], size, background, clip))
         else:
             with tempfile.TemporaryDirectory() as frames:
                 shoot(page(scene["cues"] | brand, fonts), size, scene["frames"], Path(frames))

@@ -394,22 +394,26 @@ def test_each_terminal_scene_plays_its_own_clip_whole_and_holds_its_last_frame(t
     assert [c[-1] for c in clips] == [str(folder / "render" / "scenes" / f"{n:02d}.mp4") for n in (1, 3)]
 
 
-def test_a_clip_longer_than_its_scene_is_sped_up_to_fit(tmp_path, fonts, capsys):
-    files(tmp_path, scenes=[TERMINAL], seconds=(2.0,), clips=1)
-    seconds = scene_seconds(2.0)
-    fakes = Fakes(lengths={"demo-1.mp4": seconds * 1.5})
-    assert run(tmp_path, fakes, capsys)[0] == 0
-    filters = fakes.commands[0][fakes.commands[0].index("-vf") + 1]
-    assert filters.startswith("setpts=PTS/1.5,")
-
-
-def test_a_clip_over_twice_its_scene_is_refused_naming_the_scene_and_both_lengths(tmp_path, fonts, capsys):
+@pytest.mark.parametrize("over", [1.1 / render.FPS, 1.5, 2.0, 30.0])
+def test_a_clip_longer_than_its_scene_is_refused_naming_the_scene_both_lengths_and_the_fix(
+    tmp_path, fonts, capsys, over
+):
+    # Content issue #38: a clip longer than its scene was played at 1.5x, out of step with the narration.
     files(tmp_path, scenes=[SCENES[0], TERMINAL], seconds=(2.0, 2.0), clips=1)
     seconds = scene_seconds(2.0)
-    fakes = Fakes(lengths={"demo-1.mp4": seconds * 2 + 1})
+    fakes = Fakes(lengths={"demo-1.mp4": seconds + over})
     code, _, err = run(tmp_path, fakes, capsys)
     assert code == 2 and fakes.commands == []
-    assert "scene 2" in err and f"{seconds * 2 + 1:.1f} s" in err and f"{seconds:.1f} s" in err
+    assert "scene 2" in err and "demo-1.mp4" in err
+    assert f"{seconds + over:.2f} s" in err and f"{seconds:.2f} s" in err
+    assert "demo.tape" in err and "record.py" in err and "write-video-script" in err
+
+
+def test_a_clip_at_most_one_frame_longer_than_its_scene_plays_at_its_own_speed(tmp_path, fonts, capsys):
+    files(tmp_path, scenes=[TERMINAL], seconds=(2.0,), clips=1)
+    fakes = Fakes(lengths={"demo-1.mp4": scene_seconds(2.0) + 0.9 / render.FPS})
+    assert run(tmp_path, fakes, capsys)[0] == 0
+    assert "setpts" not in fakes.commands[0][fakes.commands[0].index("-vf") + 1]
 
 
 def test_a_missing_clip_for_a_terminal_scene_is_refused_naming_record(tmp_path, fonts, capsys):
