@@ -37,7 +37,7 @@ Weekly: the ranked cards with scores and closest videos, and the issue number of
 
 ## Constraints
 
-- Files only the owner's picks; never passes gate 1, moves a stage, or edits labels or the body except through `C` (D-042). Gate 1 belongs to `youtube-producer`.
+- Files only the owner's picks; never passes gate 1, moves a stage, or edits labels or the body except through `C` (D-047). Gate 1 belongs to `youtube-producer`.
 - Search quota: 100 searches a day. Never delete or bypass the competition cache, and never rerun a query to refresh it on the same day.
 - RST concepts are credited to James Bach and Michael Bolton; no card or brief implies their endorsement.
 - Never commits workspace files to aksa, and never puts a `channel.yaml` value into a component.

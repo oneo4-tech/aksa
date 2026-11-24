@@ -31,8 +31,9 @@ Repository settings that scripts read, such as `config/environment.yaml`, live i
   - `core`: foundational operations that fit no more specific domain.
   - `productivity`: personal work organization.
   - `factory`: the Software Factory lifecycle and its supporting operations, from work request to release (D-036).
-  - `content`: content production pipelines outside software delivery, such as a channel's video production (D-041).
   - `auxiliary`: supporting operations that serve any work, such as research, retrospectives, handoffs, clarifications, and prototypes, and fit no domain above.
+  - `content`: content creation and publishing workflows (newsletters, videos, articles).
+  - `testing`: software-testing workflows that produce a freelance engagement's deliverables: strategy, test cases, API and UI tests, bug reports, and execution summaries.
 - Adding or redefining a category needs a new decision row agreed with the owner through `add-memory` (D-022), before any skill uses it.
 - `name` matches the directory, is lowercase hyphenated verb-object (D-005), and is unique across categories, since vendors get a flat folder **[checked]**.
 - `description` states when to use the skill and the result it produces **[checked: present]**.

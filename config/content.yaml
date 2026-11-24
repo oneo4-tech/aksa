@@ -1,5 +1,5 @@
 # YouTube content settings, read by agentic/scripts/content_issue.py.
-# Content issues are kept apart from factory runs by their kind:* label (D-042).
+# Content issues are kept apart from factory runs by their kind:* label (D-047).
 # needs:owner is shared with the factory and defined once, in config/factory.yaml.
 
 # Every content label: name -> [color, description]. Stage labels are listed in

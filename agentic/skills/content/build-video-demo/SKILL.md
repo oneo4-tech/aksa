@@ -48,7 +48,7 @@ The `YouTube: demo` comment's link, the description link, the kit's link and its
 - Never create the public demo repository, or push to it, without the owner's explicit yes in this session. Creating it is a one-time owner-approved step: on that yes, `gh repo create <demos.repo> --public --license mit`, then `gh repo clone <demos.repo> .projects/content/<demos.path>`.
 - The folder is public: no secrets, `.env` values, absolute paths, links to the private aksa tracker, channel workspace text beyond the README, or code copied from a source whose licence does not allow MIT redistribution.
 - Generated media stays out of git: the folder's `.gitignore` ignores it, and the recording lives in the channel workspace.
-- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-042). Never edits `script.json`, `citations.json`, `channel.yaml`, or the style guide; a script that the demo cannot back goes back to `write-video-script`. Never commits workspace or demo files to aksa.
+- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-047). Never edits `script.json`, `citations.json`, `channel.yaml`, or the style guide; a script that the demo cannot back goes back to `write-video-script`. Never commits workspace or demo files to aksa.
 
 ## Done when
 

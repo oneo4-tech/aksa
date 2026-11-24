@@ -36,7 +36,7 @@ The `YouTube: shorts` comment's link and each Short's issue number, title, and k
 
 ## Constraints
 
-- Files issues only on the owner's explicit yes in this session, and only through `C new`; never edits labels or bodies, passes gates, or moves stages (D-042).
+- Files issues only on the owner's explicit yes in this session, and only through `C new`; never edits labels or bodies, passes gates, or moves stages (D-047).
 - Plans; never scripts, records, or packages a Short: each Short's own stages do that, and its script is always the `challenge-first` Short structure. The one output it writes in a Short's folder is a cut Short's demo and citations, only through `K`.
 - Never edits the long-form's outputs, `channel.yaml`, or the style guide. Publishes and sets nothing on YouTube; the related-video link in Studio is the owner's.
 

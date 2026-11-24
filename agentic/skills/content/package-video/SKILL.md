@@ -43,7 +43,7 @@ The `YouTube: packaging` comment's link, `packaging.json`'s path, the title, and
 - Uploads, publishes, and schedules nothing on YouTube, and sets nothing in Studio; the owner pastes `packaging.json` values and sets the paid-promotion box and a Short's related video. Never pushes the demo repository without the owner's explicit yes in this session.
 - Never writes a link to the private aksa tracker into the description or the demo README.
 - Never edits `script.json`, `citations.json`, `demo.json`, `channel.yaml`, or the style guide; a claim the sources do not back goes back to `research-video`. `scripts/package.py` is a component: changes to it are new work requests (D-038).
-- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-042). Never commits workspace or demo files to aksa.
+- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-047). Never commits workspace or demo files to aksa.
 
 ## Done when
 

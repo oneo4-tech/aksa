@@ -1,113 +1,119 @@
 # Skills Catalog
 
-Skills are task procedures in `agentic/skills/`. They're synced to vendor folders:
-- `.claude/skills/` — Claude Code
-- `.agents/skills/` — OpenCode, Codex, Gemini CLI, Copilot
+Skills are task procedures in `agentic/skills/<category>/<skill-name>/`, synced to vendor folders:
+
+- `.claude/skills/`: Claude Code
+- `.agents/skills/`: Codex, Gemini CLI, Copilot, OpenCode
 
 ## Categories
 
-### Core Skills (`agentic/skills/core/`)
-Fundamental agent capabilities.
+Each skill has exactly one category, by primary purpose, from `agentic/rules/components.md`.
+
+### `core`
+
+Foundational operations that fit no more specific domain.
 
 | Skill | Purpose |
 |-------|---------|
-| `add-kb` | Capture domain knowledge to KB inbox |
-| `add-memory` | Record agreed term/decision |
-| `build-prototype` | Throwaway code for design questions |
+| `add-kb` | Capture knowledge or a source to the KB inbox |
+| `add-memory` | Record an agreed term or decision |
+| `get-kb` | Query the Knowledge Base |
+| `get-memory` | Look up vocabulary and decisions |
+| `repair-kb` | Clean up and reorganize the KB wiki |
+| `repair-memory` | Clean up Memory files |
+| `review-component` | Pass or mismatches against the component standard |
+| `review-kb` | Walk the owner through KB inbox items |
+
+### `productivity`
+
+Personal work organization.
+
+| Skill | Purpose |
+|-------|---------|
+| `teach-topic` | Teach a topic over sessions with one lesson per session |
+
+### `factory`
+
+The Software Factory lifecycle, from work request to release.
+
+| Skill | Purpose |
+|-------|---------|
+| `run-factory` | Start or resume a factory run (orchestrator) |
+| `triage-request` | Route a work request or close it |
+| `define-concept` | Settle decisions and feasibility (G0) |
+| `define-requirement` | Write requirement and acceptance criteria (G1) |
+| `define-spec` | Approach, interfaces, tests (G2) |
+| `plan-tasks` | Slice into ordered tasks (G3) |
+| `implement-task` | Build a task test-first |
+| `verify-task` | Independent review, then land the task |
+| `diagnose-bug` | Reproduce a bug and find its root cause |
+| `resolve-merge-conflicts` | Resolve conflicts by what both sides meant |
+| `ship-change` | Update, check, and merge the pull request |
+| `release-version` | SemVer release, changelog, tag |
+
+### `auxiliary`
+
+Supporting operations that serve any work.
+
+| Skill | Purpose |
+|-------|---------|
+| `build-prototype` | Throwaway code for one design question |
 | `clarify-response` | Re-explain in Simplified Technical English |
-| `create-handoff` | Write self-contained handoff note |
-| `define-concept` | Settle decisions, feasibility (G0) |
-| `define-requirement` | Write requirement + acceptance criteria (G1) |
-| `define-spec` | Design spec: approach, interfaces, tests (G2) |
-| `diagnose-bug` | Reproduce, narrow, root cause |
-| `find-skills` | Discover/install skills |
-| `get-kb` | Query Knowledge Base |
-| `get-memory` | Lookup vocabulary/decisions |
-| `import-memory` | Import memory from other AI assistants |
-| `plan-tasks` | Break spec into vertical task slices (G3) |
-| `repair-kb` | Clean up KB wiki |
-| `repair-memory` | Clean up memory files |
-| `research-topic` | Investigate, gather facts, write foundations |
-| `review-component` | Pass/fail on component standards |
-| `review-kb` | Walk owner through inbox items |
-| `run-factory` | Start/resume factory run (orchestrator) |
-| `setup-writing-style` | Learn user's voice from messages/docs |
-| `triage-request` | Route factory request or close |
+| `create-handoff` | Write a self-contained handoff note |
+| `research-topic` | Gather cited facts, KB first |
+| `retrospect-session` | Audit a transcript for slop and friction |
 
-### Factory Skills (`agentic/skills/factory/`)
-Software Factory stage execution.
+### `content`
 
-| Skill | Stage | Gate |
-|-------|-------|------|
-| `implement-task` | Build | — |
-| `verify-task` | Build | — |
-| `ship-change` | Ship | — |
-| `release-version` | Post-ship | — |
-
-### Content Skills (`agentic/skills/content/`)
-Content production pipelines outside software delivery (D-041).
+Content creation and publishing workflows.
 
 | Skill | Purpose |
 |-------|---------|
+| `draft-newsletter` | Draft a newsletter issue from a video, send on the owner's yes |
 | `run-youtube` | File, resume, or list a channel's videos (`youtube-producer` agent) |
-| `scan-video-ideas` | Weekly scan into scored idea cards with competing YouTube videos; one video's card at stage `idea` |
-| `research-video` | One video's research from primary sources, with each claim's quote checked on its live page (`citations.json`, required by gate 2) |
-| `write-video-script` | One video's `script.json`: scenes in a rotating structure (challenge-first, incident story, myth buster), opening on the real artifact and closing with a "Take it to your agent" kit beat, sized for five to ten minutes or a thirty to sixty second Short, checked against the writing rules, hook, kit beat, and citations |
-| `build-video-demo` | One video's runnable demo, passing tests, VHS tape, and `ai-kit/` (agent rules, an Agent Skill, helper scripts) in `<n>-<slug>/` of the channel's public demo repository clone; returns the description link; pushes or creates the repository only on the owner's yes |
-| `narrate-video` | One video's narration, scene by scene, with Gemini 3.8 Flash TTS in the channel's voice, style, pace, and pronunciation into `narration/NN.wav`, refused when a whisper transcript shows spoken markup or misses the script's words |
-| `render-video` | One video's final cut `render/final.mp4` (30 fps, 1920x1080 with `final.srt`, or 1080x1920 for a Short with burned word-highlight captions): scenes drawn as HTML Web Animations in the neon-terminal theme, timed from whisper word timestamps, terminal scenes cut from the VHS recording, the music bed under the narration, and two-pass loudness to the channel's target |
-| `design-thumbnail` | One video's thumbnail `thumbnail.png` or `.jpg` (3840x2160, under 2 MB): 2 to 4 words that challenge or question the viewer (refused otherwise), showing AI when the video is about AI, in the issue's layout (split, big-subject, spot-the-bug with a "Written by AI" chip and a soft line marker, face-off); 3 free text or marker variants first with a contact sheet, then Gemini 3.1 Flash Image art (about USD 0.07 each) only on the owner's yes, cached |
-| `package-video` | One video's `packaging.json` and `description.md`: a challenge title within `title_max`, the hook, chapters from the rendered scenes (00:00 first, at least three, each at least 10 s), the demo link, the verified sources, the synthetic-voice and paid-promotion disclosure, the AI kit link, eight to fifteen hashtags for the AI and testing audience, and 5-8 tags, refused naming each problem; with the published link, fills the demo README's video line locally |
-| `plan-shorts` | A long-form video's two Shorts, each a standalone thirty to sixty second challenge with its hook in the first two seconds and a kit beat, filed on the owner's yes as content issues cut from it (`--parent`) or linking it (`--related`) |
-| `brand-channel` | The channel's avatar (800x800), banner (2048x1152, text inside the 1235x338 safe area), watermark (150x150), and wordmarks in `branding/`, as SVG sources and PNG renders built from the oneo4 logo spec geometry and the channel palette, checked against YouTube's limits and handed to the owner to upload |
+| `scan-video-ideas` | Weekly scan into scored video idea cards |
+| `research-video` | One video's research with checked citations |
+| `write-video-script` | One video's `script.json`, checked against the writing rules |
+| `build-video-demo` | One video's runnable demo and AI kit in the demo repository |
+| `narrate-video` | Scene-by-scene narration in the channel's voice, leak checked |
+| `render-video` | Animated scenes, terminal clips, music, captions, and loudness into `final.mp4` |
+| `design-thumbnail` | One video's thumbnail from a layout template and optional art |
+| `package-video` | Title, description, chapters, tags, and disclosure |
+| `plan-shorts` | A long-form's Shorts, cut or linked, filed on the owner's yes |
+| `brand-channel` | Channel avatar, banner, watermark, and wordmarks from the logo spec |
 
-### Auxiliary Skills (`agentic/skills/auxiliary/`)
-Specialized utilities.
+### `testing`
+
+Software-testing workflows for a freelance engagement's deliverables.
 
 | Skill | Purpose |
 |-------|---------|
-| `built-in-browser` | Use Claude's built-in browser pane |
-| `chrome-browser` | Use Claude in Chrome extension |
-| `computer-use` | Desktop control via Claude |
-| `deep-research` | Multi-source research synthesis |
-| `docs` | Create/edit shared documents (Google Docs, Word) |
-| `docx` | Word document manipulation |
-| `morning` | Render morning brief as HTML |
-| `opencode` | OpenCode-specific help |
-| `pdf` | PDF operations |
-| `pptx` | PowerPoint manipulation |
-| `report` | Report OpenCode issues |
-| `retrospect-session` | Audit transcript for AI slop/friction |
-| `skill-creator` | Create/modify/measure skills |
-| `xlsx` | Spreadsheet operations |
+| `run-testing` | Validate the brief and run the workflows in order |
+| `write-test-strategy` | Scope, risks, approach |
+| `design-test-cases` | Test cases from the strategy |
+| `write-api-tests` | Python `pytest` API tests |
+| `write-ui-tests` | Playwright for Python UI tests |
+| `write-bug-report` | One report per defect from evidence |
+| `summarise-test-execution` | Summary of execution evidence |
 
 ## Using Skills
 
-### As Agent
-Skills are invoked by name. The agent loads the skill's instructions and follows its procedure.
-
-### As Human (via Agent)
-Ask the agent: *"Use the `define-requirement` skill to write a requirement for X"*
+Agents offer skills by name and follow the loaded procedure. Ask, for example: *"Use `define-requirement` to write a requirement for X"*.
 
 ### Skill Structure
-Each skill has:
+
+```text
+agentic/skills/<category>/<skill-name>/
+├── SKILL.md      the procedure, with name and description frontmatter
+├── references/   files the procedure reads on demand
+└── scripts/      deterministic steps, only when it has them
 ```
-agentic/skills/<category>/<skill>/
-├── skill.yaml       # Metadata (name, description, triggers)
-├── instructions.md  # Procedure (what the agent does)
-└── resources/       # Optional templates, scripts, examples
-```
+
+Nothing else sits at the top level.
 
 ## Creating a New Skill
 
-1. Choose category: `core/`, `factory/`, or `auxiliary/`
-2. Copy `agentic/templates/skill.md` → `agentic/skills/<cat>/<name>/instructions.md`
-3. Create `skill.yaml` with metadata
-4. Run `review-component` before committing
-5. Sync: `uv run agentic/scripts/sync_vendors.py claude codex`
-
-## Skill Discovery
-
-- `find-skills` — search installable skills
-- `get-kb` — research if skill exists for a task
-- Vendor folders (`.claude/skills/`, `.agents/skills/`) list available skills
+1. Choose one category: `core`, `productivity`, `factory`, `auxiliary`, `content`, or `testing`.
+2. Copy `agentic/templates/skill-template.md` to `agentic/skills/<category>/<skill-name>/SKILL.md` and fill it in.
+3. Run `review-component` and resolve every mismatch.
+4. Sync: `uv run agentic/scripts/sync_vendors.py claude codex`.

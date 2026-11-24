@@ -48,7 +48,7 @@ The `YouTube: edit` comment's link, `render/final.mp4` with its size, length, an
 - Every picture and caption comes from the script, the demo, and the channel's palette and name; never invent on-screen facts or text the script lacks. Captions show the script's real words, never the transcript's or the pronunciation respellings.
 - Never edits `script.json`, `channel.yaml`, the style guide, the narration, the demo, or the music bed; changes go to the skill or person that owns each file. The templates, `scripts/render.py`, and `scripts/assemble.py` are components: changes to them are new work requests (D-038), never edits during a video run.
 - Generated media stays out of git (the workspace ignores `*.mp4`, `*.mp3`); never commits workspace files to aksa.
-- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-042).
+- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-047).
 
 ## Done when
 

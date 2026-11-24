@@ -28,7 +28,7 @@ Usage: uv run agentic/scripts/content_issue.py COMMAND [ARGS]
                       long_form_per_week and shorts_per_week within owner_hours_per_week,
                       else fail with reasons (short cadence, hours over budget)
 
-A content issue is one video (D-042): labels kind:youtube, channel:<name>,
+A content issue is one video (D-047): labels kind:youtube, channel:<name>,
 content-type:*, and one youtube-stage:*, a body with a Brief section, and
 YouTube: comments for each state change. Labels, stages, and gates are in
 config/content.yaml. A video moves only to the next stage, and leaves a gate's

@@ -32,7 +32,7 @@ The `YouTube: narration` comment's link, the narration folder, each scene's matc
 - Style and delivery go only in `voice.style`, sent as `speech_metadata.style`; never add them to `say` or the text sent, since Gemini speaks style text aloud.
 - Never edits `script.json`, `channel.yaml`, or the style guide: script changes go to `write-video-script`, pronunciation and voice changes to the owner.
 - Never prints, logs, or posts the API key. Generated audio stays out of git; never commits workspace files to aksa.
-- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-042).
+- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-047).
 
 ## Done when
 

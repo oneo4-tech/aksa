@@ -26,7 +26,7 @@ The agent's output: what the video did and what it now waits for, or the channel
 
 - A launcher only: the agent owns input handling, routing, and stopping, as `run-factory` does for the factory (D-027).
 - Run in the main session, never in a sub-agent.
-- Never creates a factory issue for the video itself; content issues carry `kind:youtube` (D-042).
+- Never creates a factory issue for the video itself; content issues carry `kind:youtube` (D-047).
 
 ## Done when
 

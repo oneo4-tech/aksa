@@ -127,7 +127,7 @@ Content scripts import `load(channel)` and the pure writing checks `banned_phras
 
 ## content_issue.py
 
-One GitHub issue per video, kept apart from factory runs by `kind:youtube` (D-042). Labels, stage order, and gates: `config/content.yaml`; `needs:owner` comes from `config/factory.yaml`.
+One GitHub issue per video, kept apart from factory runs by `kind:youtube` (D-047). Labels, stage order, and gates: `config/content.yaml`; `needs:owner` comes from `config/factory.yaml`.
 
 - Labels: `kind:youtube`, `channel:<name>` (from `channel.yaml` `labels.channel`, created on demand), `content-type:long-form|short`, one `youtube-stage:*`
 - Stages: idea, research, script, demo, recording, editing, packaging, review, ready; one forward at a time

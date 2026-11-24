@@ -35,7 +35,7 @@ The `YouTube: research` comment's link, the claim count (all found), the claims 
 - Fields `link`, `found`, `checked`, and `error` are written only by `E`; never set them by hand. A claim stays a fact in the script only once its quote is found.
 - Evidence is the link, the quoted line, and the exact-match check; no screenshots or page snapshots.
 - RST concepts are credited to James Bach and Michael Bolton in their own words; no claim implies their endorsement.
-- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-042). Never commits workspace files to aksa.
+- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-047). Never commits workspace files to aksa.
 - Never fill a claim from memory, and never put aksa-internal text, file paths, or secrets in a search query.
 
 ## Done when

@@ -61,7 +61,7 @@ The `YouTube: thumbnail` comment's link, the thumbnail's path, layout, format, a
 - Proposes free variants first; pays for art only after the owner's yes to the total in this session; never reruns `--new-art` or raises `--candidates` with a subject to try variations unasked.
 - Never edits `script.json`, `channel.yaml`, or the style guide; title changes go to `write-video-script` or `package-video`, style changes to the owner. The templates and `scripts/thumbnail.py` are components: changes to them are new work requests (D-038).
 - Never prints, logs, or posts the API key. Generated images stay out of git (the workspace ignores `*.png`, `*.jpg`); never commits workspace files to aksa.
-- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-042).
+- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-047).
 - The F and H labels are rationale citations only: F a cited fact, H a labelled hypothesis, of the research output `.kb/outputs/research/2026-10-24-youtube-thumbnails.md`. Outputs are not trusted knowledge (`agentic/rules/knowledge.md`); the procedure never reads it, and the rules here bind on their own.
 
 ## Done when

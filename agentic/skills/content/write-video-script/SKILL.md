@@ -40,7 +40,7 @@ The `YouTube: script` comment's link, the structure, the estimated length from `
 
 - Every fact in `say` rests on a claim found in `citations.json` or on the demo; never write a fact from memory, and never edit `citations.json` (`research-video` and its `evidence.py` own it).
 - Concepts from others, such as Rapid Software Testing's, are explained in our own words and credited in the description's References (the concept and its source, by `package-video`); narration never names their authors or any other person, and no scene implies endorsement.
-- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-042). Never edits `channel.yaml` or the style guide, and never commits workspace files to aksa.
+- Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-047). Never edits `channel.yaml` or the style guide, and never commits workspace files to aksa.
 
 ## Done when
 

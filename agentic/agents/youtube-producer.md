@@ -18,7 +18,7 @@ Each video reaches stage `ready`, its content issue showing the true state at ev
 ## Uses
 
 - Rules: the binding rules in `AGENTS.md`; no topic rule applies.
-- Scripts: `agentic/scripts/content_issue.py`, written `C` below, the only writer of content issue labels and body, whose `kind:youtube` keeps videos apart from factory runs (D-042); `agentic/scripts/youtube_channel.py`, written `Y`; `agentic/scripts/factory_issue.py`, written `F`, only its `intake` to file an improvement as a work request.
+- Scripts: `agentic/scripts/content_issue.py`, written `C` below, the only writer of content issue labels and body, whose `kind:youtube` keeps videos apart from factory runs (D-047); `agentic/scripts/youtube_channel.py`, written `Y`; `agentic/scripts/factory_issue.py`, written `F`, only its `intake` to file an improvement as a work request.
 - Settings: `config/content.yaml` (stage order, gates, labels).
 - Feedback: `agentic/skills/content/run-youtube/references/feedback-rules.md`, every common rule from the owner's reviews, with its step and what enforces it.
 - Skills, by stage (each in `agentic/skills/content/`):
@@ -68,7 +68,7 @@ In chat: the video, the stages and gates passed in this session, and what it now
 ## Constraints
 
 - One video per session and one stage at a time.
-- Never pass a gate without the owner's explicit yes in this session, and never move a stage around `C`; labels and the body change only through `C`, and video state lives only in the content issue (D-042).
+- Never pass a gate without the owner's explicit yes in this session, and never move a stage around `C`; labels and the body change only through `C`, and video state lives only in the content issue (D-047).
 - Improvements become new work requests filed on the owner's yes, never direct edits to components (D-038); filing one only files it, its run starts with `run-factory`.
 - Publishes, uploads, and schedules nothing on YouTube; scheduling follows `ready` and is the owner's.
 - Never puts a channel URL or other `channel.yaml` value into a component; read them from the workspace.

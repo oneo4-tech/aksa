@@ -12,8 +12,9 @@ Agreed terms, alphabetical. Use them as defined. Add or change a term only after
 | Claim | A session's hold on a factory issue while it works on the run: the `claimed` label and a `Factory:` comment naming the session. Taken over only on the owner's yes (D-033). |
 | Component | A building block of aksa's agentic system: Rule, Skill, Agent, Memory, Script, or Template indexed from AGENTS.md. External resources (`.kb`, `.projects`, `.worktrees`) are not components. |
 | Concept | The factory stage, and the `## Concept` section of a factory issue, where an idea's open decisions are settled one at a time and its feasibility is judged before a requirement is written. |
-| Content issue | A GitHub issue in the aksa tracker for one separately publishable piece of content, a video or a Short, labelled `kind:youtube` and `channel:<name>`, and kept apart from factory issues (D-042). |
+| Content issue | A GitHub issue in the aksa tracker for one separately publishable piece of content, a video or a Short, labelled `kind:youtube` and `channel:<name>`, and kept apart from factory issues (D-047). |
 | Delivery branch | The branch whose single pull request brings a run into `main`: the run's own branch for a small run, its integration branch for a large one. |
+| Engagement | One client testing job: its brief, evidence, documents, and test code in `.projects/testing/<engagement>/`, worked by `run-testing` one at a time. |
 | Factory issue | The one GitHub issue that tracks a run from triage to close through its labels, body sections, task checklist, and `Factory:` comments; the only place run state lives (D-024). |
 | Feedback rules | The owner's review rules for all content, each mapped to the pipeline step that applies it, kept in `agentic/skills/content/run-youtube/references/feedback-rules.md`. |
 | Finding | A reviewer's statement about a task's change. It blocks only when it cites an unmet acceptance criterion, a broken rule or decision, or a reproduced defect; any other finding is a note, never fixed in the run (D-032). |

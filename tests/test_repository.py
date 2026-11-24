@@ -222,3 +222,43 @@ def test_evidence_help_prints_usage():
     )
     assert result.returncode == 0, result.stderr
     assert "usage:" in result.stdout and "citations.json" in result.stdout
+
+
+SKILLS_PAGE = ROOT / "docs" / "skills.md"
+
+
+def page_section(heading: str) -> str:
+    """Body of a level-2 or level-3 section of the skills page, up to the next heading of that level or above."""
+    level = heading.split(" ", 1)[0]
+    body = SKILLS_PAGE.read_text().split(f"\n{heading}\n", 1)[1]
+    return re.split(rf"^#{{1,{len(level)}}} ", body, maxsplit=1, flags=re.MULTILINE)[0]
+
+
+def test_skills_page_creating_step_names_categories_and_template():
+    steps = page_section("## Creating a New Skill")
+    step = next(line for line in steps.splitlines() if "categor" in line.lower())
+    assert set(re.findall(r"`([a-z-]+)`", step)) >= skill_categories()
+    assert "`agentic/templates/skill-template.md`" in steps
+
+
+def test_skills_page_lists_exactly_each_categorys_skills():
+    sections = dict(
+        re.findall(r"^### `([a-z-]+)`\n(.*?)(?=^#{1,3} |\Z)", SKILLS_PAGE.read_text(), re.MULTILINE | re.DOTALL)
+    )
+    assert set(sections) == skill_categories()
+    for category, body in sections.items():
+        folder = ROOT / "agentic" / "skills" / category
+        on_disk = {p.parent.name for p in folder.glob("*/SKILL.md")}
+        assert set(re.findall(r"^\| `([a-z0-9-]+)` \|", body, re.MULTILINE)) == on_disk, category
+
+
+def skill_folder_entries(text: str) -> list[str]:
+    """First names of the entries in the skill folder block of a page."""
+    block = text.split("agentic/skills/<category>/<skill-name>/\n", 1)[1].split("```", 1)[0]
+    return re.findall(r"^[\s│├└─]*([A-Za-z.]+/?)\s", block, re.MULTILINE)
+
+
+def test_skills_page_shows_the_skill_folder_structure():
+    expected = skill_folder_entries(COMPONENTS.read_text())
+    assert expected == ["SKILL.md", "references/", "scripts/"]
+    assert skill_folder_entries(page_section("### Skill Structure")) == expected
