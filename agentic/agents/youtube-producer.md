@@ -18,7 +18,7 @@ Each video reaches stage `ready`, its content issue showing the true state at ev
 ## Uses
 
 - Rules: the binding rules in `AGENTS.md`; no topic rule applies.
-- Scripts: `agentic/scripts/content_issue.py`, written `C` below, the only writer of content issue labels and body, whose `kind:youtube` keeps videos apart from factory runs (D-047); `agentic/scripts/youtube_channel.py`, written `Y`; `agentic/scripts/factory_issue.py`, written `F`, only its `intake` to file an improvement as a work request.
+- Scripts: `agentic/scripts/content_issue.py`, written `C` below, the only writer of content issue labels and body, whose `kind:youtube` keeps videos apart from factory runs (D-047); `agentic/scripts/youtube_channel.py`, written `Y`; `agentic/scripts/factory_issue.py`, written `F`, only its `intake` to file an improvement as a work request; `build-video-demo`'s `scripts/record.py`, only at stage `recording` (step 4).
 - Settings: `config/content.yaml` (stage order, gates, labels).
 - Feedback: `agentic/skills/content/run-youtube/references/feedback-rules.md`, every common rule from the owner's reviews, with its step and what enforces it.
 - Skills, by stage (each in `agentic/skills/content/`):
@@ -29,7 +29,7 @@ Each video reaches stage `ready`, its content issue showing the true state at ev
   | `research` | `research-video`: research with verified citations | |
   | `script` | `write-video-script`: scenes under the writing rules | |
   | `demo` | `build-video-demo`: the runnable demo and its tape | 2: researched script and demo plan |
-  | `recording` | `narrate-video`: narration with the channel voice | |
+  | `recording` | `narrate-video`: narration with the channel voice, then `build-video-demo`'s `record.py` | |
   | `editing` | `render-video`: animated scenes assembled with music, loudness, and captions | |
   | `packaging` | `design-thumbnail`, `package-video`, and for a long-form `plan-shorts` | |
   | `review` | none: the producer shows the finished video and its outputs | 3: final video |
@@ -51,11 +51,12 @@ Each video reaches stage `ready`, its content issue showing the true state at ev
    - `#<n>`: resume it.
    - Nothing: show `C status --channel <channel>` as a table of open videos with type and stage, those waiting for the owner first, and ask which to continue. Stop.
 3. **Read the state:** `C status <n> --channel <channel>`, which refuses another channel's video. Use its `stage`, `next`, open `gate`, and `waiting`; outputs live in the channel workspace's `folder`. At `ready`, go to step 8, unless `gh issue view <n> --comments` already shows a `YouTube: retrospective` comment: then report the video ready and stop.
-4. **Run the stage's specialist** from the table, if it has one, with the channel and issue number. A cut Short (`parent` set) at `research` or `demo` whose `citations.json` or `demo.json` came from `cut.py` runs no specialist there: those outputs are the long-form's, and gate 2 still checks them. A specialist missing from `agentic/skills/content/<skill>/SKILL.md` is blocked: post `YouTube: blocked: <skill> does not exist yet.` with `gh issue comment`, report it, and stop.
+4. **Run the stage's specialist** from the table, if it has one, with the channel and issue number. A cut Short (`parent` set) at `research` or `demo` whose `citations.json` or `demo.json` came from `cut.py` runs no specialist there: those outputs are the long-form's, and gate 2 still checks them. At `recording`, once `narrate-video` passes and the script has `terminal` scenes, run `uv run agentic/skills/content/build-video-demo/scripts/record.py <channel> <n>` so each terminal step starts as its sentence starts (feedback row 33); its exit 3 goes back to `build-video-demo` or `write-video-script` as `build-video-demo` step 7 says. A cut Short keeps the recordings `cut.py` gave it. A specialist missing from `agentic/skills/content/<skill>/SKILL.md` is blocked: post `YouTube: blocked: <skill> does not exist yet.` with `gh issue comment`, report it, and stop.
 5. **Log hours:** ask the owner how many hours they spent on the stage and record a number they give with `C hours <n> --stage <stage> --hours <h>`; none given, log nothing.
 6. **Pass the gate**, when `gate` is set:
    - Show the style guide's `Gate <N> checklist` section, each item checked against the stage's outputs, and ask for the owner's explicit yes.
    - At every gate, also show each row of `agentic/skills/content/run-youtube/references/feedback-rules.md` for the stages passed, checked against the outputs; a failing row goes back to its step.
+   - Rows 33 and 34 at gates 2 and 3: at gate 2, judge that each terminal step's sentence says what its command does and why, as it is typed and as its output appears, and that the last scene's thank-you addresses the viewer (`check_script.py` only finds the words); at gate 3, read `render/alignment.md`: no element shows before its words, any long lag is a fault, and the thank-you is heard at the end.
    - A failing item goes back to the specialist that owns it: a script item to `write-video-script`, a demo or AI kit item to `build-video-demo`, a render item to `render-video`, a description item to `package-video`.
    - Yes: `C gate <n> <N> --approve`. Changes asked: rerun the stage's specialist with them, then ask again. No answer or the owner absent: `C gate <n> <N> --request` and stop.
 7. **Move on:** `C stage <n> <next>`, then go to step 3.
