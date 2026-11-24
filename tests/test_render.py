@@ -137,6 +137,12 @@ def test_main_renders_each_scene_into_a_numbered_clip_and_reports_its_length(tmp
         "seconds": frames[0] / render.FPS,
         "frames": frames[0],
         "lead": render.LEAD,
+        # Its on-screen texts, for assemble.py's caption rule: the heading, and each point big from its cue.
+        "texts": [{"text": "Two tests", "from": render.LEAD, "until": frames[0] / render.FPS, "big": False}]
+        + [
+            {"text": point["text"], "from": point["at"], "until": frames[0] / render.FPS, "big": True}
+            for point in cues(fakes.pages[0])["items"]
+        ],
     }
     assert (report["width"], report["height"], report["fps"]) == (1920, 1080, 30)
 
@@ -334,6 +340,36 @@ def spoken(scene):
     """A narration saying every word of the scene's fields in order, so each item is heard."""
     fields = {k: v for k, v in scene.items() if k not in ("kind", "say")}
     return " ".join(render.WORD.findall(json.dumps(fields).replace("\\n", " ").lower()))
+
+
+TEXTS = {
+    "title": [("one two", True)],
+    "points": [("one", True), ("two", True)],
+    "terminal": [],
+    "code": [("patches the function under test", False)],
+    "split": [("checks the fake's answer", False)],
+    "compare": [("A", False), ("a", False), ("B", False), ("`b`", False)],
+    "kit": [("AGENTS.md", False), ("Paste it", False), ("b", False)],
+    "intro": [("Developers", False), ("Testers", False), ("Spot the bug", False), ("They pass", False)],
+    "cta": [],
+    "repo": [("AGENTS.md", False)],
+}
+
+
+@pytest.mark.parametrize("kind", render.KINDS)
+def test_each_drawn_scene_records_its_on_screen_texts_with_when_they_show(tmp_path, fonts, capsys, kind):
+    # Owner, #39 and #40: assemble.py hides a Short's captions that stack on these (#83 AC1).
+    marked = {"code": {"marks": MARKS[:1]}, "split": {"right": KIND_FIELDS["split"]["right"] | {"marks": MARKS[1:]}}}
+    scene = {"kind": kind, "heading": "H"} | KIND_FIELDS[kind] | marked.get(kind, {})
+    scene["say"] = spoken(scene)
+    folder = split_files(tmp_path, [scene], seconds=(9.0,))
+    assert run(tmp_path, fakes := Fakes(), capsys)[0] == 0
+    [report] = json.loads((folder / "render" / "scenes.json").read_text())["scenes"]
+    texts = report["texts"]
+    assert [(t["text"], t["big"]) for t in texts] == [("H", False), *TEXTS[kind]]
+    assert all(0 <= t["from"] < t["until"] <= report["seconds"] for t in texts), texts
+    if kind == "kit":  # the use line shows until the takeaways come in
+        assert texts[2]["until"] == cues(fakes.pages[0])["takeaways"][0]["at"] < report["seconds"]
 
 
 @pytest.mark.parametrize("kind", render.KINDS)

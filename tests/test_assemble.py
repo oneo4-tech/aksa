@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from test_render import NUMBER, whisper_json, write_wav
+import test_render
+from test_render import HOOK, NUMBER, said, split_files, whisper_json, write_wav
 from test_youtube_channel import workspace
 
 # A script serving one skill stays in the skill (components.md), outside the pytest pythonpath.
@@ -53,6 +54,7 @@ def files(root, kind="long-form", says=SAYS, seconds=(2.0, 1.5), frames=(90, 75)
                 "seconds": count / 30,
                 "frames": count,
                 "lead": 0.4,
+                "texts": [],
             }
         )
     if scenes:
@@ -274,6 +276,54 @@ def test_short_captions_show_three_words_with_the_current_word_highlighted(tmp_p
     final = by_output(fakes, "final.mp4")
     assert "overlay=0:0" in filters(final) and "libx264" in final
     assert not (folder / "render" / "final.srt").exists() and json.loads(out)["captions"] == "burned"
+
+
+def shown_groups(fakes):
+    """The caption groups a Short shows, in order: each state's words, once per group, blank states left out."""
+    found, page = states(fakes.pages[0]), re.findall(r"file '(\d+)\.png'", fakes.lists["captions.txt"])
+    groups = [" ".join(found[int(state)]["words"]) for state in page if int(state)]
+    return [group for index, group in enumerate(groups) if index == 0 or groups[index - 1] != group]
+
+
+SHORT = [
+    HOOK,
+    {"kind": "points", "heading": "Why it passes", "visual": "It checks a fake",
+     "say": "Here is why. It checks a fake, every single time."},
+    {"kind": "kit", "heading": "Your kit", "repo": "o/r", "path": "14-x/ai-kit",
+     "files": [{"path": "AGENTS.md", "use": "Paste it into your agent", "at": "rules"}], "takeaways": ["Mock less"],
+     "say": "Grab the rules file. Paste it into your agent. Then mock less."},
+]  # fmt: skip
+
+
+def test_short_captions_hide_under_big_spoken_text_and_never_repeat_on_screen_words(tmp_path, fonts, capsys):
+    # Owner, #39 and #40: the hook showed big over the code while the captions said the same words.
+    split_files(tmp_path, SHORT, kind="short", seconds=(9.0, 3.0, 4.0))
+    heard = {n: [(w["word"], w["start"], w["end"]) for w in said(s["say"])] for n, s in enumerate(SHORT, 1)}
+    rendered = test_render.Fakes(heard=heard)
+    code, _, err = test_render.run(tmp_path, rendered, capsys)
+    assert code == 0, err
+    (workspace(tmp_path) / "music").mkdir()
+    (workspace(tmp_path) / "music" / "bed.mp3").write_bytes(b"mp3")
+    code, _, err = run(tmp_path, fakes := Fakes(heard=heard), capsys)
+    assert code == 0, err
+    assert shown_groups(fakes) == [
+        # Scene 1: the hook is big until its first sentence ends; "you spot the" repeats the heading "Spot the bug".
+        "once. And that", "is the problem.", "Here is the", "code, and the", "AI's tests. Can", "bug? Look at",
+        "the patch.",
+        # Scene 2: the point is big from its cue on, also over words it does not show ("fake, every single").
+        "Here is why.",
+        # Scene 3: the kit's use line ("Paste it into your agent") and its takeaway ("Mock less") are on screen.
+        "Grab the rules",
+    ]  # fmt: skip
+
+
+def test_a_short_scene_report_without_on_screen_texts_is_refused_naming_render(tmp_path, fonts, capsys):
+    folder = files(tmp_path, kind="short")
+    report = json.loads((folder / "render" / "scenes.json").read_text())
+    del report["scenes"][0]["texts"]
+    (folder / "render" / "scenes.json").write_text(json.dumps(report))
+    code, _, err = run(tmp_path, Fakes(), capsys)
+    assert code == 2 and "scene 1" in err and "texts" in err and "render.py" in err, err
 
 
 def test_long_form_keeps_the_scene_clips_without_re_encoding(tmp_path, fonts, capsys):

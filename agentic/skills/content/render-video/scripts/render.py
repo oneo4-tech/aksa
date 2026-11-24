@@ -15,7 +15,11 @@ Reads, in the channel workspace's videos/<N>/:
 and writes render/scenes/NN.mp4, one silent H.264 clip per scene at FPS frames a second,
 1920x1080 for a long-form and 1080x1920 for a Short, and render/scenes.json, which it also
 prints: type, width, height, fps, and per scene its kind, source (html or demo), file,
-narration, seconds, frames, and lead (where the narration starts in the clip). It also writes
+narration, seconds, frames, lead (where the narration starts in the clip), and, for a drawn scene, texts:
+its on-screen texts, each with text, from and until (seconds from the clip's start), and big (spoken text shown
+large: a split's hook until it leaves, a title's visual, each point), which assemble.py keeps a Short's captions
+off (texts lists the heading, mark notes, compare headings and items, intro texts, kit use lines until the next
+file lights, takeaways, and repo and kit file names, each from its cue to the scene's end). It also writes
 render/alignment.md, the alignment report for gate 3: per drawn scene, each on-screen element
 (heading, point, word, line, item, role, activity, stake, panel, mark, focus, file, link, takeaway,
 action) with its text, cue, heard (when its own words start), lag (cue minus heard), and the
@@ -708,6 +712,39 @@ def layout_problems(scene: int, checked: dict, problems: list[dict]) -> list[str
     return found
 
 
+def texts(cues: dict) -> list[dict]:
+    """A drawn scene's on-screen texts with when each shows, seconds from its clip's start, for assemble.py's caption
+    rule: big for spoken text shown large (a split's hook until it leaves, a title's visual, each point), else the
+    heading, mark notes, compare headings and items, intro texts, kit use lines (until the next file lights) and
+    takeaways, and repo and kit file names, each from its cue to the scene's end."""
+    end, kind = round(cues["seconds"], 3), cues["kind"]
+
+    def shown(text: str, start: float, until: float = end, big: bool = False) -> dict:
+        return {"text": text, "from": round(start, 3), "until": round(until, 3), "big": big}
+
+    found = [shown(cues["heading"]["text"], cues["heading"]["at"])]
+    if "hook" in cues:
+        found.append(shown(cues["hook"]["text"], 0.0, cues["hook"]["until"], big=True))
+    if kind == "title" and cues["items"]:
+        found.append(shown(" ".join(item["text"] for item in cues["items"]), cues["items"][0]["at"], big=True))
+    if kind == "points":
+        found += [shown(item["text"], item["at"], big=True) for item in cues["items"]]
+    views = [cues] if kind == "code" else [cues[side] for side in SIDES] if kind == "split" else []
+    found += [shown(mark["note"], mark["at"]) for view in views for mark in view["focus"] if "note" in mark]
+    if kind == "compare":
+        found += [shown(e["text"], e["at"]) for side in SIDES for e in [cues[side]["heading"], *cues[side]["items"]]]
+    if kind == "intro":
+        found += [shown(e["text"], e["at"]) for e in [*cues["roles"], cues["activity"], cues["stake"]]]
+    if kind == "kit":
+        lit = [file["at"] for file in cues["files"][1:]] + [cues["takeaways"][0]["at"]]
+        found += [shown(file["text"], cues["card"]["at"]) for file in cues["files"]]
+        found += [shown(file["use"], file["at"], until) for file, until in zip(cues["files"], lit)]
+        found += [shown(item["text"], item["at"]) for item in cues["takeaways"]]
+    if kind == "repo":
+        found += [shown(file["text"], file["at"]) for file in cues["files"]]
+    return found
+
+
 def _luminance(colour: list[float]) -> float:
     """WCAG relative luminance of sRGB channels from 0 to 1."""
     linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in colour]
@@ -1142,6 +1179,7 @@ def render(video: Path, script: dict, config: dict, root: Path, transcribe, shoo
                 "frames": scene["frames"],
                 "lead": LEAD,
             }
+            | ({"texts": texts(scene["cues"])} if scene["source"] == "html" else {})
         )
     return {"type": script["type"], "width": size[0], "height": size[1], "fps": FPS, "scenes": report}
 
