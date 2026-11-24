@@ -1,8 +1,9 @@
 <!doctype html>
 <!-- Scene kind "split": two code panels, the left and right files, each under its label and with its file path in
      its bar, side by side (stacked on a Short). The cold open shows both whole from the first frame; a later split
-     slides each panel in at its label's cue word. An optional hook shows big over a veil from the first frame until the
-     narration's first sentence ends, then fades as the panels come forward. Each side's marks focus its line with a callout note
+     slides each panel in at its label's cue word. An optional hook shows big in the heading band above the panels, clear of
+     them, from the first frame until the narration's first sentence ends, then fades as the panels come forward and the
+     heading takes the band. Each side's marks focus its line with a callout note
      (codeView in scene.js). render.py fills the placeholders. -->
 <meta charset="utf-8">
 <style>
@@ -18,12 +19,13 @@
 [data-shape="tall"] #left { top: calc(400 * var(--u)); bottom: calc(50% + var(--floor) / 2 - 188 * var(--u)); }
 [data-shape="tall"] #right { top: calc(50% - var(--floor) / 2 + 212 * var(--u)); bottom: var(--floor); }
 [data-shape="tall"] .side .panel { top: calc(56 * var(--u)); bottom: 0; }
-/* The optional hook: big text over a veil of the background, from the first frame until the first sentence ends. */
-.veil { position: absolute; inset: 0; background: var(--bg); opacity: 0.8; }
-.hook { position: absolute; left: var(--pad); right: var(--pad); top: 0; bottom: var(--floor); display: flex;
-  align-items: center; justify-content: center; text-align: center; font-size: calc(120 * var(--u)); font-weight: 700;
-  line-height: 1.1; letter-spacing: -2px; text-shadow: 0 0 calc(60 * var(--u)) color-mix(in srgb, var(--accent) 35%, transparent); }
-[data-shape="tall"] .hook { font-size: calc(104 * var(--u)); }
+/* The optional hook: big text in the heading band, from under the brand to the panels' top, so it covers no code,
+   panel, or other text; build() shrinks it from its size here until it fits the band in two lines at most. */
+.hook { position: absolute; left: var(--pad); right: var(--pad); top: calc(90 * var(--u)); bottom: calc(100% - 220 * var(--u));
+  display: flex; align-items: center; justify-content: center; text-align: center; font-size: calc(120 * var(--u));
+  font-weight: 700; line-height: 1.1; letter-spacing: -2px;
+  text-shadow: 0 0 calc(60 * var(--u)) color-mix(in srgb, var(--accent) 35%, transparent); }
+[data-shape="tall"] .hook { bottom: calc(100% - 400 * var(--u)); font-size: calc(104 * var(--u)); }
 </style>
 <body data-kind="split">
 <div id="stage"><div id="camera">
@@ -53,10 +55,15 @@ function build() {
     else if (hook) at(box, [{ transform: 'scale(0.96)' }, { transform: 'none' }], hook.until, M.enter);
   });
   if (hook) {
-    // The hook from the first frame, fading with its veil as the first sentence ends.
-    const veil = make('div', 'veil', undefined, $('camera')), text = make('div', 'hook', hook.text, $('camera'));
-    [veil, text].forEach(node => at(node, [{ opacity: getComputedStyle(node).opacity }, { opacity: 0 }], hook.until, M.enter,
-      { fill: 'forwards' }));
+    // The hook from the first frame, fitted to its band, fading as the first sentence ends.
+    const text = make('div', 'hook', hook.text, $('camera')), span = document.createRange();
+    span.selectNodeContents(text);
+    const lines = () => Math.round(span.getBoundingClientRect().height / parseFloat(getComputedStyle(text).lineHeight));
+    for (let size = parseFloat(getComputedStyle(text).fontSize); size > 8 && (lines() > 2
+      || text.scrollHeight > text.clientHeight || text.scrollWidth > text.clientWidth); size -= 2) {
+      text.style.fontSize = size - 2 + 'px';
+    }
+    at(text, [{ opacity: 1 }, { opacity: 0 }], hook.until, M.enter, { fill: 'forwards' });
   }
 }
 </script>

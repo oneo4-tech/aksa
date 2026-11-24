@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from test_assemble import assemble
-from test_render import NUMBER, SCENES, WORDMARK, files, render
+from test_render import NUMBER, SCENES, WORDMARK, Fakes, files, render, said, spoken
 from test_youtube_channel import CONFIG
 
 ISSUE = "https://github.com/oneo4-tech/aksa/issues/28"
@@ -22,6 +22,15 @@ pytestmark = [
     ),
 ]
 TERMINAL = {"kind": "terminal", "heading": "Run it", "visual": "$ pytest -q", "say": "S"}
+
+
+def heard(scene, narration):
+    """A narration saying every word of the scene's fields in order (spoken), spread over at most 0.8 of its
+    length, so each heading and item is heard (#81's own-word cues) and shows before the scene ends; a cta's notify
+    is said as notification (render.CTA_WORDS)."""
+    words = [w if w != "notify" else "notification" for w in render.WORD.findall(spoken(scene))]
+    step = min(0.3, 0.8 * narration / len(words))
+    return [{"word": w, "start": i * step, "end": (i + 1) * step} for i, w in enumerate(words)]
 
 
 @pytest.fixture(scope="module")
@@ -78,7 +87,7 @@ def test_two_scenes_render_at_the_frame_size_with_identical_frames_on_two_render
     )
     renders = []
     for _ in range(2):
-        assert render.main(["example", str(NUMBER)], root=tmp_path) == 0
+        assert render.main(["example", str(NUMBER)], transcribe=Fakes().transcribe, root=tmp_path) == 0
         report = json.loads((folder / "render" / "scenes.json").read_text())
         renders.append([frame_hashes(folder / s["file"]) for s in report["scenes"]])
         for scene in report["scenes"]:
@@ -91,18 +100,21 @@ def test_two_scenes_render_at_the_frame_size_with_identical_frames_on_two_render
     assert renders[0] == renders[1]
 
 
-def test_a_terminal_clip_longer_than_its_scene_is_sped_up_to_the_scenes_frames(tmp_path, tools):
+def test_a_terminal_clip_as_long_as_its_scene_plays_whole_in_the_scenes_frames(tmp_path, tools):
     folder = files(tmp_path, scenes=[SCENES[0], TERMINAL], seconds=(1.5, 1.5), demo_json=False)
-    # A 4 s clip for a 2.5 s scene plays 1.6 times faster.
-    ffmpeg("-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30:duration=4", "-pix_fmt", "yuv420p",
+    # A 2.5 s clip for a 2.5 s scene plays at its own speed (#81 refuses a longer one instead of speeding it up).
+    ffmpeg("-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30:duration=2.5", "-pix_fmt", "yuv420p",
            str(folder / "demo-1.mp4"))  # fmt: skip
-    assert render.main(["example", str(NUMBER)], root=tmp_path) == 0
+    assert render.main(["example", str(NUMBER)], transcribe=Fakes().transcribe, root=tmp_path) == 0
     scene = json.loads((folder / "render" / "scenes.json").read_text())["scenes"][1]
     assert scene["source"] == "demo"
     assert int(probe(folder / scene["file"])[0]["nb_read_frames"]) == scene["frames"]
 
 
-SAYS = ["The test mocks the discount. // So the assert only checks the fake.", "Run it... and it passes anyway."]
+SAYS = [
+    "Look closer. // The test mocks the discount. // So the assert only checks the fake.",
+    "Run it... and it passes anyway.",
+]
 
 
 def loudness(path):
@@ -185,7 +197,7 @@ def code_geometry(lines, line, kind="long-form", seconds=4.0, scene=2, at=3):
     cues = render.scene_cues(
         {"kind": "code", "heading": "H", "code": "demo/x.py"},
         scene,
-        [],
+        said("H"),
         seconds - render.LEAD - render.TAIL,
         size,
         CONFIG,
@@ -303,7 +315,7 @@ def test_mark_notes_sit_beside_their_line_without_covering_code_and_earlier_ones
     cues = render.scene_cues(
         {"kind": "code", "heading": "H", "code": "tests/x.py", "marks": marks},
         2,
-        [{"word": "patch", "start": 0.5, "end": 0.8}, {"word": "none", "start": 2.0, "end": 2.3}],
+        [*said("H"), {"word": "patch", "start": 0.5, "end": 0.8}, {"word": "none", "start": 2.0, "end": 2.3}],
         4.0,
         render.SIZES[kind],
         CONFIG,
@@ -439,7 +451,7 @@ def test_an_entrance_moves_mid_way_and_rests_in_place(tools):
         render.scene_cues(
             {"kind": "points", "heading": "H", "visual": "Mocks replace code\nThe assert checks"},
             2,
-            [{"word": "mocks", "start": 0.5, "end": 0.8}],
+            [*said("H"), {"word": "mocks", "start": 0.5, "end": 0.8}, {"word": "assert", "start": 1.5, "end": 1.8}],
             3.0,
             render.SIZES["long-form"],
             CONFIG,
@@ -551,7 +563,7 @@ NEW_KINDS = {
 @pytest.mark.parametrize("scene_kind", sorted(NEW_KINDS))
 def test_new_kinds_show_every_element_whole_inside_the_frame_once_cued(tools, kind, scene_kind):
     scene, code, selector = NEW_KINDS[scene_kind]
-    cues = render.staggered(render.scene_cues(scene, 2, [], 5.0, render.SIZES[kind], CONFIG, code))
+    cues = render.staggered(render.scene_cues(scene, 2, heard(scene, 5.0), 5.0, render.SIZES[kind], CONFIG, code))
     width, height = render.SIZES[kind]
     elements = evaluate(cues, cues["seconds"] - render.FADE - 0.05, f"() => ({INSIDE})('{selector}')", kind)
     assert elements
@@ -595,7 +607,7 @@ def test_short_scenes_draw_nothing_in_the_caption_band(tools, scene_kind):
     scene, code, _ = SHORT_KINDS[scene_kind]
     width, height = render.SIZES["short"]
     for index in (1, 2):  # the cold open and a later scene
-        cues = render.staggered(render.scene_cues(scene, index, [], 3.0, (width, height), CONFIG, code))
+        cues = render.staggered(render.scene_cues(scene, index, heard(scene, 3.0), 3.0, (width, height), CONFIG, code))
         elements = evaluate(cues, cues["seconds"] - render.FADE - 0.05, CONTENT, "short")
         assert elements
         band = render.CAPTION_TOP * height
@@ -634,7 +646,7 @@ def test_the_brand_image_sits_centred_faint_and_still_behind_a_code_scene(tools,
     width, height = render.SIZES[kind]
     data = "data:image/svg+xml;base64," + base64.b64encode(WORDMARK.encode()).decode()
     scene = {"kind": "code", "heading": "H", "code": "tests/x.py"}
-    cues = render.scene_cues(scene, 2, [], 4.0, (width, height), CONFIG, "\n".join(AI_TESTS))
+    cues = render.scene_cues(scene, 2, said("H"), 4.0, (width, height), CONFIG, "\n".join(AI_TESTS))
     cues |= {"backdrop": {"image": data, "opacity": 0.1}}
     early, late = (evaluate(cues, t, BACKDROP, kind) for t in (1.0, 4.0))
     assert early == late, (early, late)  # static while the camera drifts
@@ -663,7 +675,10 @@ def test_a_cover_backdrop_fills_the_frame_still_under_its_scrim(tmp_path, tools,
     (tmp_path / "branding").mkdir()
     (tmp_path / "branding" / "backdrop.jpg").write_bytes(photo.read_bytes())
     config = CONFIG | {"background": {"image": "branding/backdrop.jpg", "opacity": 0.35, "fit": "cover"}}
-    cues = render.scene_cues(SCENES[0], 2, [], 4.0, (width, height), config, None) | render.backdrop(config, tmp_path)
+    words = said(SCENES[0]["say"])
+    cues = render.scene_cues(SCENES[0], 2, words, 4.0, (width, height), config, None) | render.backdrop(
+        config, tmp_path
+    )
     early, late = (evaluate(cues, t, COVER, kind) for t in (1.0, 4.0))
     assert early == late, (early, late)  # static while the camera drifts
     assert (early["left"], early["top"], early["right"], early["bottom"]) == (0, 0, width, height)
@@ -685,7 +700,7 @@ def test_a_kit_lights_only_the_current_file_with_its_use_beside_the_card(tools, 
     # Owner, #28 gate 3 (fourth review): the same GitHub animation, each part explained with how to use it.
     scene = NEW_KINDS["kit"][0]
     width, height = render.SIZES[kind]
-    cues = render.staggered(render.scene_cues(scene, 14, [], 12.0, (width, height), CONFIG, None))
+    cues = render.staggered(render.scene_cues(scene, 14, heard(scene, 12.0), 12.0, (width, height), CONFIG, None))
     second = cues["files"][1]["at"]
     state = evaluate(cues, second + 0.8, KIT_STATE, kind)
     card, rows, uses = state["card"], state["rows"], state["uses"]
@@ -717,7 +732,8 @@ MOVES = """() => [...document.querySelectorAll('.action')].map(a => {
 def test_cta_icons_each_do_one_short_move_then_rest_and_the_pill_is_deep_red(tools):
     # Owner, #28 gate 3 (fourth review): like, share, subscribe, notification graphics, each animated as named.
     scene = NEW_KINDS["cta"][0]
-    cues = render.staggered(render.scene_cues(scene, 15, [], 8.0, render.SIZES["long-form"], CONFIG, None))
+    words = heard(scene, 8.0)
+    cues = render.staggered(render.scene_cues(scene, 15, words, 8.0, render.SIZES["long-form"], CONFIG, None))
     starts = [a["at"] + render.MOTION["enter"] for a in cues["actions"]]
     middle = [evaluate(cues, t + 0.17, MOVES)[i] for i, t in enumerate(starts)]
     rest = evaluate(cues, cues["seconds"] - render.FADE - 0.05, MOVES)
@@ -760,3 +776,41 @@ def test_a_split_hook_shows_big_from_the_first_frame_then_leaves_as_the_panels_c
     )
     assert all(t != "none" for t in first["panels"]), first  # the split sits back under the hook
     assert gone["opacity"] == 0 and all(t in ("none", "matrix(1, 0, 0, 1, 0, 0)") for t in gone["panels"]), gone
+
+
+# The hook's text (its glyphs' box and line count), and every box it must keep clear of while it shows: the panels
+# (each side with its label), each code line's glyphs, and the heading and brand while visible.
+HOOK_CLEAR = """() => {
+  const box = r => ({top: r.top, bottom: r.bottom, left: r.left, right: r.right});
+  const hook = document.querySelector('.hook'), span = document.createRange();
+  span.selectNodeContents(hook);
+  const text = box(span.getBoundingClientRect()), height = parseFloat(getComputedStyle(hook).lineHeight);
+  const shown = e => +getComputedStyle(e).opacity > 0;
+  const code = [...document.querySelectorAll('.line > *')].filter(s => s.textContent.trim())
+    .map(s => box(s.getBoundingClientRect())).filter(r => r.right > r.left);
+  return {text, opacity: +getComputedStyle(hook).opacity, lines: Math.round((text.bottom - text.top) / height),
+          veils: document.querySelectorAll('.veil').length,
+          others: [...[...document.querySelectorAll('.side')].map(s => ['panel', box(s.getBoundingClientRect())]),
+                   ...code.map(r => ['code', r]),
+                   ...[...document.querySelectorAll('h1, .brand')].filter(shown).map(e => [e.tagName, box(e.getBoundingClientRect())])]};
+}"""
+
+
+@pytest.mark.parametrize("kind", ["long-form", "short"])
+@pytest.mark.parametrize("hook", ["This test has never failed", "Your AI wrote tests that can never fail"])
+def test_a_split_hook_covers_no_code_panel_or_other_text_while_it_shows(tools, kind, hook):
+    # Owner, #83 (#39's cold open): the hook showed big over the dimmed code panels.
+    scene, code, _ = NEW_KINDS["split"]
+    say = f"{hook}. // Spot the bug in the code and the AI's tests."
+    scene = scene | {"hook": hook, "say": say}
+    width, height = render.SIZES[kind]
+    cues = render.staggered(render.scene_cues(scene, 1, said(say), 4.0, (width, height), CONFIG, code))
+    until = cues["hook"]["until"]
+    for t in (0.0, until / 2):  # the first frame and mid-hook
+        state = evaluate(cues, t, HOOK_CLEAR, kind)
+        text = state["text"]
+        assert state["veils"] == 0 and 1 <= state["lines"] <= 2, (t, state)
+        assert 0 <= text["left"] and text["right"] <= width and 0 <= text["top"], (t, text)
+        covered = [(name, other) for name, other in state["others"] if overlap(text, other)]
+        assert not covered, (t, text, covered)
+    assert evaluate(cues, until / 2, HOOK_CLEAR, kind)["opacity"] == 1
