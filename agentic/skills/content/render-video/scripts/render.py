@@ -39,23 +39,25 @@ Scene kinds and their fields (marks, link_at, takeaways_at, a kit file's at opti
 
 Timing: whisper-cli (-ml 1 -sow -ojf, the base.en model as narrate-video uses) gives each
 narration word its start time. A scene lasts LEAD + its narration + TAIL, rounded up to
-whole frames. A word names a key or code name when equal to it or sharing its first STEM letters, a
-numeral by its words ("90" as ninety). A scene's heading appears at the first word heard in its own
-narration naming one of its key words (3 letters or more, not STOP words), so it never shows before the
-narration names one ("Bug one: it mocks the coupon logic" at "bug"); with none heard, at HEADING_AT. No drawn
-scene is blank for over BLANK_MAX seconds: when nothing else enters by then, the heading shows at HEADING_AT
-(filled), and a scene that would still be empty is refused. Each on-screen item (a title word, a point, a terminal line, a split panel by its
-label, a compare column's heading or item, a kit takeaway) appears at the start of the
-first of its words (matched whole) heard after the previous item's in its list; an item none of whose words is heard
-appears at its share of the narration (item i of n at i/n). Compare columns are separate lists, so they
-build in the order narrated. An intro brings in its roles, then its activity, then its stake, each at its
-leading key word when heard ("Developers", not "let" in an earlier question), else at any of its words.
-A kit (kit_cues) lights each file, in order, at the first heard word naming its at after the previous file's
-(else at its share of the narration), wipes in its link at link_at (default LINK_AT; unheard: after the
-files), and shows its takeaways last, after both: the first at its takeaways_at word, else at its own word,
-each cued only by words the takeaway before it lacks, so none shows at a word read in an earlier one.
-A cta brings in each action at the first heard word naming it (CTA_WORDS: like or likes, share, subscribe or
-subscribed, notification, notifications, or bell) after the action before's, else at its share.
+whole frames. Every on-screen element enters at its own words, never before. A word names a key or code
+name when equal to it or sharing its first STEM letters, a numeral by its words ("90" as ninety). A scene's
+heading appears at the first word heard in its own narration naming its leading key word (3 letters or more,
+not STOP words), else another of its key words ("Bug one: it mocks the coupon logic" at "bug"). Each on-screen
+item (a title word, a point, a terminal line, a split panel by its label, a compare item, an intro's roles,
+activity, and stake, a kit takeaway) appears at the start of its leading key word (matched whole) heard after
+the previous item's in its list, else at the first of its other key words heard after it ("Developers", not
+"let" in an earlier question). A compare's two column headings enter together, at the later of their cues, and
+each column's items after them, so the sides alternate as narrated. A kit (kit_cues) lights each file, in order,
+at the first heard word naming its at (without one, its path's key words) after the previous file's, wipes in
+its link at link_at (default LINK_AT; unheard: after the files), and shows its takeaways last, after both: the
+first at its takeaways_at word, else at its own word, each cued only by words the takeaway before it lacks, so
+none shows at a word read in an earlier one. A cta brings in each action at the first heard word naming it
+(CTA_WORDS: like or likes, share, subscribe or subscribed, notification, notifications, or bell) after the
+action before's. A heading, item, mark, kit file or takeaway, cta action, or repo file none of whose words is
+heard where it is due is refused, naming the scene, the item, and the fix (reword the item or the narration).
+No drawn scene is blank for over BLANK_MAX seconds: one with nothing cued by then, and no code typing in or
+cold-open split panels, is refused (filled), naming the fix: open the narration on the heading's words, or add
+a filler or transition title scene, such as a question in the centre, before it.
 
 A code scene types its file in within TYPE_MAX seconds (the first scene, the cold open, shows it whole
 from its first frame), so the code is whole as the narrator starts on it, and no focus or mark starts
@@ -65,7 +67,7 @@ heard again does not pull it back up. A code scene shows at most ROWS lines (sty
 Short); a longer file scrolls with the focus, so the focused line and a line of context round it stay
 in view. Every line has the same box; the focus band wipes over it and the arrow points at its last
 character. Marks replace that word-driven focus: each focuses its line at the first heard word naming
-its at word after the previous mark's (else at its share), with its note in a chip beside the line over
+its at word after the previous mark's, with its note in a chip beside the line over
 no code; earlier notes stay, dimmed. A split scene shows its two files side by side (stacked on a
 Short), SPLIT_ROWS lines in view a side, scrolling as code does; only marks focus its lines. As the
 first scene both files are whole from its first frame; later, each panel enters at its label's cue and
@@ -77,7 +79,7 @@ file with its use in a callout beside it (below the card on a Short), and lists 
 the palette's deep red, syntax, with "Subscribe" in warm white; no YouTube logo), in a row (two by two on a
 Short), each entering at its cue, then doing one short move: a press, one pulse, or one bell swing. A repo card
 enters at the lead, lists each
-file at the first heard word naming one of its path's words (else one MOTION enter after the file before),
+file at the first heard word naming its path's leading key word the file before lacks, else another of them,
 and wipes in https://github.com/<repo>/tree/main/<path> at link_at (default LINK_AT; unheard: after the
 files). `backticked` text in compare items and kit takeaways shows as code.
 
@@ -111,8 +113,8 @@ visual.
 Needs Google Chrome, ffmpeg, ffprobe, whisper-cli with its model, and the fonts (README, Setup).
 
 Exit codes: 0 every scene rendered, 1 a tool or file error, 2 bad input (an invalid script
-or channel (youtube_channel.load refuses a missing background image or an invalid opacity or fit), a missing narration or demo file, a terminal clip over MAX_SPEED times its scene, or a scene with nothing
-to show within BLANK_MAX seconds).
+or channel (youtube_channel.load refuses a missing background image or an invalid opacity or fit), a missing narration or demo file, a terminal clip over MAX_SPEED times its scene, an item or heading whose
+words are never heard, or a scene with nothing to show within BLANK_MAX seconds).
 """
 
 import argparse
@@ -171,7 +173,6 @@ BACKDROP_TYPES = {".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/j
 CONTRAST = 4.5
 SCRIM_EDGE = 0.2
 FOCUS_HOLD = 1.2  # a code focus stays at least this long before it moves
-HEADING_AT = 0.1  # a heading none of whose key words is heard shows this early
 HOOK_MAX = 3.0  # a split's hook leaves by this many seconds into the clip (split_hook)
 HOOK_WORDS = (2, 8)  # and has this many words, fewest and most
 BLANK_MAX = 1.0  # something besides the background shows within this many seconds of a scene's start (filled)
@@ -194,6 +195,16 @@ CODE_WORDS = {"return", "import", "from", "with", "self", "none", "true", "false
 
 class BadInput(Exception):
     """A missing or invalid script, narration, or demo file, or channel: exit 2."""
+
+
+class Unheard(BadInput):
+    """An on-screen item or heading none of whose words is heard where it is due; plan names its scene."""
+
+    def __init__(self, text: str):
+        super().__init__(
+            f'"{text}": none of its words is heard after the item before it; reword the item or the narration so'
+            " the narrator says it (write-video-script)"
+        )
 
 
 class ToolError(Exception):
@@ -232,47 +243,47 @@ def _keys(text: str) -> set[str]:
     return {w for w in words if len(w) >= 3 and w not in STOP} or set(words)
 
 
-def cue_times(items: list[str], words: list[dict], narration: float) -> list[float]:
-    """When each item appears, in seconds from the clip's start: at its first heard word, else its share."""
-    return _cues(items, words, narration)[0]
+def cue_times(items: list[str], words: list[dict]) -> list[float]:
+    """When each item appears, in seconds from the clip's start (_cues)."""
+    return _cues(items, words)[0]
 
 
-def _cues(items, words, narration, position=0, start=LEAD, distinct=False, lead=False) -> tuple[list[float], int]:
-    """cue_times for a list that starts at heard word position and time start (an unheard item at its share of the
-    narration left after start), with the position after its last heard item. With distinct, an item is cued only
-    by its key words the item before it lacks (all of them when it has no other), so a word read in one item does
-    not bring in the next. With lead, an item is cued at its leading key word when heard, else at any of its keys."""
+def _cues(items, words, position=0, start=LEAD, distinct=False) -> tuple[list[float], int]:
+    """When each item of a list appears, from heard word position and time start, with the position after its last
+    item: at its leading key word heard after the previous item's, else at the first of its other key words heard
+    after it; refused (Unheard) when none is. With distinct, an item is cued only by its key words the item before
+    it lacks (all of them when it has no other), so a word read in one item does not bring in the next."""
     times, before = [], set()
-    for index, item in enumerate(items):
+    for item in items:
         keys = _keys(item)
         keys, before = (keys - before if distinct and keys - before else keys), keys
         first = next((w for w in WORD.findall(item.lower()) if w in keys), None)
-        hit = next((j for j in range(position, len(words)) if lead and words[j]["word"] == first), None)
+        hit = next((j for j in range(position, len(words)) if words[j]["word"] == first), None)
         hit = next((j for j in range(position, len(words)) if words[j]["word"] in keys), None) if hit is None else hit
         if hit is None:
-            at = start + (LEAD + narration - start) * index / len(items)
-        else:
-            at, position = LEAD + words[hit]["start"], hit + 1
-        times.append(round(max([at, start, *times[-1:]]), 3))
+            raise Unheard(item)
+        position = hit + 1
+        times.append(round(max([LEAD + words[hit]["start"], start, *times[-1:]]), 3))
     return times, position
 
 
-def kit_cues(scene: dict, words: list[dict], narration: float) -> dict:
-    """The "Take it to your agent" kit on the repo card: each file lit, with its use, at the first heard word naming
-    its at after the previous file's (else at its share of the narration); the link at its link_at word (default
-    LINK_AT; unheard: after the files); and the takeaways last, after both: the first at its takeaways_at word,
-    else at its own word, later ones at their own words (distinct, so no takeaway shows at a word of the one before)."""
+def kit_cues(scene: dict, words: list[dict]) -> dict:
+    """The "Take it to your agent" kit on the repo card: each file lit, with its use, at the first heard word after
+    the previous file's naming its at (without one, its path's leading key word, else another); the link at its
+    link_at word (default LINK_AT; unheard: after the files); and the takeaways last, after both: the first at its
+    takeaways_at word, else at its own word, later ones at their own words (distinct, so no takeaway shows at a word
+    of the one before). A file or takeaway unheard is refused (Unheard)."""
 
     def heard_from(cue: str, position: int) -> int | None:
-        names = narrate.spoken_split(cue)
-        return next((j for j in range(position, len(words)) if _heard(words[j], names)), None)
+        return _hit(words, position, narrate.spoken_split(cue))
 
     shown, times, position = scene["files"], [], 0
-    for index, file in enumerate(shown):
-        hit = heard_from(file["at"], position) if "at" in file else None
-        when = LEAD + narration * index / len(shown) if hit is None else LEAD + words[hit]["start"]
-        position = position if hit is None else hit + 1
-        times.append(round(max([when, *times[-1:]]), 3))
+    for file in shown:
+        hit = heard_from(file["at"], position) if "at" in file else _hit(words, position, _named(file["path"]))
+        if hit is None:
+            raise Unheard(file.get("at", file["path"]))
+        position = hit + 1
+        times.append(round(max([LEAD + words[hit]["start"], *times[-1:]]), 3))
     hit = heard_from(scene.get("link_at", LINK_AT), 0)
     link = round(times[-1] + MOTION["enter"] if hit is None else LEAD + words[hit]["start"], 3)
     start = max(times[-1], link)
@@ -280,7 +291,7 @@ def kit_cues(scene: dict, words: list[dict], narration: float) -> dict:
     cued = "takeaways_at" in scene and (hit := heard_from(scene["takeaways_at"], position)) is not None
     if cued:
         position, start = hit, max(start, round(LEAD + words[hit]["start"], 3))
-    takeaways = _cues(scene["takeaways"], words, narration, position, start, distinct=True)[0]
+    takeaways = _cues(scene["takeaways"], words, position, start, distinct=True)[0]
     takeaways[0] = start if cued else takeaways[0]  # a cued list's first item shows at its cue word
     return _card(scene, link) | {
         "files": [{"text": f["path"], "use": f["use"], "at": at} for f, at in zip(shown, times)],
@@ -288,15 +299,16 @@ def kit_cues(scene: dict, words: list[dict], narration: float) -> dict:
     }
 
 
-def cta_cues(actions: list[str], words: list[dict], narration: float) -> list[dict]:
-    """Each action's icon at the first heard word after the previous action's that names it (CTA_WORDS), else at
-    its share of the narration, never before the action before it."""
+def cta_cues(actions: list[str], words: list[dict]) -> list[dict]:
+    """Each action's icon at the first heard word after the previous action's that names it (CTA_WORDS), never
+    before the action before it; refused (Unheard) when none is."""
     times, position = [], 0
-    for index, name in enumerate(actions):
+    for name in actions:
         hit = next((j for j in range(position, len(words)) if words[j]["word"] in CTA_WORDS[name]), None)
-        when = LEAD + narration * index / len(actions) if hit is None else LEAD + words[hit]["start"]
-        position = position if hit is None else hit + 1
-        times.append(round(max([when, *times[-1:]]), 3))
+        if hit is None:
+            raise Unheard(name)
+        position = hit + 1
+        times.append(round(max([LEAD + words[hit]["start"], *times[-1:]]), 3))
     return [{"name": name, "at": at} for name, at in zip(actions, times)]
 
 
@@ -312,19 +324,19 @@ def _card(scene: dict, link: float) -> dict:
 
 
 def repo_cues(scene: dict, words: list[dict]) -> dict:
-    """A repo card: the card at the lead, each file at the first heard word after the previous file's naming one of
-    its path's words the file before lacks (a name by its first STEM letters), else one entrance after the previous;
-    the link https://github.com/<repo>/tree/main/<path> at its link_at word (default LINK_AT), else after the files."""
+    """A repo card: the card at the lead, each file at the first heard word after the previous file's naming its
+    path's leading key word the file before lacks, else another of them (a name by its first STEM letters), refused
+    (Unheard) when none is; the link https://github.com/<repo>/tree/main/<path> at its link_at word (default
+    LINK_AT), else after the files."""
     times, position, before = [], 0, set()
     for name in scene["files"]:
-        keys = _keys(name)
-        keys, before = (keys - before or keys), keys
-        hit = next((j for j in range(position, len(words)) if _heard(words[j], keys)), None)
+        keys = _named(name)
+        keys, before = ([k for k in keys if k not in before] or keys), set(keys)
+        hit = _hit(words, position, keys)
         if hit is None:
-            times.append(round((times[-1] if times else LEAD) + MOTION["enter"], 3))
-        else:
-            times.append(round(max([LEAD + words[hit]["start"], *times[-1:]]), 3))
-            position = hit + 1
+            raise Unheard(name)
+        times.append(round(max([LEAD + words[hit]["start"], *times[-1:]]), 3))
+        position = hit + 1
     names = narrate.spoken_split(scene.get("link_at", LINK_AT))
     hit = next((w for w in words if _heard(w, names)), None)
     link = round(times[-1] + MOTION["enter"] if hit is None else LEAD + hit["start"], 3)
@@ -339,13 +351,30 @@ def _heard(word: dict, names) -> bool:
     return any(_names(h, n) for h in narrate.spoken_split(word["word"]) for n in names)
 
 
+def _named(text: str) -> list[str]:
+    """text's key words in its order, a numeral by its words: 3 letters or more and not STOP, else all of them."""
+    names = narrate.spoken_split(text)
+    return [n for n in names if len(n) >= 3 and n not in STOP] or names
+
+
+def _hit(words: list[dict], position: int, names: list[str]) -> int | None:
+    """The first heard word from position naming names' leading one (a name by its first STEM letters), else the
+    first naming any of them; None when none is heard."""
+    for wanted in (names[:1], names):
+        found = next((j for j in range(position, len(words)) if _heard(words[j], wanted)), None)
+        if found is not None:
+            return found
+    return None
+
+
 def heading_time(heading: str, words: list[dict]) -> float:
-    """When the heading appears: at the first word heard in its scene naming one of its key words (a numeral by
-    its words, a name by its first STEM letters), so it never shows before the narration names one; at HEADING_AT
-    when none is heard."""
-    keys = [k for k in narrate.spoken_split(heading) if len(k) >= 3 and k not in STOP]
-    hit = next((w for w in words if _heard(w, keys)), None)
-    return HEADING_AT if hit is None else round(LEAD + hit["start"], 3)
+    """When the heading appears: at its leading key word heard in its scene, else at the first of its other key
+    words (a numeral by its words, a name by its first STEM letters), so it never shows before the narration names
+    one; refused (Unheard) when none is heard."""
+    hit = _hit(words, 0, _named(heading))
+    if hit is None:
+        raise Unheard(heading)
+    return round(LEAD + words[hit]["start"], 3)
 
 
 def focus_cues(lines: list[str], words: list[dict]) -> list[dict]:
@@ -366,18 +395,16 @@ def focus_cues(lines: list[str], words: list[dict]) -> list[dict]:
     return focus
 
 
-def mark_cues(marks: list[dict], words: list[dict], narration: float) -> list[dict]:
+def mark_cues(marks: list[dict], words: list[dict]) -> list[dict]:
     """Each mark's focus, in order: at the first heard word after the previous mark's naming its at word (as
-    code names, a numeral by its words), else at its share of the narration; line counted from 0."""
+    code names, a numeral by its words), refused (Unheard) when none is; line counted from 0."""
     times, position = [], 0
-    for index, mark in enumerate(marks):
-        names = narrate.spoken_split(mark["at"])
-        hit = next((j for j in range(position, len(words)) if _heard(words[j], names)), None)
+    for mark in marks:
+        hit = _hit(words, position, narrate.spoken_split(mark["at"]))
         if hit is None:
-            when = LEAD + narration * index / len(marks)
-        else:
-            when, position = LEAD + words[hit]["start"], hit + 1
-        times.append(round(max([when, *times[-1:]]), 3))
+            raise Unheard(mark["at"])
+        position = hit + 1
+        times.append(round(max([LEAD + words[hit]["start"], *times[-1:]]), 3))
     return [{"line": m["line"] - 1, "at": t, "note": m["note"]} for m, t in zip(marks, times)]
 
 
@@ -427,25 +454,28 @@ def scene_cues(scene: dict, index: int, words: list[dict], narration: float, siz
         "floor": round(size[1] * (1 - CAPTION_TOP)) + FLOOR_GAP if size[1] > size[0] else FLOOR,
     }
     if scene["kind"] == "kit":
-        return cues | kit_cues(scene, words, narration)
+        return cues | kit_cues(scene, words)
     if scene["kind"] == "repo":
         return cues | repo_cues(scene, words)
     if scene["kind"] == "cta":
-        return cues | {"actions": cta_cues(scene["actions"], words, narration)}
+        return cues | {"actions": cta_cues(scene["actions"], words)}
     if scene["kind"] == "intro":
         # Roles, then the activity, then the stake, each at its leading key word as the narrator names it.
         shown = [*scene["roles"], scene["activity"], scene["stake"]]
-        times = _cues(shown, words, narration, lead=True)[0]
+        times = cue_times(shown, words)
         timed = [{"text": t, "at": at} for t, at in zip(shown, times)]
         return cues | {"roles": timed[:-2], "activity": timed[-2], "stake": timed[-1]}
     if scene["kind"] == "compare":
-        # Each column on its own: its heading, then its items, each at its first heard word (cue_times), so the
-        # two sides alternate as the narration does.
+        # Both column headings together, at the later of their cues, so neither shows before its words; then each
+        # column's items after its heading's word and no earlier than the headings, so the sides alternate as the
+        # narration does (staggered keeps the right heading with the left).
+        headings = {side: _cues([scene[side]["heading"]], words) for side in SIDES}
+        together = max(times[0] for times, _ in headings.values())
         for side in SIDES:
             column = scene[side]
-            heading, *shown = cue_times([column["heading"], *column["items"]], words, narration)
+            shown = _cues(column["items"], words, headings[side][1], together)[0]
             cues[side] = {
-                "heading": {"text": column["heading"], "at": heading},
+                "heading": {"text": column["heading"], "at": together},
                 "items": [{"text": t, "at": at} for t, at in zip(column["items"], shown)],
             }
         return cues
@@ -457,7 +487,7 @@ def scene_cues(scene: dict, index: int, words: list[dict], narration: float, siz
         if "hook" in scene:
             cues["hook"] = {"text": scene["hook"], "at": 0.0, "until": hook}
             cues["heading"]["at"] = max(cues["heading"]["at"], hook)
-        enters = [None, None] if index == 1 else cue_times([scene[s]["label"] for s in SIDES], words, narration)
+        enters = [None, None] if index == 1 else cue_times([scene[s]["label"] for s in SIDES], words)
         for side, enter in zip(SIDES, enters):
             spec = scene[side]
             view = code_view(spec["code"], code[side], spec.get("marks") or [], words, narration,
@@ -470,7 +500,7 @@ def scene_cues(scene: dict, index: int, words: list[dict], narration: float, siz
         return cues | code_view(scene["code"], code, scene.get("marks"), words, narration, rows=ROWS[tuple(size)],
                                 typed=index != 1, scene=index)  # fmt: skip
     shown = items(scene)
-    return cues | {"items": [{"text": t, "at": at} for t, at in zip(shown, cue_times(shown, words, narration))]}
+    return cues | {"items": [{"text": t, "at": at} for t, at in zip(shown, cue_times(shown, words))]}
 
 
 def split_hook(scene: dict, words: list[dict]) -> float:
@@ -490,7 +520,7 @@ def code_view(name, code, marks, words, narration, rows, typed, scene) -> dict:
     typing = round(typing, 3)
     if past := [m["line"] for m in marks or [] if m["line"] > len(lines)]:
         raise BadInput(f"scene {scene}: marks: line {past[0]} is past the end of {name} ({len(lines)} lines)")
-    focus = focus_cues(lines, words) if marks is None else mark_cues(marks, words, narration)
+    focus = focus_cues(lines, words) if marks is None else mark_cues(marks, words)
     # No band, arrow, or note before the code is whole: typing ends at LEAD + typing.
     focus = [cue | {"at": round(max(cue["at"], LEAD + typing), 3)} for cue in focus]
     tops = scroll_tops(len(lines), focus, rows)
@@ -513,24 +543,27 @@ def _entrances(node) -> list[dict]:
 
 def staggered(cues: dict) -> dict:
     """The cues with every entrance starting at least MOTION stagger seconds after the one before it, in time
-    order, so only one element starts moving at a time."""
+    order, so only one element starts moving at a time; a compare's two column headings start together."""
+    follower = cues["right"]["heading"] if cues["kind"] == "compare" else None  # enters with the left heading
     last = -math.inf
-    for entrance in sorted(_entrances(cues), key=lambda e: e["at"]):
+    for entrance in sorted((e for e in _entrances(cues) if e is not follower), key=lambda e: e["at"]):
         entrance["at"] = last = round(max(entrance["at"], last + MOTION["stagger"]), 3)
+    if follower:
+        follower["at"] = cues["left"]["heading"]["at"]
     return cues
 
 
 def filled(cues: dict, scene: int) -> dict:
-    """The cues with something on screen within BLANK_MAX seconds of the scene's start: when no entrance comes by
-    then, the heading shows at HEADING_AT (without heading text, the first entrance does). Refused when nothing
-    would still show by BLANK_MAX, such as a scene with no heading and no items."""
-    found = sorted(_entrances(cues), key=lambda e: e["at"])
-    if found and found[0]["at"] > BLANK_MAX:
-        heading = cues.get("heading")
-        (heading if heading and heading.get("text") else found[0])["at"] = HEADING_AT
-    if not found or min(e["at"] for e in found) > BLANK_MAX:
+    """The cues, refused when nothing shows within BLANK_MAX seconds of the scene's start: no entrance by then
+    and no frame element (code typing in from the lead, a cold open's split panels whole from the first frame).
+    Nothing is moved early to fill the gap."""
+    shown = [e["at"] for e in _entrances(cues)]
+    shown += [LEAD] if cues["kind"] == "code" else []
+    shown += [0.0 for side in SIDES if cues["kind"] == "split" and "at" not in cues[side]]
+    if not shown or min(shown) > BLANK_MAX:
         raise BadInput(
-            f"scene {scene}: nothing shows in its first {BLANK_MAX:g} s; give it a heading or an item"
+            f"scene {scene}: nothing shows in its first {BLANK_MAX:g} s; open the narration on the heading's words,"
+            " or add a filler or transition title scene (such as a question in the centre) before it"
             " (write-video-script)"
         )
     return cues
@@ -615,7 +648,10 @@ def plan(script: dict, narrations: list[float], heard: list[list[dict]], config:
             code = codes.get(scene.get("code")) if scene["kind"] == "code" else None
             if scene["kind"] == "split":
                 code = {side: codes[scene[side]["code"]] for side in SIDES}
-            cues = scene_cues(scene, index, words, narration, size, config, code)
+            try:
+                cues = scene_cues(scene, index, words, narration, size, config, code)
+            except Unheard as error:
+                raise BadInput(f"scene {index}: {error}") from None
             entry |= {"source": "html", "cues": staggered(filled(cues, index))}
         scenes.append(entry)
     return scenes

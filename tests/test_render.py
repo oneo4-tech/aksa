@@ -18,9 +18,10 @@ import render
 NUMBER = 14
 CODE = 'def test_discount():\n    with patch("discount.apply") as fake:\n        assert fake() == 90\n'
 SCENES = [
-    {"kind": "points", "heading": "Two tests", "visual": "Mocks replace code\nThe assert checks the fake", "say": "S"},
-    {"kind": "code", "heading": "The test", "code": "demo/discount.py", "say": "S"},
-]
+    {"kind": "points", "heading": "Two tests", "visual": "Mocks replace code\nThe assert checks the fake",
+     "say": "Two tests. Mocks replace code, and the assert checks the fake."},
+    {"kind": "code", "heading": "Look closer", "code": "demo/discount.py", "say": "Look closer at the code."},
+]  # fmt: skip
 
 
 def whisper_json(words):
@@ -60,7 +61,8 @@ def files(root, scenes=SCENES, kind="long-form", seconds=(2.0, 3.0), demo=False,
 
 
 class Fakes:
-    """whisper hearing the given words, Chrome recording each page, ffmpeg writing its output file."""
+    """whisper hearing the given words (by default each scene's say, a word every 0.3 s), Chrome recording each page,
+    ffmpeg writing its output file."""
 
     def __init__(self, heard=None, demo_seconds=30.0, lengths=None):
         self.heard = heard or {}  # scene number -> [(word, start, end)]
@@ -68,7 +70,11 @@ class Fakes:
         self.lengths = lengths or {}  # recording file name -> its length in seconds
 
     def transcribe(self, wav):
-        return whisper_json(self.heard.get(int(Path(wav).stem), []))
+        number = int(Path(wav).stem)
+        if number in self.heard:
+            return whisper_json(self.heard[number])
+        say = json.loads((Path(wav).parents[1] / "script.json").read_text())["scenes"][number - 1]["say"]
+        return whisper_json([(w["word"], w["start"], w["end"]) for w in said(say)])
 
     def shoot(self, html, size, frames, folder):
         self.pages.append({"html": html, "size": size, "frames": frames})
@@ -133,9 +139,11 @@ def test_main_renders_each_scene_into_a_numbered_clip_and_reports_its_length(tmp
     assert (report["width"], report["height"], report["fps"]) == (1920, 1080, 30)
 
 
-def test_points_appear_at_the_whisper_time_of_their_first_heard_word(tmp_path, fonts, capsys):
+def test_points_appear_at_the_whisper_time_of_their_leading_word(tmp_path, fonts, capsys):
     files(tmp_path)
-    fakes = Fakes(heard={1: [("So", 0.2, 0.4), ("mocks", 0.5, 0.9), ("then", 1.0, 1.2), ("assert", 1.4, 1.8)]})
+    heard = [("two", 0.0, 0.1), ("tests", 0.1, 0.2), ("So", 0.2, 0.4), ("mocks", 0.5, 0.9), ("then", 1.0, 1.2),
+             ("assert", 1.4, 1.8)]  # fmt: skip
+    fakes = Fakes(heard={1: heard})
     run(tmp_path, fakes, capsys)
     items = cues(fakes.pages[0])["items"]
     assert items == [
@@ -144,22 +152,47 @@ def test_points_appear_at_the_whisper_time_of_their_first_heard_word(tmp_path, f
     ]
 
 
-def test_a_point_whose_words_are_not_heard_appears_at_its_share_of_the_narration(tmp_path, fonts, capsys):
-    files(tmp_path)
-    run(tmp_path, fakes := Fakes(), capsys)
-    # Nothing heard: point i of n appears at i/n of the 2 s narration, after the lead.
-    assert [i["at"] for i in cues(fakes.pages[0])["items"]] == [render.LEAD, round(render.LEAD + 1.0, 3)]
+def test_a_point_cues_at_its_leading_word_not_an_earlier_key_word(tmp_path, fonts, capsys):
+    # Content issue #38: items came in at a common key word said before their own words.
+    files(tmp_path, scenes=SCENES[:1])
+    heard = [("two", 0.1, 0.2), ("tests", 0.3, 0.4), ("code", 0.5, 0.6), ("mocks", 0.9, 1.0), ("assert", 1.4, 1.5)]
+    run(tmp_path, fakes := Fakes(heard={1: heard}), capsys)
+    assert cues(fakes.pages[0])["items"][0] == {"text": "Mocks replace code", "at": round(render.LEAD + 0.9, 3)}
+
+
+UNHEARD = [
+    (SCENES[0], "Two tests. Mocks replace code.", "The assert checks the fake"),
+    ({"kind": "title", "heading": "Your turn", "visual": "Comment below", "say": "S"}, "Comment below.", "Your turn"),
+    (SCENES[1] | {"marks": [{"line": 2, "note": "n", "at": "patch"}]}, "Look closer at the code.", "patch"),
+    ({"kind": "cta", "heading": "Like it", "actions": ["like", "share"], "say": "S"}, "Like it.", "share"),
+    ({"kind": "repo", "heading": "The kit", "repo": "o/r", "path": "k", "files": ["AGENTS.md", "tools/run.py"],
+      "say": "S"}, "The kit holds agents rules.", "tools/run.py"),
+    ({"kind": "kit", "heading": "Your kit", "repo": "o/r", "path": "k", "takeaways": ["Mock less"],
+      "files": [{"path": "AGENTS.md", "use": "Paste it", "at": "rules"}]}, "Your kit. Mock less.", "rules"),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize("scene, say, item", UNHEARD)
+def test_an_item_none_of_whose_words_is_heard_is_refused_naming_the_scene_item_and_fix(
+    tmp_path, fonts, capsys, scene, say, item
+):
+    files(tmp_path, scenes=[SCENES[0], scene | {"say": say}], seconds=(2.0, 2.0))
+    code, _, err = run(tmp_path, fakes := Fakes(), capsys)
+    assert code == 2 and fakes.commands == [], err
+    assert "scene 2:" in err and f'"{item}"' in err, err
+    assert "reword" in err and "write-video-script" in err
 
 
 def test_cue_times_never_go_back_in_time():
-    words = render.words_from(whisper_json([("assert", 0.2, 0.5)]))
-    times = render.cue_times(["assert this", "unheard words", "assert again"], words, 3.0)
-    assert times == sorted(times) and times[0] == round(render.LEAD + 0.2, 3)
+    # "checks", the second item's leading word, is said before the first item's: the second waits for "again".
+    words = render.words_from(whisper_json([("checks", 0.1, 0.2), ("assert", 0.2, 0.5), ("again", 0.6, 0.8)]))
+    times = render.cue_times(["assert this", "checks again"], words)
+    assert times == [round(render.LEAD + 0.2, 3), round(render.LEAD + 0.6, 3)]
 
 
 def test_code_scene_focuses_the_line_whose_name_the_narration_says(tmp_path, fonts, capsys):
     files(tmp_path)
-    fakes = Fakes(heard={2: [("patch", 0.8, 1.0), ("assert", 2.5, 2.9)]})  # "patch" once the code is typed in
+    fakes = Fakes(heard={2: [("look", 0.0, 0.1), ("patch", 0.8, 1.0), ("assert", 2.5, 2.9)]})  # "patch" once typed in
     run(tmp_path, fakes, capsys)
     scene = cues(fakes.pages[1])
     assert scene["file"] == "demo/discount.py"
@@ -187,7 +220,7 @@ def test_a_code_file_longer_than_the_view_scrolls_so_each_focused_line_stays_in_
     code = "\n".join([f"{name} = {i}" for i, name in enumerate(fruit.split())] + ["zebra = 16"]) + "\n"
     files(tmp_path, kind=kind)
     (tmp_path / ".projects/content/example-demos/14-mocked-tests/demo/discount.py").write_text(code)
-    heard = [("apple", 0.3, 0.4), ("zebra", 1.6, 1.8), ("cherry", 2.9, 3.0)]
+    heard = [("look", 0.0, 0.1), ("apple", 0.3, 0.4), ("zebra", 1.6, 1.8), ("cherry", 2.9, 3.0)]
     fakes = Fakes(heard={2: heard})
     run(tmp_path, fakes, capsys)
     scene = cues(fakes.pages[1])
@@ -200,7 +233,7 @@ def test_a_code_file_longer_than_the_view_scrolls_so_each_focused_line_stays_in_
 
 def test_a_code_file_within_the_view_never_scrolls(tmp_path, fonts, capsys):
     files(tmp_path)
-    fakes = Fakes(heard={2: [("patch", 0.5, 0.8), ("assert", 2.5, 2.9)]})
+    fakes = Fakes(heard={2: [("look", 0.0, 0.1), ("patch", 0.5, 0.8), ("assert", 2.5, 2.9)]})
     run(tmp_path, fakes, capsys)
     scene = cues(fakes.pages[1])
     assert scene["rows"] == 14 and [c["top"] for c in scene["focus"]] == [0, 0]
@@ -261,9 +294,16 @@ KIND_FIELDS = {
 }
 
 
+def spoken(scene):
+    """A narration saying every word of the scene's fields in order, so each item is heard."""
+    fields = {k: v for k, v in scene.items() if k not in ("kind", "say")}
+    return " ".join(render.WORD.findall(json.dumps(fields).replace("\\n", " ").lower()))
+
+
 @pytest.mark.parametrize("kind", render.KINDS)
 def test_each_scene_kind_renders_from_its_own_template_with_the_cues_inlined(tmp_path, fonts, capsys, kind):
-    scene = {"kind": kind, "heading": "H", "say": "S"} | KIND_FIELDS[kind]
+    scene = {"kind": kind, "heading": "H"} | KIND_FIELDS[kind]
+    scene["say"] = spoken(scene)
     split_files(tmp_path, [scene])
     fakes = Fakes()
     assert run(tmp_path, fakes, capsys)[0] == 0
@@ -379,7 +419,8 @@ def test_a_missing_clip_for_a_terminal_scene_is_refused_naming_record(tmp_path, 
 
 
 def test_terminal_scenes_without_a_recording_are_drawn_from_their_visual(tmp_path, fonts, capsys):
-    terminal = {"kind": "terminal", "heading": "Run it", "visual": "$ pytest -q\n1 passed", "say": "S"}
+    terminal = {"kind": "terminal", "heading": "Run it", "visual": "$ pytest -q\n1 passed",
+                "say": "Run it with pytest, and it passed."}  # fmt: skip
     files(tmp_path, scenes=[terminal])
     run(tmp_path, fakes := Fakes(), capsys)
     assert [i["text"] for i in cues(fakes.pages[0])["items"]] == ["$ pytest -q", "1 passed"]
@@ -422,33 +463,31 @@ def test_missing_fonts_stop_before_chrome_with_the_setup_hint(tmp_path, fonts, c
     assert fakes.pages == []
 
 
-def test_a_heading_appears_at_the_first_heard_key_word_of_its_own_scene(tmp_path, fonts, capsys):
-    # Content issue #38 scene 7: "Mutation testing" was on screen before the narrator introduced the term.
-    # Owner, #28 gate 3 (third review): "Bug one: it mocks the coupon logic" should show at "Bug", not wait for
-    # the newest term; earlier scenes no longer matter.
-    scenes = [
-        {"kind": "points", "heading": "Testing versus checking", "visual": "A\nB", "say": "Testing is learning."},
-        {"kind": "points", "heading": "Mutation testing", "visual": "A\nB", "say": "A technique called mutation."},
-        {"kind": "points", "heading": "Testing mutations", "visual": "A\nB", "say": "Mutation again."},
-        {"kind": "points", "heading": "Bug one: it mocks the coupon logic", "visual": "A\nB", "say": "Bug one."},
-        {"kind": "points", "heading": "Your turn", "visual": "A\nB", "say": "Comment below."},
-    ]
-    files(tmp_path, scenes=scenes, seconds=(2.0, 3.0, 2.0, 3.0, 2.0))
-    heard = [("there", 0.2, 0.4), ("is", 0.5, 0.6), ("mutation", 1.3, 1.7), ("testing", 1.8, 2.1)]
-    bug = [("bug", 0.3, 0.5), ("one", 0.5, 0.7), ("it", 0.8, 0.9), ("mocks", 1.6, 1.9), ("coupon", 2.2, 2.5)]
-    fakes = Fakes(heard={1: [("testing", 0.6, 0.9)], 2: heard, 3: [("mutation", 0.9, 1.2)], 4: bug,
-                         5: [("comment", 0.2, 0.5), ("below", 0.6, 0.8)]})  # fmt: skip
-    run(tmp_path, fakes, capsys)
-    headings = [cues(page)["heading"] for page in fakes.pages]
-    assert headings[0] == {"text": "Testing versus checking", "at": round(render.LEAD + 0.6, 3)}
-    # Never before the narration names one of its words: "there is" does not bring in "Mutation testing".
-    assert headings[1] == {"text": "Mutation testing", "at": round(render.LEAD + 1.3, 3)}
-    # Changed: its words were all said in earlier scenes, which showed it at HEADING_AT; now it waits for its
-    # first word heard in this scene.
-    assert headings[2] == {"text": "Testing mutations", "at": round(render.LEAD + 0.9, 3)}
-    assert headings[3] == {"text": "Bug one: it mocks the coupon logic", "at": round(render.LEAD + 0.3, 3)}
-    # None of its key words heard: at the scene's start.
-    assert headings[4] == {"text": "Your turn", "at": render.HEADING_AT}
+@pytest.mark.parametrize(
+    "heading, heard, at",
+    [
+        # Content issue #38 scene 7: "Mutation testing" was on screen before the narrator introduced the term.
+        ("Testing versus checking", [("testing", 0.6, 0.9)], 0.6),
+        # Never before the narration names one of its words: "there is" does not bring in "Mutation testing".
+        ("Mutation testing", [("there", 0.2, 0.4), ("is", 0.5, 0.6), ("mutation", 1.3, 1.7), ("testing", 1.8, 2.1)],
+         1.3),
+        # Its leading word unheard: at another of its key words, a name by its first letters.
+        ("Testing mutations", [("mutation", 0.9, 1.2)], 0.9),
+        # Owner, #28 gate 3 (third review): "Bug one: it mocks the coupon logic" shows at "Bug".
+        ("Bug one: it mocks the coupon logic", [("bug", 0.3, 0.5), ("one", 0.5, 0.7), ("mocks", 1.6, 1.9)], 0.3),
+    ],
+)  # fmt: skip
+def test_a_heading_appears_at_the_first_heard_key_word_of_its_own_scene(heading, heard, at):
+    words = render.words_from(whisper_json(heard))
+    assert render.heading_time(heading, words) == round(render.LEAD + at, 3)
+
+
+def test_a_heading_cues_at_its_leading_key_word_not_an_earlier_one(tmp_path, fonts, capsys):
+    scene = {"kind": "title", "heading": "Mutation testing", "visual": "Break it", "say": "S"}
+    files(tmp_path, scenes=[scene])
+    heard = [("testing", 0.1, 0.3), ("mutation", 0.5, 0.8), ("break", 0.9, 1.0), ("it", 1.0, 1.1)]
+    run(tmp_path, fakes := Fakes(heard={1: heard}), capsys)
+    assert cues(fakes.pages[0])["heading"]["at"] == round(render.LEAD + 0.5, 3)
 
 
 MARKS = [
@@ -461,20 +500,12 @@ def test_code_marks_focus_their_line_with_a_note_at_their_cue_word_instead_of_wo
     # Content issue #38 scenes 3 and 5: the bugs were told in text slides, not highlighted in the code.
     files(tmp_path, scenes=[SCENES[0], SCENES[1] | {"marks": MARKS}])
     # "assert" names line 3 but is no mark's cue; "ninety" is the numeral 90 in words.
-    heard = [("so", 0.1, 0.2), ("patch", 0.8, 1.0), ("assert", 1.2, 1.3), ("ninety", 2.0, 2.3)]
+    heard = [("look", 0.0, 0.1), ("patch", 0.8, 1.0), ("assert", 1.2, 1.3), ("ninety", 2.0, 2.3)]
     run(tmp_path, fakes := Fakes(heard={2: heard}), capsys)
     assert cues(fakes.pages[1])["focus"] == [
         {"line": 1, "at": round(render.LEAD + 0.8, 3), "note": MARKS[0]["note"], "top": 0},
         {"line": 2, "at": round(render.LEAD + 2.0, 3), "note": MARKS[1]["note"], "top": 0},
     ]
-
-
-def test_a_mark_whose_cue_word_is_not_heard_shows_at_its_share_of_the_narration(tmp_path, fonts, capsys):
-    files(tmp_path, scenes=[SCENES[0], SCENES[1] | {"marks": MARKS}])
-    run(tmp_path, fakes := Fakes(), capsys)
-    # Mark i of n at i/n of the 3 s narration, after the lead; the first, at 0, waits for the code to be typed in.
-    scene = cues(fakes.pages[1])
-    assert [c["at"] for c in scene["focus"]] == [round(render.LEAD + scene["typing"], 3), round(render.LEAD + 1.5, 3)]
 
 
 def test_a_mark_past_the_files_end_is_refused_naming_the_scene_and_file(tmp_path, fonts, capsys):
@@ -526,7 +557,7 @@ SPLIT = {
     "heading": "Spot the bug",
     "left": {"code": "demo/discount.py", "label": "The code"},
     "right": {"code": "tests/test_discount.py", "label": "The AI's tests", "marks": [MARKS[0]]},
-    "say": "S",
+    "say": "Spot the bug. Here is the code, and the AI's tests. Look at the patch.",
 }
 
 
@@ -542,7 +573,7 @@ def split_files(root, scenes, **kwargs):
 def test_a_split_scene_shows_two_files_each_with_its_label_and_marks(tmp_path, fonts, capsys, kind, rows):
     # Owner, #28 gate 3: the hook shows the code and its tests side by side.
     split_files(tmp_path, [SPLIT, SPLIT], kind=kind, seconds=(3.0, 3.0))
-    heard = [("the", 0.2, 0.3), ("code", 0.4, 0.6), ("patch", 1.0, 1.2), ("tests", 2.0, 2.2)]
+    heard = [("spot", 0.0, 0.1), ("the", 0.2, 0.3), ("code", 0.4, 0.6), ("patch", 1.0, 1.2), ("tests", 2.0, 2.2)]
     run(tmp_path, fakes := Fakes(heard={1: heard, 2: heard}), capsys)
     first, later = cues(fakes.pages[0]), cues(fakes.pages[1])
     assert first["left"] | {"lines": None} == {
@@ -597,12 +628,13 @@ COMPARE = {
 def test_compare_columns_reveal_each_item_as_the_narration_names_it_alternating_sides(tmp_path, fonts, capsys):
     # Owner, #28 gate 3: testing versus checking compared side by side, with examples.
     files(tmp_path, scenes=[COMPARE], seconds=(4.0,))
-    said = [("checking", 0.2), ("confirms", 0.6), ("testing", 1.0), ("explores", 1.4), ("assert", 2.0), ("mutate", 2.6)]
+    said = [("two", 0.0), ("checking", 0.2), ("testing", 0.6), ("confirms", 1.0), ("explores", 1.4), ("assert", 2.0),
+            ("mutate", 2.6)]  # fmt: skip
     run(tmp_path, fakes := Fakes(heard={1: [(w, t, t + 0.2) for w, t in said]}), capsys)
     scene = cues(fakes.pages[0])
     at = {w: round(render.LEAD + t, 3) for w, t in said}
     assert scene["left"] == {
-        "heading": {"text": "Checking", "at": at["checking"]},
+        "heading": {"text": "Checking", "at": at["testing"]},  # with the right heading
         "items": [
             {"text": "Confirms what we expect", "at": at["confirms"]},
             {"text": "`assert total == 8991`", "at": at["assert"]},
@@ -615,6 +647,19 @@ def test_compare_columns_reveal_each_item_as_the_narration_names_it_alternating_
             {"text": "`mutate one line`", "at": at["mutate"]},
         ],
     }
+
+
+def test_compare_column_headings_enter_together_at_the_later_of_their_words(tmp_path, fonts, capsys):
+    # Content issue #38: two headings the owner wanted together entered 0.8 s apart.
+    files(tmp_path, scenes=[COMPARE], seconds=(4.0,))
+    said = [("two", 0.0), ("checking", 0.2), ("confirms", 0.6), ("testing", 1.0), ("explores", 1.4), ("assert", 2.0),
+            ("mutate", 2.6)]  # fmt: skip
+    run(tmp_path, fakes := Fakes(heard={1: [(w, t, t + 0.2) for w, t in said]}), capsys)
+    scene = cues(fakes.pages[0])
+    together = round(render.LEAD + 1.0, 3)  # "testing", the later heading's word
+    assert scene["left"]["heading"]["at"] == scene["right"]["heading"]["at"] == together
+    # Each column's items after the headings, though "confirms" was said before "testing".
+    assert all(i["at"] > together for side in render.SIDES for i in scene[side]["items"]), scene
 
 
 @pytest.mark.parametrize(
@@ -698,10 +743,10 @@ def test_an_intro_brings_in_its_roles_activity_and_stake_as_the_narrator_names_e
 
 
 def test_an_intro_item_whose_leading_word_is_unheard_falls_back_to_any_of_its_words():
-    words = said("Anyone who reviews AI code. Spot it. They pass.")
+    words = said("A challenge for anyone who reviews AI code. Spot it. They pass.")
     scene = INTRO | {"roles": ["Reviewers of code"]}
     cues = render.scene_cues(scene, 1, words, 5.0, render.SIZES["short"], CONFIG, None)
-    assert cues["roles"][0]["at"] == round(render.LEAD + 4 * 0.3, 3)  # "code", its other key word
+    assert cues["roles"][0]["at"] == round(render.LEAD + 7 * 0.3, 3)  # "code", its other key word
 
 
 @pytest.mark.parametrize(
@@ -731,8 +776,8 @@ REPO = {
         "scripts/mutation_smoke.py",
     ],
     "say": "I have built an AI kit for exactly this problem. // It is on my GitHub, and the link is in the"
-    " description. // It holds a rules file, an agent skill, and two scripts. // Let me run the two scripts on"
-    " these tests.",
+    " description. // It holds a rules file, an agent skill, and two scripts: one finds self mocks, one runs a"
+    " mutation smoke test. // Let me run the two scripts on these tests.",
 }
 
 
@@ -748,14 +793,13 @@ def test_a_repo_card_enters_first_then_lists_its_files_as_named_and_wipes_in_its
     }
     times = [f["at"] for f in cues["files"]]
     assert [f["text"] for f in cues["files"]] == REPO["files"]
-    # AGENTS.md at "agent" (a name by its first letters), the skill at "skill", the first script at "scripts";
-    # the last, never named, follows the one before it by an entrance.
-    assert times[:3] == [at["agent"], at["skill"], at["scripts"]]
-    assert times[3] == round(times[2] + render.MOTION["enter"], 3)
+    # AGENTS.md at "agent" (a name by its first letters), the skill at "skill", the first script at "scripts", and
+    # the second at "mutation", its first word the script before lacks.
+    assert times == [at["agent"], at["skill"], at["scripts"], at["mutation"]]
 
 
 def test_a_repo_link_whose_cue_is_unheard_follows_the_files():
-    words = said("Here is the kit. A rules file and two scripts.")
+    words = said("Here is the kit. Agents rules, a skill, scripts to find self mocks, and a mutation smoke script.")
     cues = render.scene_cues(REPO | {"link_at": "github"}, 2, words, 5.0, render.SIZES["short"], CONFIG, None)
     assert cues["link"]["at"] == round(cues["files"][-1]["at"] + render.MOTION["enter"], 3)
 
@@ -791,7 +835,7 @@ def test_every_drawn_scene_shows_the_channels_brand_image_faint_and_embedded(tmp
     # opacity."
     files(
         tmp_path,
-        scenes=[*SCENES, {"kind": "terminal", "heading": "Run it", "visual": "$ pytest", "say": "S"}],
+        scenes=[*SCENES, {"kind": "terminal", "heading": "Run it", "visual": "$ pytest", "say": "Run it: pytest."}],
         seconds=(2.0, 3.0, 2.0),
     )
     branded(tmp_path, {"image": "branding/wordmark-example.svg", "opacity": 0.1})
@@ -893,24 +937,30 @@ CODES = {"demo/discount.py": CODE, "tests/test_discount.py": TESTS}
 
 @pytest.mark.parametrize("position", [1, 2])
 @pytest.mark.parametrize("kind", render.KINDS)
-def test_every_drawn_scene_shows_something_within_a_second_even_when_its_cues_come_late(kind, position):
-    # Owner, #28 gate 3 (fourth review): "Avoid displaying blank slide or screen at any time for more than a second".
+def test_a_drawn_scene_whose_words_come_late_shows_only_its_frame_or_is_refused(kind, position):
+    # Owner, #28 gate 3 (fourth review): "Avoid displaying blank slide or screen at any time for more than a second";
+    # #81: never by showing the heading before its words. Code typing in, a card, or a cold open's split fills it.
     scene = {"kind": kind, "heading": "Heading words", "say": "S"} | KIND_FIELDS[kind]
-    late = [w for w in render.WORD.findall(json.dumps(scene).lower())]
+    late = spoken(scene).split()
     heard = [{"word": w, "start": 6 + i * 0.2, "end": 6.2 + i * 0.2} for i, w in enumerate(late)]
     filler = {"kind": "title", "heading": "One", "visual": "one", "say": "S"}
     script = {"type": "long-form", "scenes": [filler, scene][2 - position :]}
-    plan = render.plan(script, [12.0] * position, [[]] * (position - 1) + [heard], CONFIG, CODES, None)
-    assert min(entrances(plan[-1]["cues"])) <= render.BLANK_MAX == 1.0, plan[-1]["cues"]
+    one = [{"word": "one", "start": 0.1, "end": 0.3}]
+    heard = [one] * (position - 1) + [heard]
+    if kind in ("code", "kit", "repo") or kind == "split" and position == 1:
+        plan = render.plan(script, [12.0] * position, heard, CONFIG, CODES, None)
+        assert plan[-1]["cues"]["heading"]["at"] >= render.LEAD + 6  # at its words, not pulled early
+    else:
+        with pytest.raises(render.BadInput, match=f"scene {position}: nothing shows"):
+            render.plan(script, [12.0] * position, heard, CONFIG, CODES, None)
 
 
-def test_a_scene_that_would_stay_empty_over_a_second_is_refused_naming_it(tmp_path, fonts, capsys, monkeypatch):
+def test_a_drawn_scene_with_nothing_in_its_first_second_is_refused_naming_the_fix(tmp_path, fonts, capsys):
     files(tmp_path, scenes=SCENES[:1])
-    built = render.scene_cues
-    monkeypatch.setattr(render, "scene_cues", lambda *a: {k: v for k, v in built(*a).items() if k != "heading"}
-                        | {"items": []})  # fmt: skip
-    code, _, err = run(tmp_path, fakes := Fakes(), capsys)
+    heard = [(w["word"], w["start"] + 2.0, w["end"] + 2.0) for w in said(SCENES[0]["say"])]
+    code, _, err = run(tmp_path, fakes := Fakes(heard={1: heard}), capsys)
     assert code == 2 and "scene 1:" in err and "1 s" in err and fakes.pages == [], err
+    assert "open the narration on the heading's words" in err and "filler or transition title scene" in err
 
 
 KIT = {
@@ -956,20 +1006,16 @@ def test_a_kit_lights_each_file_with_its_use_then_wipes_in_its_link_and_shows_th
     assert "snippet" not in cues  # no AGENTS.md snippet panel
 
 
-def test_a_kit_whose_cues_are_unheard_lights_files_at_their_share_and_ends_on_the_takeaways():
-    scene = KIT | {"link_at": "github", "files": [f | {"at": "nowhere"} for f in KIT["files"]]}
-    scene = {k: v for k, v in scene.items() if k != "takeaways_at"}
+def test_a_kit_whose_link_cue_is_unheard_shows_it_after_the_files_and_ends_on_the_takeaways():
+    scene = {k: v for k, v in (KIT | {"link_at": "github"}).items() if k != "takeaways_at"}
     cues, _ = kit_cues(scene)
     files_at = [f["at"] for f in cues["files"]]
-    assert files_at == [round(render.LEAD + 20.0 * i / 3, 3) for i in range(3)]
     link = cues["link"]["at"]
     assert link == round(files_at[-1] + render.MOTION["enter"], 3)  # after the files
-    # Without takeaways_at, the first takeaway waits for one of its own words heard after the link.
-    keys = {"mock", "collaborators", "never", "code", "under", "test"}
-    first = min(
-        render.LEAD + w["start"] for w in said(scene["say"]) if w["word"] in keys and render.LEAD + w["start"] >= link
-    )
-    assert cues["takeaways"][0]["at"] == round(first, 3)
+    # Without takeaways_at, the first takeaway waits for its leading word, "mock", heard after the link, not
+    # "code" or "test" said after the link in the script's sentence.
+    first = min(render.LEAD + w["start"] for w in said(scene["say"]) if w["word"] == "mock")
+    assert link < first and cues["takeaways"][0]["at"] == round(first, 3)
 
 
 @pytest.mark.parametrize(
@@ -1017,14 +1063,6 @@ def test_a_cta_brings_in_each_action_as_the_narration_names_it():
     ]
 
 
-def test_a_cta_action_unheard_comes_in_at_its_share_never_before_the_one_before():
-    words = said("Like it. Tell a friend. Subscribed? Notifications on.")
-    cues = render.scene_cues(CTA, 3, words, 4.0, render.SIZES["short"], CONFIG, None)
-    times = [a["at"] for a in cues["actions"]]
-    assert times[0] == render.LEAD and times[1] == round(render.LEAD + 4.0 * 1 / 4, 3)  # "share" unheard
-    assert times[2] == round(render.LEAD + 5 * 0.3, 3) and times[3] == round(render.LEAD + 6 * 0.3, 3)
-
-
 @pytest.mark.parametrize(
     "value",
     [[], "like", ["like", "clap"], ["like", "like"], [3]],
@@ -1040,7 +1078,7 @@ HOOK = SPLIT | {
     "heading": "Spot the bug",
     "hook": "This test has never failed",
     "say": "This test has never failed. // Not once. And that is the problem. // Here is the code, and the AI's"
-    " tests. Can you spot the bug?",
+    " tests. Can you spot the bug? Look at the patch.",
 }
 
 
@@ -1060,7 +1098,8 @@ def test_a_split_hook_shows_from_the_first_frame_until_the_first_sentence_ends_t
 
 
 def test_a_split_hook_over_a_long_first_sentence_leaves_by_three_seconds():
-    scene = HOOK | {"say": "This test has never failed in a year of nightly builds on every branch we ship. // Why?"}
+    scene = HOOK | {"say": "This test has never failed in a year of nightly builds on every branch we ship. // Why?"
+                    " // Spot the bug in the patch."}  # fmt: skip
     cues = render.scene_cues(
         scene, 1, said(scene["say"]), 8.0, render.SIZES["short"], CONFIG, {"left": CODE, "right": TESTS}
     )
@@ -1068,7 +1107,8 @@ def test_a_split_hook_over_a_long_first_sentence_leaves_by_three_seconds():
 
 
 def test_a_split_without_a_hook_has_none():
-    cues = render.scene_cues(SPLIT, 1, [], 4.0, render.SIZES["short"], CONFIG, {"left": CODE, "right": TESTS})
+    words = said(SPLIT["say"])
+    cues = render.scene_cues(SPLIT, 1, words, 4.0, render.SIZES["short"], CONFIG, {"left": CODE, "right": TESTS})
     assert "hook" not in cues
 
 
