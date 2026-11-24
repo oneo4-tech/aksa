@@ -7,19 +7,23 @@ Reads, in the channel workspace, the long-form's videos/<LONGFORM>/:
   demo.json       from build-video-demo: folder and link, the demo the Short reuses
   citations.json  from research-video, every claim verified (evidence.py)
   script.json     from write-video-script: the scenes, numbered from 1, and the claims each states
-  demo.mp4        the VHS recording, when the long-form has one
+  demo-K.mp4      build-video-demo's recording of its K-th terminal scene (record.py)
+  demo.mp4        an older long-form's single recording, read only when no demo-K.mp4 exists
 
 and writes into the Short's videos/<SHORT>/, which content_issue.py new created:
 
   demo.json       the long-form's, unchanged, so the Short shows and links the same demo
   citations.json  the long-form's verified claims that the given scenes state, in its order
-  demo.mp4        the long-form's recording, when it has one
+  demo-J.mp4      the recording of each cut terminal scene, J counting the Short's terminal
+                  scenes in the --scenes order, as render-video numbers them
+  demo.mp4        the long-form's single recording, when it has no demo-K.mp4
 
 so the Short passes gate 2 and packaging without new research. It never edits the long-form.
 
 It refuses (exit 3) a long-form output missing or invalid, citations not all verified, a demo
-without folder or link, scenes that state no claim, a Short folder that does not exist, and a
-Short that already has demo.json or citations.json (never overwritten).
+without folder or link, scenes that state no claim, a cut terminal scene without its demo-K.mp4
+when the long-form has any, a Short folder that does not exist, and a Short that already has
+demo.json or citations.json (never overwritten).
 
 Exit codes: 0 written, 1 a file error, 2 bad input (an invalid channel, a scene number not in
 the long-form's script, or a Short cut from itself), 3 refused.
@@ -68,6 +72,19 @@ def used_claims(scenes: list[dict], numbers: list[int], claims: list[dict]) -> l
     return [claim for claim in claims if claim["id"] in used]
 
 
+def recordings(source: Path, scenes: list[dict], numbers: list[int]) -> list[tuple[Path, str]]:
+    """Each recording the Short needs and its name there: the cut terminal scenes' demo-K.mp4
+    renumbered in the Short's order, else the single demo.mp4 when the long-form has only that."""
+    terminal = [k for k, scene in enumerate(scenes, 1) if scene.get("kind") == "terminal"]
+    clips = {n: source / f"demo-{terminal.index(n) + 1}.mp4" for n in terminal}
+    if not any(clip.is_file() for clip in clips.values()):
+        return [(source / "demo.mp4", "demo.mp4")] if (source / "demo.mp4").is_file() else []
+    cut_clips = [clips[n] for n in numbers if n in clips]
+    if missing := [clip.name for clip in cut_clips if not clip.is_file()]:
+        raise Refused(f"{source}: {', '.join(missing)} missing; record them with build-video-demo's record.py")
+    return [(clip, f"demo-{j}.mp4") for j, clip in enumerate(cut_clips, 1)]
+
+
 def read(path: Path, writer: str):
     try:
         return json.loads(path.read_text())
@@ -97,11 +114,13 @@ def cut(channel: str, short: int, long_form: int, scenes: str, root: Path) -> Pa
     script = read(source / "script.json", "write-video-script")
     if not (isinstance(script, dict) and isinstance(script.get("scenes"), list)):
         raise Refused(f"{source / 'script.json'}: needs scenes; write-video-script writes them")
-    used = used_claims(script["scenes"], scene_numbers(scenes, len(script["scenes"])), claims)
+    numbers = scene_numbers(scenes, len(script["scenes"]))
+    used = used_claims(script["scenes"], numbers, claims)
+    clips = recordings(source, script["scenes"], numbers)
     (target / "demo.json").write_text(json.dumps(demo, indent=1) + "\n")
     (target / "citations.json").write_text(json.dumps(used, indent=1) + "\n")
-    if (source / "demo.mp4").is_file():
-        shutil.copyfile(source / "demo.mp4", target / "demo.mp4")
+    for clip, name in clips:
+        shutil.copyfile(clip, target / name)
     return target
 
 

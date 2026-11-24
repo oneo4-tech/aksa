@@ -22,7 +22,7 @@ Enforced by: **check**, a script refuses the output (exit 3 or 2) and a test cov
 | 12 | A term on screen only after the narrator introduces it (round 2); bug headings appear when called out (round 3) | Heading terms are said first; a heading appears at its first word said | `write-video-script`, `render-video` | check: `check_script.py` (heading terms); `render.py` heading timing; checklist: Gate 3 item 15 |
 | 13 | A mutation example shows the mutated code (round 2) | Every code change is shown before and after | `build-video-demo` | checklist: Gate 2 item 14, the demo step prints both lines |
 | 14 | Terminal: a blank line between steps (rounds 2 and 3) | One blank line before each comment step, none between a comment and its command | `build-video-demo` | check: `references/demo.tape` setup from `scaffold.py`; checklist: Gate 2 item 15 |
-| 15 | Kit shows link, snippet, and takeaways as the narrator talks (round 2) | Each kit element appears at its cue word | `write-video-script`, `render-video` | check: `check_script.py` (cue words); `render.py` cue timing |
+| 15 | Kit shows link, snippet, and takeaways as the narrator talks (round 2) | Each kit element appears at its cue word; replaced by row 25 (the GitHub card with each file's use line, no snippet) | `write-video-script`, `render-video` | check: `check_script.py` (cue words); `render.py` cue timing |
 | 16 | Description: Code and AI kit on separate lines; References for key concepts only (round 2) | `Code:` and `AI kit:` lines; 2-5 key-concept references from cited pages | `package-video` | check: `package.py` (REFERENCES, cited urls) |
 | 17 | Real-world, practical code (round 2) | A realistic service, values in cents, a real collaborator; never a toy | `build-video-demo`, `write-video-script` | checklist: Gate 2 item 15 |
 | 18 | Motion graphics, medium, not too much (common) | Medium, purposeful motion timed to the narration | `render-video` | check: `render.py` MOTION and stagger; checklist: Gate 2 item 14 |
@@ -47,4 +47,4 @@ Enforced by: **check**, a script refuses the output (exit 3 or 2) and a test cov
 
 - At a gate, feedback the owner calls a common rule ("for all content") becomes a row: the feedback, the rule, the step, and how it is enforced.
 - The producer proposes the row and the component change it needs in the retrospective (workflow step 8), filed on the owner's yes as a work request; this file and the components change only through the factory (D-038).
-- A rule replaced by a later review keeps its row, naming the newer rule, as rows 15, 22, and 26 do.
+- A rule replaced by a later review keeps its row, naming the newer rule, as rows 15 and 26 do.

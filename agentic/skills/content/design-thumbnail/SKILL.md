@@ -12,7 +12,6 @@ description: Use at a video's packaging stage, from youtube-producer, or when th
 - Written below: `C` for `uv run agentic/scripts/content_issue.py`, `T` for `uv run --env-file .env agentic/skills/content/design-thumbnail/scripts/thumbnail.py`, and `W` for the workspace `.projects/content/yt-<channel>/`.
 - The channel workspace, checked with `uv run agentic/scripts/youtube_channel.py check <channel>`; exit 2: show its message and stop. Read the style guide sections `Thumbnails` and `Visual style`, and in `channel.yaml` the `palette`, `thumbnail.art_style`, and `thumbnail.field` (the two colours of the background gradient; indigo when absent) that `T` applies.
 - The script: `W/videos/<n>/script.json` from `write-video-script`, for its `title`, its claim, and its code scenes; and `W/videos/<n>/demo.json` for the demo folder in the channel's demos repository. Missing script: stop and route the video back to `write-video-script`.
-- The research behind the rules below: `.kb/outputs/research/2026-10-24-youtube-thumbnails.md` (F are its cited facts, H its labelled hypotheses).
 - `GEMINI_API_KEY` in `.env` when new art is needed; missing: say so and stop, never print it. Google Chrome, ffmpeg, and the Space Grotesk and Fira Code font files, as the README's Setup lists; missing: ask the owner to install them and report blocked.
 
 ## Procedure
@@ -63,6 +62,7 @@ The `YouTube: thumbnail` comment's link, the thumbnail's path, layout, format, a
 - Never edits `script.json`, `channel.yaml`, or the style guide; title changes go to `write-video-script` or `package-video`, style changes to the owner. The templates and `scripts/thumbnail.py` are components: changes to them are new work requests (D-038).
 - Never prints, logs, or posts the API key. Generated images stay out of git (the workspace ignores `*.png`, `*.jpg`); never commits workspace files to aksa.
 - Never passes a gate, moves a stage, or edits labels or the body; `C` and `youtube-producer` own those (D-042).
+- The F and H labels are rationale citations only: F a cited fact, H a labelled hypothesis, of the research output `.kb/outputs/research/2026-10-24-youtube-thumbnails.md`. Outputs are not trusted knowledge (`agentic/rules/knowledge.md`); the procedure never reads it, and the rules here bind on their own.
 
 ## Done when
 

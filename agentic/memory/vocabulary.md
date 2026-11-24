@@ -6,6 +6,7 @@ Agreed terms, alphabetical. Use them as defined. Add or change a term only after
 |------|---------|
 | Agent | A component: an operator with a goal and role that owns an outcome and uses rules and skills. Lives in `agentic/agents/`. |
 | Agent eval | A versioned set of real tasks with owner-labeled expected results, run on an agent or skill to catch regressions (D-045). |
+| AI kit | The `ai-kit/` folder of a video's demo: rules, a skill, and scripts that the video gives viewers for their coding agent. Built by `build-video-demo`. |
 | AI slop | Agent output that breaks rules, decisions, or owner preferences, makes unverified claims, adds speculative scope, or wastes tokens. Found by the `retrospect-session` skill. |
 | Channel workspace | A channel's text-only git repository at `.projects/content/yt-<channel>/` holding its `channel.yaml`, style guide, and per-video folders `videos/<issue-number>/`; generated media is ignored. |
 | Claim | A session's hold on a factory issue while it works on the run: the `claimed` label and a `Factory:` comment naming the session. Taken over only on the owner's yes (D-033). |
@@ -14,6 +15,7 @@ Agreed terms, alphabetical. Use them as defined. Add or change a term only after
 | Content issue | A GitHub issue in the aksa tracker for one separately publishable piece of content, a video or a Short, labelled `kind:youtube` and `channel:<name>`, and kept apart from factory issues (D-042). |
 | Delivery branch | The branch whose single pull request brings a run into `main`: the run's own branch for a small run, its integration branch for a large one. |
 | Factory issue | The one GitHub issue that tracks a run from triage to close through its labels, body sections, task checklist, and `Factory:` comments; the only place run state lives (D-024). |
+| Feedback rules | The owner's review rules for all content, each mapped to the pipeline step that applies it, kept in `agentic/skills/content/run-youtube/references/feedback-rules.md`. |
 | Finding | A reviewer's statement about a task's change. It blocks only when it cites an unmet acceptance criterion, a broken rule or decision, or a reproduced defect; any other finding is a note, never fixed in the run (D-032). |
 | Gate | An owner approval that ends a stage. In a run: G0 concept, G1 requirement, G2 spec, G3 plan; the merge into `main`, by the owner or on the owner's explicit yes, ends the run (D-040). In a content issue: gate 1 idea and angle, gate 2 researched script and demo plan, gate 3 final video, recorded by `content_issue.py`. |
 | Handoff | A self-contained note that lets another tool, agent, or person continue a session's work without its context. Written by the `create-handoff` skill; never stored in Memory or the Knowledge Base. |

@@ -60,6 +60,36 @@ def test_a_cut_short_gets_the_long_forms_recording_when_it_has_one(root):
     assert (video(root, 43) / "demo.mp4").read_bytes() == b"recording"
 
 
+def two_terminal_long_form(root):
+    """A long-form whose scenes 2 and 4 are terminal, each with its own recording from record.py."""
+    scenes = [
+        {"kind": "title", "claims": []},
+        {"kind": "terminal", "claims": ["C1"]},
+        {"kind": "code", "claims": ["C2"]},
+        {"kind": "terminal", "claims": ["C3"]},
+    ]
+    (video(root, 42) / "script.json").write_text(json.dumps({"type": "long-form", "scenes": scenes}))
+    (video(root, 42) / "demo-1.mp4").write_bytes(b"first terminal")
+    (video(root, 42) / "demo-2.mp4").write_bytes(b"second terminal")
+
+
+def test_a_cut_short_gets_its_terminal_scenes_recordings_renumbered_in_its_order(root):
+    two_terminal_long_form(root)
+    assert cut.main(["example", "43", "--from", "42", "--scenes", "4,3,2"], root=root) == 0
+    short = video(root, 43)
+    assert (short / "demo-1.mp4").read_bytes() == b"second terminal"
+    assert (short / "demo-2.mp4").read_bytes() == b"first terminal"
+    assert not (short / "demo.mp4").exists()
+
+
+def test_a_cut_terminal_scene_without_its_recording_is_refused(root, capsys):
+    two_terminal_long_form(root)
+    (video(root, 42) / "demo-2.mp4").unlink()
+    assert cut.main(["example", "43", "--from", "42", "--scenes", "4"], root=root) == 3
+    assert "demo-2.mp4" in capsys.readouterr().err
+    assert not (video(root, 43) / "demo.json").exists()
+
+
 @pytest.mark.parametrize("name", ["demo.json", "citations.json", "script.json"])
 def test_a_long_form_output_missing_is_refused_naming_it(root, capsys, name):
     (video(root, 42) / name).unlink()
