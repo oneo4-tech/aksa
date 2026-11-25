@@ -13,7 +13,7 @@ Three structures for a long-form video (five to ten minutes), and one for a Shor
 
 - **Show the real artifact:** right after a long-form's intro (scene 2), or as a Short's first scene, a code challenge (`challenge-first`, and every Short) opens on a `split` scene, the code under test on the left and its tests on the right, so the viewer has both and can find the bug; an incident story or myth buster may open on a `code`, `terminal`, or `points` scene with the code, output, or failing case. Never a title slide or an abstract slogan such as "Zero protection".
 - **Screen and voice agree:** the on-screen text says what the narration says at that moment; the viewer never reads one thing and hears another.
-- **A concrete stake first:** the first sentence (in a Short, the one after its hook) says, in plain words, what breaks and who pays, such as "This discount code charges customers more, and both tests stay green."
+- **A concrete stake first:** the first sentence (in a Short, the one after its hook) says, in plain words, what breaks and who pays, such as "Here, this discount code charges customers more, and both tests stay green."
 - **An explicit challenge:** say what the viewer must do, such as "Find the line that lets this bug through."
 - `check_script.py` refuses a code challenge or Short whose cold open is not `split`, a `title` cold open, and a `points` or `terminal` cold open whose `visual` words are mostly not in its `say`; the stake and the challenge are judged at gate 2.
 
@@ -39,7 +39,7 @@ Three structures for a long-form video (five to ten minutes), and one for a Shor
 
 ## Introduce the AI kit (every long-form)
 
-Before the first scene that uses the AI kit (a `terminal` scene whose heading or `say` names the kit, or the `kit` scene), a `repo` scene introduces it **[checked]**: the GitHub `repo` (`owner/name`, the channel's `demos.repo`), the `path` of the kit's folder (`<n>-<slug>/ai-kit`), and one to eight `files` lines (such as `AGENTS.md`, `skills/<skill>/SKILL.md`, `scripts/<name>`), drawn as a GitHub folder card; `link_at` (default `description`) is the word at which it says where the link is **[checked: a word of say; once `demo.json` exists, the folder is the demo's]**. `say` says the kit is yours, what problem it is for, that it is on GitHub, and that the link is in the description, such as "I have built an AI kit for exactly this problem. It is on my GitHub, and the link is in the description."
+Before the first scene that uses the AI kit (a `terminal` scene whose heading or `say` names the kit, or the `kit` scene), a `repo` scene introduces it **[checked]**: the GitHub `repo` (`owner/name`, the channel's `demos.repo`), the `path` of the kit's folder (`<n>-<slug>/ai-kit`), and one to eight `files` lines (such as `AGENTS.md`, `skills/<skill>/SKILL.md`, `scripts/<name>`), drawn as a GitHub folder card; `link_at` (default `description`) is the word at which it says where the link is **[checked: a word of say; once `demo.json` exists, the folder is the demo's]**. `say` says the kit is yours, what problem it is for, that it is on GitHub, and that the link is in the description, such as "Now I have built an AI kit for exactly this problem. It is on my GitHub, and the link is in the description."
 
 A Short has no repo card: its kit scene's link is the introduction.
 
@@ -114,7 +114,7 @@ The last scene's `say` thanks the viewer **[checked: thank you or thanks]**: a l
 | Verdict | about a tenth | A nuanced verdict and a checklist the viewer can apply (the title's promise kept). |
 | Introduce the kit | about 10 s | A `repo` scene: the kit on GitHub, its files, and "the link is in the description". |
 | Take it to your agent | about 25 s | A `kit` scene: the same GitHub card, each file and how to use it, the link, and the takeaways, each as it is said. |
-| Bridge | about 20 s | "Which claim should I test next?" and the next video. |
+| Bridge | about 20 s | "So which claim should I test next?" and the next video. |
 | Like, share, subscribe | last 8 s | A `cta` scene, the last: each action's graphic as it is said, and a thank-you to the viewer, in two sentences. |
 
 ## Short (`challenge-first`)
@@ -126,7 +126,7 @@ A Short is a standalone challenge, thirty to sixty seconds, that makes sense wit
 | Problem | to 20 s | No intro: scene 1 is a `split` of the code and its tests with a `hook`, two to eight words of curiosity, such as "This test has never failed", said in the first sentence of `say`, at most three seconds **[checked]**, and the bug's line marked (`marks`) at its word **[checked]**. A question or surprise the viewer wants answered, never a slogan. The code is large enough for a phone, never a slide of code. Bridge: "So how do you catch it?" |
 | Resolution | to 30 s | A quick resolution concept: a scene after the problem and before the kit saying how to fix or catch the bug **[checked: a cue: fix, catch, instead, should, check, or so that]**; a `code` scene with the fix marked, or a short `points` scene; never a bare `title` slide **[checked: no `title` scene before the kit]**. Bridge: "So take it to your agent." |
 | Take it to your agent | to 45 s | A `kit` scene, just before the closing scene **[checked]**: the same GitHub card, one or two files, each with how to use it and what the viewer's agent then does for them **[checked: benefit cue]**, and the takeaways. Its card introduces the kit, so no repo card. |
-| Links and full video | last 10 s | The closing scene, the last or the one before a closing cta: `say` names where the links are (the kit and code in the description) **[checked: link, links, or description]** and the full video or breakdown and what more it shows, such as "The links to the kit and the code are in the description. Watch the full breakdown for a second bug and the fix." **[checked]**. With no cta it is the last scene and thanks the viewer **[checked]**. |
+| Links and full video | last 10 s | The closing scene, the last or the one before a closing cta: `say` names where the links are (the kit and code in the description) **[checked: link, links, or description]** and the full video or breakdown and what more it shows, such as "Now the links to the kit and the code are in the description. Watch the full video for a second bug and the fix." **[checked]**. With no cta it is the last scene and thanks the viewer **[checked]**. |
 | Like, share, subscribe | last 4 s | Optional: a closing `cta` naming `subscribe`, at most about four seconds, the last scene, thanking the viewer **[checked]**. |
 
 One text layer speaks at a time (row 35), as the captions already speak the narration:
